@@ -76,6 +76,26 @@ export default function RoleSelector() {
           ))}
         </div>
 
+        {/* Landing Pages */}
+        <div className="mt-8 flex flex-col sm:flex-row gap-4 justify-center">
+          <Button 
+            variant="outline" 
+            onClick={() => navigate('/landing-photos')}
+            className="group"
+          >
+            <Heart className="mr-2 h-4 w-4" />
+            Landing Page (Photos)
+          </Button>
+          <Button 
+            variant="outline" 
+            onClick={() => navigate('/landing-illustrations')}
+            className="group"
+          >
+            <Stethoscope className="mr-2 h-4 w-4" />
+            Landing Page (Illustrations)
+          </Button>
+        </div>
+
         {/* Demo Notice */}
         <div className="mt-8 p-4 bg-accent/10 rounded-lg border border-accent/20 text-center">
           <p className="text-sm text-accent font-medium">
