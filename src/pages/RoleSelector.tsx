@@ -1,0 +1,88 @@
+import { useNavigate } from "react-router-dom";
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
+import { Button } from "@/components/ui/button";
+import { Heart, Users, UserCheck, Stethoscope } from "lucide-react";
+
+export default function RoleSelector() {
+  const navigate = useNavigate();
+
+  const roles = [
+    {
+      id: 'mother',
+      title: 'Pregnant Mother',
+      description: 'Access your health check-ins, weekly tips, and connect with your CHW',
+      icon: Heart,
+      path: '/mother',
+      color: 'bg-pink-500'
+    },
+    {
+      id: 'chw',
+      title: 'Community Health Worker',
+      description: 'Monitor assigned mothers, manage alerts, and access educational materials',
+      icon: UserCheck,
+      path: '/chw',
+      color: 'bg-blue-500'
+    },
+    {
+      id: 'nurse',
+      title: 'Nurse Supervisor',
+      description: 'Oversee critical cases escalated by CHWs and provide guidance',
+      icon: Stethoscope,
+      path: '/nurse',
+      color: 'bg-green-500'
+    }
+  ];
+
+  return (
+    <div className="min-h-screen bg-gradient-to-br from-primary/5 to-accent/5 flex items-center justify-center p-4">
+      <div className="w-full max-w-4xl">
+        {/* Header */}
+        <div className="text-center mb-8">
+          <div className="flex items-center justify-center gap-2 mb-4">
+            <Heart className="h-12 w-12 text-accent" />
+            <h1 className="text-4xl font-bold text-primary">RemyAfya</h1>
+          </div>
+          <p className="text-xl text-muted-foreground mb-2">
+            Maternal Health Platform
+          </p>
+          <p className="text-sm text-muted-foreground">
+            Please select your role to continue
+          </p>
+        </div>
+
+        {/* Role Cards */}
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+          {roles.map((role) => (
+            <Card key={role.id} className="hover:shadow-lg transition-shadow cursor-pointer group">
+              <CardHeader className="text-center pb-4">
+                <div className={`w-16 h-16 ${role.color} rounded-full flex items-center justify-center mx-auto mb-4 group-hover:scale-110 transition-transform`}>
+                  <role.icon className="h-8 w-8 text-white" />
+                </div>
+                <CardTitle className="text-xl">{role.title}</CardTitle>
+                <CardDescription className="text-center">
+                  {role.description}
+                </CardDescription>
+              </CardHeader>
+              <CardContent className="pt-0">
+                <Button 
+                  onClick={() => navigate(role.path)}
+                  className="w-full"
+                  size="lg"
+                >
+                  Enter Dashboard
+                </Button>
+              </CardContent>
+            </Card>
+          ))}
+        </div>
+
+        {/* Demo Notice */}
+        <div className="mt-8 p-4 bg-accent/10 rounded-lg border border-accent/20 text-center">
+          <p className="text-sm text-accent font-medium">
+            🔒 Demo Version - This is a demonstration of the RemyAfya platform with mock data
+          </p>
+        </div>
+      </div>
+    </div>
+  );
+}

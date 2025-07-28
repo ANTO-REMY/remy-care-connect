@@ -1,0 +1,223 @@
+import { useState } from "react";
+import { Baby, MessageCircle, Phone, AlertCircle, BookOpen, CheckCircle, X } from "lucide-react";
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
+import { Button } from "@/components/ui/button";
+import { Badge } from "@/components/ui/badge";
+import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
+import { currentUser, mockMothers, mockCHWs, weeklyTips } from "@/data/mockData";
+
+export function MotherDashboard() {
+  const [showCheckInModal, setShowCheckInModal] = useState(false);
+  const [checkInResponse, setCheckInResponse] = useState<'ok' | 'not_ok' | null>(null);
+  
+  const mother = mockMothers.find(m => m.id === currentUser.id);
+  const chw = mockCHWs.find(c => c.id === mother?.assignedCHW);
+  const currentWeek = mother?.pregnancyWeek || mother?.postpartumWeek || 24;
+  const weekTips = weeklyTips.filter(tip => tip.week === currentWeek);
+
+  const handleCheckIn = (response: 'ok' | 'not_ok') => {
+    setCheckInResponse(response);
+    // In a real app, this would send the response to backend
+    console.log(`Check-in response: ${response}`);
+  };
+
+  const openWhatsApp = (phone: string) => {
+    window.open(`https://wa.me/${phone.replace('+', '')}`, '_blank');
+  };
+
+  const openSMS = (phone: string) => {
+    window.open(`sms:${phone}`, '_blank');
+  };
+
+  return (
+    <div className="space-y-6">
+      {/* Welcome Banner */}
+      <Card className="bg-gradient-to-r from-primary to-primary/80 text-primary-foreground">
+        <CardHeader>
+          <div className="flex items-center gap-3">
+            <Baby className="h-8 w-8" />
+            <div>
+              <CardTitle className="text-2xl">Welcome back, {currentUser.name}!</CardTitle>
+              <CardDescription className="text-primary-foreground/80">
+                {mother?.pregnancyWeek ? (
+                  `You are ${mother.pregnancyWeek} weeks pregnant`
+                ) : (
+                  `${mother?.postpartumWeek} weeks postpartum`
+                )}
+              </CardDescription>
+            </div>
+          </div>
+        </CardHeader>
+      </Card>
+
+      {/* Quick Check-In */}
+      <Card>
+        <CardHeader>
+          <CardTitle className="flex items-center gap-2">
+            <CheckCircle className="h-5 w-5 text-accent" />
+            Daily Check-In
+          </CardTitle>
+          <CardDescription>
+            Let us know how you're feeling today
+          </CardDescription>
+        </CardHeader>
+        <CardContent>
+          <div className="space-y-4">
+            <div className="p-4 bg-muted rounded-lg">
+              <p className="font-medium mb-2">How to respond:</p>
+              <p className="text-sm text-muted-foreground">
+                • Reply <span className="font-bold">1</span> if you're feeling OK
+              </p>
+              <p className="text-sm text-muted-foreground">
+                • Reply <span className="font-bold">2</span> if you're NOT feeling OK
+              </p>
+            </div>
+            
+            <Dialog open={showCheckInModal} onOpenChange={setShowCheckInModal}>
+              <DialogTrigger asChild>
+                <Button className="w-full">Quick Check-In</Button>
+              </DialogTrigger>
+              <DialogContent>
+                <DialogHeader>
+                  <DialogTitle>How are you feeling today?</DialogTitle>
+                  <DialogDescription>
+                    Your response helps us monitor your health and provide better care.
+                  </DialogDescription>
+                </DialogHeader>
+                <div className="space-y-3">
+                  <Button 
+                    onClick={() => {
+                      handleCheckIn('ok');
+                      setShowCheckInModal(false);
+                    }}
+                    className="w-full bg-success hover:bg-success/90"
+                  >
+                    <CheckCircle className="h-4 w-4 mr-2" />
+                    I'm feeling OK (Reply: 1)
+                  </Button>
+                  <Button 
+                    onClick={() => {
+                      handleCheckIn('not_ok');
+                      setShowCheckInModal(false);
+                    }}
+                    variant="destructive"
+                    className="w-full"
+                  >
+                    <AlertCircle className="h-4 w-4 mr-2" />
+                    I'm NOT feeling OK (Reply: 2)
+                  </Button>
+                </div>
+              </DialogContent>
+            </Dialog>
+
+            {checkInResponse && (
+              <div className={`p-3 rounded-lg flex items-center gap-2 ${
+                checkInResponse === 'ok' 
+                  ? 'bg-success/10 text-success' 
+                  : 'bg-destructive/10 text-destructive'
+              }`}>
+                {checkInResponse === 'ok' ? (
+                  <CheckCircle className="h-4 w-4" />
+                ) : (
+                  <AlertCircle className="h-4 w-4" />
+                )}
+                <span className="text-sm font-medium">
+                  {checkInResponse === 'ok' 
+                    ? 'Thank you! Your CHW has been notified that you\'re doing well.' 
+                    : 'Your CHW has been alerted and will contact you soon for support.'
+                  }
+                </span>
+              </div>
+            )}
+          </div>
+        </CardContent>
+      </Card>
+
+      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+        {/* Weekly Tips */}
+        <Card>
+          <CardHeader>
+            <CardTitle className="flex items-center gap-2">
+              <BookOpen className="h-5 w-5 text-accent" />
+              This Week's Tips
+            </CardTitle>
+            <CardDescription>
+              Week {currentWeek} guidance
+            </CardDescription>
+          </CardHeader>
+          <CardContent>
+            <div className="space-y-4">
+              {weekTips.map((tip, index) => (
+                <div key={index} className="p-3 border rounded-lg">
+                  <div className="flex items-center gap-2 mb-2">
+                    <Badge variant="secondary" className="text-xs">
+                      {tip.category.replace('_', ' ')}
+                    </Badge>
+                  </div>
+                  <h4 className="font-medium text-sm mb-1">{tip.title}</h4>
+                  <p className="text-sm text-muted-foreground">{tip.content}</p>
+                </div>
+              ))}
+            </div>
+          </CardContent>
+        </Card>
+
+        {/* CHW Contact */}
+        <Card>
+          <CardHeader>
+            <CardTitle className="flex items-center gap-2">
+              <MessageCircle className="h-5 w-5 text-accent" />
+              Your Community Health Worker
+            </CardTitle>
+            <CardDescription>
+              Get support from your assigned CHW
+            </CardDescription>
+          </CardHeader>
+          <CardContent>
+            <div className="space-y-4">
+              <div className="p-4 bg-muted rounded-lg">
+                <h4 className="font-medium mb-1">{chw?.name}</h4>
+                <p className="text-sm text-muted-foreground mb-3">{chw?.phone}</p>
+                
+                <div className="space-y-2">
+                  <Button 
+                    onClick={() => openWhatsApp(chw?.phone || '')}
+                    className="w-full bg-green-600 hover:bg-green-700"
+                    size="sm"
+                  >
+                    <MessageCircle className="h-4 w-4 mr-2" />
+                    Message on WhatsApp
+                  </Button>
+                  <Button 
+                    onClick={() => openSMS(chw?.phone || '')}
+                    variant="outline"
+                    className="w-full"
+                    size="sm"
+                  >
+                    <MessageCircle className="h-4 w-4 mr-2" />
+                    Send SMS
+                  </Button>
+                  <Button 
+                    onClick={() => window.open(`tel:${chw?.phone}`, '_self')}
+                    variant="outline"
+                    className="w-full"
+                    size="sm"
+                  >
+                    <Phone className="h-4 w-4 mr-2" />
+                    Call Now
+                  </Button>
+                </div>
+              </div>
+              
+              <div className="p-3 bg-accent/10 rounded-lg border border-accent/20">
+                <p className="text-sm text-accent font-medium">
+                  💡 Need immediate help? Contact your CHW anytime!
+                </p>
+              </div>
+            </div>
+          </CardContent>
+        </Card>
+      </div>
+    </div>
+  );
+}
