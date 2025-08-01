@@ -8,7 +8,6 @@ import MotherIndex from "./pages/MotherIndex";
 import CHWIndex from "./pages/CHWIndex";
 import NurseIndex from "./pages/NurseIndex";
 import NotFound from "./pages/NotFound";
-import LandingPagePhotos from "./pages/LandingPagePhotos";
 import LandingPageIllustrations from "./pages/LandingPageIllustrations";
 
 const queryClient = new QueryClient();
@@ -21,7 +20,6 @@ const App = () => (
       <BrowserRouter>
         <Routes>
           <Route path="/" element={<RoleSelector />} />
-          <Route path="/landing-photos" element={<LandingPagePhotos />} />
           <Route path="/landing-illustrations" element={<LandingPageIllustrations />} />
           <Route path="/mother" element={<MotherIndex />} />
           <Route path="/chw" element={<CHWIndex />} />
