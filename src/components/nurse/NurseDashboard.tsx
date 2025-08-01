@@ -65,38 +65,38 @@ export function NurseDashboard() {
       </Card>
 
       {/* Stats Overview */}
-      <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+      <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 sm:gap-4">
         <Card>
-          <CardContent className="p-4">
+          <CardContent className="p-3 sm:p-4">
             <div className="flex items-center gap-2">
-              <AlertTriangle className="h-5 w-5 text-destructive" />
-              <div>
-                <p className="text-2xl font-bold text-destructive">{pendingCases.length}</p>
-                <p className="text-sm text-muted-foreground">Critical Alerts</p>
+              <AlertTriangle className="h-4 w-4 sm:h-5 sm:w-5 text-destructive flex-shrink-0" />
+              <div className="min-w-0">
+                <p className="text-lg sm:text-2xl font-bold text-destructive">{pendingCases.length}</p>
+                <p className="text-xs sm:text-sm text-muted-foreground">Critical Alerts</p>
               </div>
             </div>
           </CardContent>
         </Card>
         
         <Card>
-          <CardContent className="p-4">
+          <CardContent className="p-3 sm:p-4">
             <div className="flex items-center gap-2">
-              <CheckCircle className="h-5 w-5 text-success" />
-              <div>
-                <p className="text-2xl font-bold text-success">{resolvedCases.length}</p>
-                <p className="text-sm text-muted-foreground">Resolved Today</p>
+              <CheckCircle className="h-4 w-4 sm:h-5 sm:w-5 text-success flex-shrink-0" />
+              <div className="min-w-0">
+                <p className="text-lg sm:text-2xl font-bold text-success">{resolvedCases.length}</p>
+                <p className="text-xs sm:text-sm text-muted-foreground">Resolved Today</p>
               </div>
             </div>
           </CardContent>
         </Card>
         
         <Card>
-          <CardContent className="p-4">
+          <CardContent className="p-3 sm:p-4">
             <div className="flex items-center gap-2">
-              <User className="h-5 w-5 text-accent" />
-              <div>
-                <p className="text-2xl font-bold">{mockCHWs.length}</p>
-                <p className="text-sm text-muted-foreground">Active CHWs</p>
+              <User className="h-4 w-4 sm:h-5 sm:w-5 text-accent flex-shrink-0" />
+              <div className="min-w-0">
+                <p className="text-lg sm:text-2xl font-bold">{mockCHWs.length}</p>
+                <p className="text-xs sm:text-sm text-muted-foreground">Active CHWs</p>
               </div>
             </div>
           </CardContent>

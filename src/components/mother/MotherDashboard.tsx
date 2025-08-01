@@ -30,15 +30,17 @@ export function MotherDashboard() {
   };
 
   return (
-    <div className="space-y-6">
+    <div className="space-y-4 sm:space-y-6">
       {/* Welcome Banner */}
       <Card className="bg-gradient-to-r from-primary to-primary/80 text-primary-foreground">
-        <CardHeader>
-          <div className="flex items-center gap-3">
-            <Baby className="h-8 w-8" />
-            <div>
-              <CardTitle className="text-2xl">Welcome back, {currentUser.name}!</CardTitle>
-              <CardDescription className="text-primary-foreground/80">
+        <CardHeader className="p-4 sm:p-6">
+          <div className="flex flex-col sm:flex-row items-start sm:items-center gap-3">
+            <Baby className="h-6 w-6 sm:h-8 sm:w-8 flex-shrink-0" />
+            <div className="min-w-0">
+              <CardTitle className="text-lg sm:text-xl md:text-2xl break-words">
+                Welcome back, {currentUser.name}!
+              </CardTitle>
+              <CardDescription className="text-primary-foreground/80 text-sm sm:text-base">
                 {mother?.pregnancyWeek ? (
                   `You are ${mother.pregnancyWeek} weeks pregnant`
                 ) : (
@@ -62,21 +64,21 @@ export function MotherDashboard() {
           </CardDescription>
         </CardHeader>
         <CardContent>
-          <div className="space-y-4">
-            <div className="p-4 bg-muted rounded-lg">
-              <p className="font-medium mb-2">How to respond:</p>
-              <p className="text-sm text-muted-foreground">
-                • Reply <span className="font-bold">1</span> if you're feeling OK
-              </p>
-              <p className="text-sm text-muted-foreground">
-                • Reply <span className="font-bold">2</span> if you're NOT feeling OK
-              </p>
-            </div>
-            
-            <Dialog open={showCheckInModal} onOpenChange={setShowCheckInModal}>
-              <DialogTrigger asChild>
-                <Button className="w-full">Quick Check-In</Button>
-              </DialogTrigger>
+            <div className="space-y-4">
+              <div className="p-3 sm:p-4 bg-muted rounded-lg">
+                <p className="font-medium mb-2 text-sm sm:text-base">How to respond:</p>
+                <p className="text-xs sm:text-sm text-muted-foreground">
+                  • Reply <span className="font-bold">1</span> if you're feeling OK
+                </p>
+                <p className="text-xs sm:text-sm text-muted-foreground">
+                  • Reply <span className="font-bold">2</span> if you're NOT feeling OK
+                </p>
+              </div>
+              
+              <Dialog open={showCheckInModal} onOpenChange={setShowCheckInModal}>
+                <DialogTrigger asChild>
+                  <Button className="w-full text-sm sm:text-base">Quick Check-In</Button>
+                </DialogTrigger>
               <DialogContent>
                 <DialogHeader>
                   <DialogTitle>How are you feeling today?</DialogTitle>
@@ -133,7 +135,7 @@ export function MotherDashboard() {
         </CardContent>
       </Card>
 
-      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+      <div className="grid grid-cols-1 lg:grid-cols-2 gap-4 sm:gap-6">
         {/* Weekly Tips */}
         <Card>
           <CardHeader>
@@ -146,7 +148,7 @@ export function MotherDashboard() {
             </CardDescription>
           </CardHeader>
           <CardContent>
-            <div className="space-y-4">
+            <div className="space-y-3 sm:space-y-4">
               {weekTips.map((tip, index) => (
                 <div key={index} className="p-3 border rounded-lg">
                   <div className="flex items-center gap-2 mb-2">
@@ -154,8 +156,8 @@ export function MotherDashboard() {
                       {tip.category.replace('_', ' ')}
                     </Badge>
                   </div>
-                  <h4 className="font-medium text-sm mb-1">{tip.title}</h4>
-                  <p className="text-sm text-muted-foreground">{tip.content}</p>
+                  <h4 className="font-medium text-sm mb-1 break-words">{tip.title}</h4>
+                  <p className="text-xs sm:text-sm text-muted-foreground leading-relaxed">{tip.content}</p>
                 </div>
               ))}
             </div>
@@ -175,35 +177,35 @@ export function MotherDashboard() {
           </CardHeader>
           <CardContent>
             <div className="space-y-4">
-              <div className="p-4 bg-muted rounded-lg">
-                <h4 className="font-medium mb-1">{chw?.name}</h4>
-                <p className="text-sm text-muted-foreground mb-3">{chw?.phone}</p>
+              <div className="p-3 sm:p-4 bg-muted rounded-lg">
+                <h4 className="font-medium mb-1 text-sm sm:text-base break-words">{chw?.name}</h4>
+                <p className="text-xs sm:text-sm text-muted-foreground mb-3 break-all">{chw?.phone}</p>
                 
                 <div className="space-y-2">
                   <Button 
                     onClick={() => openWhatsApp(chw?.phone || '')}
-                    className="w-full bg-green-600 hover:bg-green-700"
+                    className="w-full bg-green-600 hover:bg-green-700 text-xs sm:text-sm"
                     size="sm"
                   >
-                    <MessageCircle className="h-4 w-4 mr-2" />
+                    <MessageCircle className="h-3 w-3 sm:h-4 sm:w-4 mr-2" />
                     Message on WhatsApp
                   </Button>
                   <Button 
                     onClick={() => openSMS(chw?.phone || '')}
                     variant="outline"
-                    className="w-full"
+                    className="w-full text-xs sm:text-sm"
                     size="sm"
                   >
-                    <MessageCircle className="h-4 w-4 mr-2" />
+                    <MessageCircle className="h-3 w-3 sm:h-4 sm:w-4 mr-2" />
                     Send SMS
                   </Button>
                   <Button 
                     onClick={() => window.open(`tel:${chw?.phone}`, '_self')}
                     variant="outline"
-                    className="w-full"
+                    className="w-full text-xs sm:text-sm"
                     size="sm"
                   >
-                    <Phone className="h-4 w-4 mr-2" />
+                    <Phone className="h-3 w-3 sm:h-4 sm:w-4 mr-2" />
                     Call Now
                   </Button>
                 </div>

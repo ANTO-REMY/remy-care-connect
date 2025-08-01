@@ -22,18 +22,23 @@ const LandingPageIllustrations = () => {
 
       {/* Navigation */}
       <nav className="bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/60 sticky top-0 z-50 border-b border-border">
-        <div className="container mx-auto px-4 py-4">
+        <div className="container mx-auto px-3 sm:px-4 py-3 sm:py-4">
           <div className="flex items-center justify-between">
             <div className="flex items-center space-x-2">
-              <Heart className="h-8 w-8 text-accent" />
-              <span className="text-2xl font-bold text-primary">RemyAfya</span>
+              <Heart className="h-6 w-6 sm:h-8 sm:w-8 text-accent" />
+              <span className="text-lg sm:text-xl md:text-2xl font-bold text-primary">RemyAfya</span>
             </div>
-            <div className="hidden md:flex items-center space-x-8">
-              <a href="#platform" className="text-foreground hover:text-accent transition-colors">Platform</a>
-              <a href="#features" className="text-foreground hover:text-accent transition-colors">Features</a>
-              <a href="#impact" className="text-foreground hover:text-accent transition-colors">Impact</a>
-              <Button asChild>
-                <a href="/">Start Journey</a>
+            <div className="hidden md:flex items-center space-x-6 lg:space-x-8">
+              <a href="#platform" className="text-sm lg:text-base text-foreground hover:text-accent transition-colors">Platform</a>
+              <a href="#features" className="text-sm lg:text-base text-foreground hover:text-accent transition-colors">Features</a>
+              <a href="#impact" className="text-sm lg:text-base text-foreground hover:text-accent transition-colors">Impact</a>
+              <Button asChild size="sm">
+                <a href="/" className="text-sm">Start Journey</a>
+              </Button>
+            </div>
+            <div className="md:hidden">
+              <Button asChild size="sm" variant="outline">
+                <a href="/" className="text-xs">Start</a>
               </Button>
             </div>
           </div>
@@ -43,45 +48,46 @@ const LandingPageIllustrations = () => {
       {/* Hero Section */}
       <section className="relative overflow-hidden bg-gradient-to-br from-background via-secondary/10 to-accent/5">
         <div className="absolute inset-0 bg-grid-primary/[0.02] bg-[size:20px_20px]"></div>
-        <div className="container mx-auto px-4 py-16 lg:py-24 relative">
-          <div className="text-center space-y-8 max-w-4xl mx-auto">
-            <div className="inline-flex items-center space-x-2 bg-accent/10 px-4 py-2 rounded-full text-sm text-accent font-medium">
-              <Zap className="h-4 w-4" />
+        <div className="container mx-auto px-3 sm:px-4 py-12 sm:py-16 lg:py-24 relative">
+          <div className="text-center space-y-6 sm:space-y-8 max-w-4xl mx-auto">
+            <div className="inline-flex items-center space-x-2 bg-accent/10 px-3 sm:px-4 py-2 rounded-full text-xs sm:text-sm text-accent font-medium">
+              <Zap className="h-3 w-3 sm:h-4 sm:w-4" />
               <span>Revolutionizing Maternal Healthcare</span>
             </div>
-            <h1 className="text-4xl md:text-7xl font-bold text-primary leading-tight">
+            <h1 className="text-2xl sm:text-4xl md:text-5xl lg:text-7xl font-bold text-primary leading-tight px-4">
               Connect
               <span className="text-accent">•</span>
               Care
               <span className="text-accent">•</span>
               <span className="text-accent block mt-2">Thrive</span>
             </h1>
-            <p className="text-xl md:text-2xl text-muted-foreground leading-relaxed max-w-3xl mx-auto">
+            <p className="text-base sm:text-lg md:text-xl lg:text-2xl text-muted-foreground leading-relaxed max-w-3xl mx-auto px-4">
               Empowering mothers, community health workers, and nurses with innovative digital health solutions. 
               Building a connected ecosystem for better maternal and child health outcomes across Africa.
             </p>
-            <div className="flex flex-col sm:flex-row gap-4 justify-center">
-              <Button size="lg" className="group text-lg px-8 py-6" asChild>
+            <div className="flex flex-col sm:flex-row gap-3 sm:gap-4 justify-center px-4">
+              <Button size="lg" className="group text-sm sm:text-base lg:text-lg px-6 sm:px-8 py-4 sm:py-6" asChild>
                 <a href="/">
                   Experience the Platform
-                  <ArrowRight className="ml-2 h-5 w-5 group-hover:translate-x-1 transition-transform" />
+                  <ArrowRight className="ml-2 h-4 w-4 sm:h-5 sm:w-5 group-hover:translate-x-1 transition-transform" />
                 </a>
               </Button>
-              <Button variant="outline" size="lg" className="text-lg px-8 py-6">
+              <Button variant="outline" size="lg" className="text-sm sm:text-base lg:text-lg px-6 sm:px-8 py-4 sm:py-6">
                 Watch Demo
               </Button>
             </div>
-            <div className="flex justify-center items-center space-x-12 text-sm text-muted-foreground mt-12">
+            <div className="flex flex-col sm:flex-row justify-center items-center gap-4 sm:gap-6 lg:gap-12 text-xs sm:text-sm text-muted-foreground mt-8 sm:mt-12 px-4">
               <div className="flex items-center space-x-2">
-                <Shield className="h-5 w-5 text-success" />
+                <Shield className="h-4 w-4 sm:h-5 sm:w-5 text-success" />
                 <span>HIPAA Compliant</span>
               </div>
               <div className="flex items-center space-x-2">
-                <Globe className="h-5 w-5 text-accent" />
-                <span>Available in 5+ Languages</span>
+                <Globe className="h-4 w-4 sm:h-5 sm:w-5 text-accent" />
+                <span className="hidden sm:inline">Available in 5+ Languages</span>
+                <span className="sm:hidden">Multilingual</span>
               </div>
               <div className="flex items-center space-x-2">
-                <Clock className="h-5 w-5 text-warning" />
+                <Clock className="h-4 w-4 sm:h-5 sm:w-5 text-warning" />
                 <span>24/7 Support</span>
               </div>
             </div>
@@ -160,7 +166,7 @@ const LandingPageIllustrations = () => {
             </p>
           </div>
 
-          <div className="grid lg:grid-cols-3 gap-8">
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6 sm:gap-8">
             {/* Mothers */}
             <Card className="relative overflow-hidden hover:shadow-accent transition-all duration-300 border-0 bg-gradient-to-br from-background to-accent/5">
               <CardHeader className="pb-4">
@@ -302,7 +308,7 @@ const LandingPageIllustrations = () => {
             </p>
           </div>
 
-          <div className="grid md:grid-cols-2 lg:grid-cols-4 gap-8">
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6 sm:gap-8">
             <div className="text-center space-y-4 p-8 bg-gradient-to-br from-accent/10 to-accent/5 rounded-2xl">
               <div className="inline-flex items-center justify-center w-16 h-16 bg-accent/20 rounded-full">
                 <Heart className="h-8 w-8 text-accent" />

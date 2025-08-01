@@ -95,56 +95,56 @@ export function CHWDashboard() {
       </Card>
 
       {/* Stats Overview */}
-      <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
+      <div className="grid grid-cols-2 md:grid-cols-4 gap-3 sm:gap-4">
         <Card>
-          <CardContent className="p-4">
+          <CardContent className="p-3 sm:p-4">
             <div className="flex items-center gap-2">
-              <Users className="h-5 w-5 text-accent" />
-              <div>
-                <p className="text-2xl font-bold">{assignedMothers.length}</p>
-                <p className="text-sm text-muted-foreground">Total Mothers</p>
+              <Users className="h-4 w-4 sm:h-5 sm:w-5 text-accent flex-shrink-0" />
+              <div className="min-w-0">
+                <p className="text-lg sm:text-2xl font-bold">{assignedMothers.length}</p>
+                <p className="text-xs sm:text-sm text-muted-foreground">Total Mothers</p>
               </div>
             </div>
           </CardContent>
         </Card>
         
         <Card>
-          <CardContent className="p-4">
+          <CardContent className="p-3 sm:p-4">
             <div className="flex items-center gap-2">
-              <CheckCircle className="h-5 w-5 text-success" />
-              <div>
-                <p className="text-2xl font-bold text-success">
+              <CheckCircle className="h-4 w-4 sm:h-5 sm:w-5 text-success flex-shrink-0" />
+              <div className="min-w-0">
+                <p className="text-lg sm:text-2xl font-bold text-success">
                   {assignedMothers.filter(m => m.status === 'ok').length}
                 </p>
-                <p className="text-sm text-muted-foreground">Doing Well</p>
+                <p className="text-xs sm:text-sm text-muted-foreground">Doing Well</p>
               </div>
             </div>
           </CardContent>
         </Card>
         
         <Card>
-          <CardContent className="p-4">
+          <CardContent className="p-3 sm:p-4">
             <div className="flex items-center gap-2">
-              <AlertTriangle className="h-5 w-5 text-destructive" />
-              <div>
-                <p className="text-2xl font-bold text-destructive">
+              <AlertTriangle className="h-4 w-4 sm:h-5 sm:w-5 text-destructive flex-shrink-0" />
+              <div className="min-w-0">
+                <p className="text-lg sm:text-2xl font-bold text-destructive">
                   {assignedMothers.filter(m => m.status === 'not_ok').length}
                 </p>
-                <p className="text-sm text-muted-foreground">Need Attention</p>
+                <p className="text-xs sm:text-sm text-muted-foreground">Need Attention</p>
               </div>
             </div>
           </CardContent>
         </Card>
         
         <Card>
-          <CardContent className="p-4">
+          <CardContent className="p-3 sm:p-4">
             <div className="flex items-center gap-2">
-              <Calendar className="h-5 w-5 text-warning" />
-              <div>
-                <p className="text-2xl font-bold text-warning">
+              <Calendar className="h-4 w-4 sm:h-5 sm:w-5 text-warning flex-shrink-0" />
+              <div className="min-w-0">
+                <p className="text-lg sm:text-2xl font-bold text-warning">
                   {assignedMothers.filter(m => m.status === 'no_response').length}
                 </p>
-                <p className="text-sm text-muted-foreground">No Response</p>
+                <p className="text-xs sm:text-sm text-muted-foreground">No Response</p>
               </div>
             </div>
           </CardContent>
@@ -244,52 +244,53 @@ export function CHWDashboard() {
           </div>
 
           {/* Mothers List */}
-          <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
+          <div className="grid grid-cols-1 lg:grid-cols-2 gap-3 sm:gap-4">
             {displayedMothers.map((mother) => (
               <Card key={mother.id} className="relative">
-                <CardHeader className="pb-3">
-                  <div className="flex justify-between items-start">
-                    <div>
-                      <CardTitle className="text-lg">{mother.name}</CardTitle>
-                      <CardDescription>
+                <CardHeader className="pb-3 p-3 sm:p-6 sm:pb-3">
+                  <div className="flex flex-col sm:flex-row justify-between items-start gap-2 sm:gap-0">
+                    <div className="min-w-0 flex-1">
+                      <CardTitle className="text-base sm:text-lg break-words">{mother.name}</CardTitle>
+                      <CardDescription className="text-xs sm:text-sm">
                         {mother.pregnancyWeek ? `${mother.pregnancyWeek} weeks pregnant` : `${mother.postpartumWeek} weeks postpartum`}
                       </CardDescription>
                     </div>
-                    <Badge className={getStatusColor(mother.status)}>
+                    <Badge className={`${getStatusColor(mother.status)} text-xs flex-shrink-0`}>
                       {getStatusText(mother.status)}
                     </Badge>
                   </div>
                 </CardHeader>
-                <CardContent>
+                <CardContent className="p-3 sm:p-6 pt-0">
                   <div className="space-y-3">
-                    <div className="text-sm">
+                    <div className="text-xs sm:text-sm">
                       <p className="text-muted-foreground">Last check-in: {mother.lastCheckIn}</p>
                       {mother.issues && (
                         <div className="mt-2">
-                          <p className="font-medium text-destructive">Issues reported:</p>
-                          <ul className="list-disc list-inside text-sm text-muted-foreground">
+                          <p className="font-medium text-destructive text-xs sm:text-sm">Issues reported:</p>
+                          <ul className="list-disc list-inside text-xs sm:text-sm text-muted-foreground space-y-1">
                             {mother.issues.map((issue, index) => (
-                              <li key={index}>{issue}</li>
+                              <li key={index} className="break-words">{issue}</li>
                             ))}
                           </ul>
                         </div>
                       )}
                     </div>
                     
-                    <div className="flex gap-2">
+                    <div className="flex flex-col sm:flex-row gap-2">
                       <Button
                         size="sm"
                         onClick={() => openWhatsApp(mother.phone)}
-                        className="flex-1 bg-green-600 hover:bg-green-700"
+                        className="flex-1 bg-green-600 hover:bg-green-700 text-xs sm:text-sm"
                       >
                         <MessageCircle className="h-3 w-3 mr-1" />
-                        WhatsApp
+                        <span className="hidden sm:inline">WhatsApp</span>
+                        <span className="sm:hidden">WA</span>
                       </Button>
                       <Button
                         size="sm"
                         variant="outline"
                         onClick={() => openSMS(mother.phone)}
-                        className="flex-1"
+                        className="flex-1 text-xs sm:text-sm"
                       >
                         <MessageCircle className="h-3 w-3 mr-1" />
                         SMS
@@ -298,7 +299,7 @@ export function CHWDashboard() {
                         size="sm"
                         variant="outline"
                         onClick={() => window.open(`tel:${mother.phone}`, '_self')}
-                        className="flex-1"
+                        className="flex-1 text-xs sm:text-sm"
                       >
                         <Phone className="h-3 w-3 mr-1" />
                         Call
