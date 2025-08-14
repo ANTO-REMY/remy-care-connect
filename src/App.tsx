@@ -4,11 +4,11 @@ import { TooltipProvider } from "@/components/ui/tooltip";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { BrowserRouter, Routes, Route } from "react-router-dom";
 import { AuthProvider } from "./contexts/AuthContext";
-import { ProtectedRoute } from "./components/ProtectedRoute";
 import LandingPage from "./pages/LandingPage";
 import RegisterMother from "./pages/RegisterMother";
 import RegisterHealthWorker from "./pages/RegisterHealthWorker";
 import LoginMother from "./pages/LoginMother";
+import Login from "./pages/Login";
 import LoginCHW from "./pages/LoginCHW";
 import LoginNurse from "./pages/LoginNurse";
 import MotherIndex from "./pages/MotherIndex";
@@ -34,40 +34,15 @@ const App = () => (
             <Route path="/register/healthworker" element={<RegisterHealthWorker />} />
             
             {/* Login Routes */}
-            <Route path="/login/mother" element={<LoginMother />} />
-            <Route path="/login/chw" element={<LoginCHW />} />
-            <Route path="/login/nurse" element={<LoginNurse />} />
+            <Route path="/login" element={<Login />} />
             
-            {/* Protected Dashboard Routes */}
-            <Route 
-              path="/dashboard/mother" 
-              element={
-                <ProtectedRoute requiredRole="mother">
-                  <MotherIndex />
-                </ProtectedRoute>
-              } 
-            />
-            <Route 
-              path="/dashboard/chw" 
-              element={
-                <ProtectedRoute requiredRole="chw">
-                  <CHWIndex />
-                </ProtectedRoute>
-              } 
-            />
-            <Route 
-              path="/dashboard/nurse" 
-              element={
-                <ProtectedRoute requiredRole="nurse">
-                  <NurseIndex />
-                </ProtectedRoute>
-              } 
-            />
+            {/* Dashboard Routes - Now directly accessible */}
+            <Route path="/dashboard/mother" element={<MotherIndex />} />
+            <Route path="/dashboard/chw" element={<CHWIndex />} />
+            <Route path="/dashboard/nurse" element={<NurseIndex />} />
             
             {/* Legacy redirects for old routes */}
-            <Route path="/mother" element={<LoginMother />} />
-            <Route path="/chw" element={<LoginCHW />} />
-            <Route path="/nurse" element={<LoginNurse />} />
+            
             
             {/* 404 Route */}
             <Route path="*" element={<NotFound />} />

@@ -1,6 +1,6 @@
 import { useState } from 'react';
 import { useNavigate, Link } from 'react-router-dom';
-import { Heart, Phone, Lock } from 'lucide-react';
+import { Phone, Lock } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
@@ -72,7 +72,6 @@ export default function LoginMother() {
         {/* Header */}
         <div className="text-center mb-6">
           <Link to="/" className="inline-flex items-center space-x-2 mb-4 hover:opacity-80 transition-opacity">
-            <Heart className="h-8 w-8 text-accent" />
             <span className="text-2xl font-bold text-primary">RemyAfya</span>
           </Link>
           <h1 className="text-2xl font-bold text-primary mb-2">Welcome Back, Mother</h1>

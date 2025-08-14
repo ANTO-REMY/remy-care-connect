@@ -2,7 +2,7 @@ import { ReactNode } from "react";
 import { Sidebar } from "./Sidebar";
 import { useAuth } from "@/contexts/AuthContext";
 import { Button } from "@/components/ui/button";
-import { LogOut, Heart } from "lucide-react";
+import { LogOut } from "lucide-react";
 
 interface LayoutProps {
   children: ReactNode;
@@ -21,7 +21,6 @@ export function Layout({ children }: LayoutProps) {
       {/* Header with logout */}
       <header className="bg-background border-b px-3 sm:px-4 md:px-6 py-3 flex items-center justify-between">
         <div className="flex items-center space-x-2">
-          <Heart className="h-6 w-6 sm:h-8 sm:w-8 text-accent" />
           <span className="text-lg sm:text-xl md:text-2xl font-bold text-primary">RemyAfya</span>
         </div>
         <div className="flex items-center space-x-3">

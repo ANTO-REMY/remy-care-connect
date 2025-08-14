@@ -1,7 +1,7 @@
 import { useNavigate } from "react-router-dom";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
-import { Heart, Users, UserCheck, Stethoscope } from "lucide-react";
+import { Users, UserCheck, Stethoscope } from "lucide-react";
 
 export default function RoleSelector() {
   const navigate = useNavigate();
@@ -39,7 +39,6 @@ export default function RoleSelector() {
         {/* Header */}
         <div className="text-center mb-6 sm:mb-8">
           <div className="flex items-center justify-center gap-2 mb-4">
-            <Heart className="h-8 w-8 sm:h-12 sm:w-12 text-accent" />
             <h1 className="text-2xl sm:text-3xl md:text-4xl font-bold text-primary">RemyAfya</h1>
           </div>
           <p className="text-lg sm:text-xl text-muted-foreground mb-2">

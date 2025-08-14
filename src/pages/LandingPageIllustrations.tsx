@@ -1,4 +1,4 @@
-import { ArrowRight, Heart, Users, Shield, Smartphone, Clock, Award, CheckCircle, Zap, Globe } from "lucide-react";
+import { ArrowRight, Users, Shield, Smartphone, Clock, Award, CheckCircle, Zap, Globe, Heart } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import networkIllustration from "@/assets/healthcare-network-illustration.jpg";
@@ -25,7 +25,6 @@ const LandingPageIllustrations = () => {
         <div className="container mx-auto px-3 sm:px-4 py-3 sm:py-4">
           <div className="flex items-center justify-between">
             <div className="flex items-center space-x-2">
-              <Heart className="h-6 w-6 sm:h-8 sm:w-8 text-accent" />
               <span className="text-lg sm:text-xl md:text-2xl font-bold text-primary">RemyAfya</span>
             </div>
             <div className="hidden md:flex items-center space-x-6 lg:space-x-8">
@@ -381,7 +380,6 @@ const LandingPageIllustrations = () => {
           <div className="grid md:grid-cols-5 gap-8">
             <div className="md:col-span-2 space-y-6">
               <div className="flex items-center space-x-2">
-                <Heart className="h-8 w-8 text-accent" />
                 <span className="text-2xl font-bold">RemyAfya</span>
               </div>
               <p className="text-primary-foreground/80 max-w-md">

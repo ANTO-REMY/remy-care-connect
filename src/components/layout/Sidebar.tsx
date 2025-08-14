@@ -71,7 +71,6 @@ export function Sidebar({ userRole }: SidebarProps) {
           {/* Header */}
           <div className="p-6 border-b border-border">
             <div className="flex items-center gap-2">
-              <Heart className="h-8 w-8 text-accent" />
               <div>
                 <h1 className="text-xl font-bold text-primary">RemyAfya</h1>
                 <p className="text-sm text-muted-foreground capitalize">

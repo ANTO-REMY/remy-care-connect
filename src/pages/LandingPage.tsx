@@ -1,4 +1,6 @@
-import { ArrowRight, Heart, Users, Shield, Smartphone, Clock, Award, CheckCircle, Zap, Globe } from "lucide-react";
+import { ArrowRight, Users, Shield, Smartphone, Clock, Award, CheckCircle, Zap, Globe, Heart } from "lucide-react";
+import { RegisterModal } from "@/components/RegisterModal";
+import { useState } from "react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { useNavigate } from "react-router-dom";
@@ -7,6 +9,8 @@ import platformIllustration from "@/assets/platform-features-illustration.jpg";
 import journeyIllustration from "@/assets/pregnancy-journey-illustration.jpg";
 
 const LandingPage = () => {
+  const [registerModalOpen, setRegisterModalOpen] = useState(false);
+
   const navigate = useNavigate();
 
   return (
@@ -27,26 +31,43 @@ const LandingPage = () => {
       <nav className="bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/60 sticky top-0 z-50 border-b border-border">
         <div className="container mx-auto px-3 sm:px-4 py-3 sm:py-4">
           <div className="flex items-center justify-between">
+            {/* Logo */}
             <div className="flex items-center space-x-2">
-              <Heart className="h-6 w-6 sm:h-8 sm:w-8 text-accent" />
-              <span className="text-lg sm:text-xl md:text-2xl font-bold text-primary">RemyAfya</span>
+              <span className="text-3xl font-black tracking-tight text-primary">RemyAfya</span>
             </div>
-            <div className="hidden md:flex items-center space-x-6 lg:space-x-8">
-              <a href="#platform" className="text-sm lg:text-base text-foreground hover:text-accent transition-colors">Platform</a>
-              <a href="#features" className="text-sm lg:text-base text-foreground hover:text-accent transition-colors">Features</a>
-              <a href="#impact" className="text-sm lg:text-base text-foreground hover:text-accent transition-colors">Impact</a>
-              <Button onClick={() => navigate('/login/mother')} variant="outline" size="sm" className="text-sm">
+            {/* Centered Links */}
+            <div className="hidden md:flex flex-1 justify-center">
+              <div className="flex items-center space-x-6 lg:space-x-8">
+                <a href="#platform" className="text-sm lg:text-base text-foreground hover:text-accent transition-colors">Platform</a>
+                <a href="#features" className="text-sm lg:text-base text-foreground hover:text-accent transition-colors">Features</a>
+                <a href="#impact" className="text-sm lg:text-base text-foreground hover:text-accent transition-colors">Impact</a>
+              </div>
+            </div>
+            {/* Login & Register Buttons */}
+            <div className="hidden md:flex items-center space-x-3">
+              <Button onClick={() => navigate('/login')} variant="outline" size="sm" className="text-sm">
                 Login
               </Button>
-            </div>
-            <div className="md:hidden">
-              <Button onClick={() => navigate('/login/mother')} size="sm" variant="outline">
-                <span className="text-xs">Login</span>
+              <Button onClick={() => setRegisterModalOpen(true)} variant="default" size="sm" className="text-sm font-semibold">
+                Register
               </Button>
             </div>
           </div>
         </div>
       </nav>
+
+      <RegisterModal
+        open={registerModalOpen}
+        onClose={() => setRegisterModalOpen(false)}
+        onSelect={(role) => {
+          setRegisterModalOpen(false);
+          if (role === 'mother') {
+            navigate('/register/mother');
+          } else if (role === 'chw' || role === 'nurse') {
+            navigate('/register/healthworker', { state: { role } });
+          }
+        }}
+      />
 
       {/* Hero Section */}
       <section className="relative overflow-hidden bg-gradient-to-br from-background via-secondary/10 to-accent/5">
@@ -70,24 +91,16 @@ const LandingPage = () => {
             </p>
             
             {/* Main CTA Buttons */}
-            <div className="flex flex-col sm:flex-row gap-3 sm:gap-4 justify-center px-4 pt-4">
-              <Button 
-                size="lg" 
-                className="group text-sm sm:text-base lg:text-lg px-6 sm:px-8 py-4 sm:py-6" 
-                onClick={() => navigate('/register/mother')}
-              >
-                Get Started as a Pregnant Mother
-                <ArrowRight className="ml-2 h-4 w-4 sm:h-5 sm:w-5 group-hover:translate-x-1 transition-transform" />
-              </Button>
-              <Button 
-                variant="outline" 
-                size="lg" 
-                className="text-sm sm:text-base lg:text-lg px-6 sm:px-8 py-4 sm:py-6"
-                onClick={() => navigate('/register/healthworker')}
-              >
-                Get Started as a Health Worker
-              </Button>
-            </div>
+            <div className="flex justify-center px-4 pt-4">
+  <Button
+    size="lg"
+    className="group text-sm sm:text-base lg:text-lg px-8 sm:px-12 py-4 sm:py-6 font-semibold shadow-md"
+    onClick={() => setRegisterModalOpen(true)}
+  >
+    Get Started with RemyAfya
+    <ArrowRight className="ml-2 h-4 w-4 sm:h-5 sm:w-5 group-hover:translate-x-1 transition-transform" />
+  </Button>
+</div>
             
             <div className="flex flex-col sm:flex-row justify-center items-center gap-4 sm:gap-6 lg:gap-12 text-xs sm:text-sm text-muted-foreground mt-8 sm:mt-12 px-4">
               <div className="flex items-center space-x-2">
@@ -239,30 +252,67 @@ const LandingPage = () => {
       </section>
 
       {/* Footer */}
-      <footer className="bg-primary text-primary-foreground py-12">
-        <div className="container mx-auto px-4 text-center">
-          <div className="flex items-center justify-center space-x-2 mb-4">
-            <Heart className="h-8 w-8" />
-            <span className="text-2xl font-bold">RemyAfya</span>
+      <footer className="bg-primary text-primary-foreground py-10 mt-12">
+        <div className="container mx-auto px-4 flex flex-col md:flex-row md:items-center md:justify-between gap-8">
+          {/* Brand Section */}
+          <div className="flex flex-col items-center md:items-start text-center md:text-left gap-2">
+            <span className="text-2xl font-extrabold tracking-tight text-white">RemyAfya</span>
+            <span className="text-sm text-primary-foreground/80">Connect • Care • Thrive</span>
+            <span className="text-xs text-primary-foreground/60">Empowering maternal health across Africa</span>
           </div>
-          <p className="text-primary-foreground/80 mb-6">
-            Connecting communities for better maternal health outcomes
-          </p>
-          <div className="flex flex-col sm:flex-row gap-6 justify-center text-sm">
-            <a 
-              href="#" 
-              onClick={(e) => { e.preventDefault(); navigate('/register/mother'); }}
-              className="text-primary-foreground/80 hover:text-primary-foreground transition-colors underline underline-offset-4"
-            >
-              Join as Mother
-            </a>
-            <a 
-              href="#" 
-              onClick={(e) => { e.preventDefault(); navigate('/register/healthworker'); }}
-              className="text-primary-foreground/80 hover:text-primary-foreground transition-colors underline underline-offset-4"
-            >
-              Join as Health Worker
-            </a>
+
+          {/* Navigation Links */}
+          <div className="flex flex-col sm:flex-row gap-12 md:gap-20 items-start">
+            <div className="space-y-2">
+              <h3 className="text-accent font-semibold text-xs uppercase tracking-wide">Company</h3>
+              <div className="flex flex-col gap-1">
+                <Button variant="ghost" size="sm" className="justify-start px-0 text-primary-foreground/90 hover:text-accent" asChild>
+                  <a href="#">About Us</a>
+                </Button>
+                <Button variant="ghost" size="sm" className="justify-start px-0 text-primary-foreground/90 hover:text-accent" asChild>
+                  <a href="#">Contact</a>
+                </Button>
+                <Button variant="ghost" size="sm" className="justify-start px-0 text-primary-foreground/90 hover:text-accent" asChild>
+                  <a href="#">Careers</a>
+                </Button>
+              </div>
+            </div>
+            <div className="space-y-2">
+              <h3 className="text-accent font-semibold text-xs uppercase tracking-wide">Legal</h3>
+              <div className="flex flex-col gap-1">
+                <Button variant="ghost" size="sm" className="justify-start px-0 text-primary-foreground/90 hover:text-accent" asChild>
+                  <a href="#">Privacy Policy</a>
+                </Button>
+                <Button variant="ghost" size="sm" className="justify-start px-0 text-primary-foreground/90 hover:text-accent" asChild>
+                  <a href="#">Terms of Service</a>
+                </Button>
+              </div>
+            </div>
+          </div>
+
+          {/* Social Media */}
+          <div className="flex flex-col items-center gap-2">
+            <div className="flex gap-3">
+              <Button variant="outline" size="icon" className="rounded-full bg-white/10 hover:bg-accent/30 border-none">
+                <span className="sr-only">Facebook</span>
+                <svg className="w-5 h-5 text-primary-foreground" fill="currentColor" viewBox="0 0 24 24">
+                  <path d="M22.675 0h-21.35C.595 0 0 .592 0 1.326v21.348C0 23.406.595 24 1.326 24H12.82v-9.294H9.692v-3.622h3.128V8.413c0-3.1 1.893-4.788 4.659-4.788 1.325 0 2.463.099 2.797.143v3.24l-1.918.001c-1.504 0-1.797.715-1.797 1.763v2.313h3.587l-.467 3.622h-3.12V24h6.116C23.406 24 24 23.406 24 22.674V1.326C24 .592 23.406 0 22.675 0"/>
+                </svg>
+              </Button>
+              <Button variant="outline" size="icon" className="rounded-full bg-white/10 hover:bg-accent/30 border-none">
+                <span className="sr-only">Instagram</span>
+                <svg className="w-5 h-5 text-primary-foreground" fill="currentColor" viewBox="0 0 24 24">
+                  <path d="M12 2.163c3.204 0 3.584.012 4.85.07 3.252.148 4.771 1.691 4.919 4.919.058 1.265.069 1.645.069 4.849 0 3.205-.012 3.584-.069 4.849-.149 3.225-1.664 4.771-4.919 4.919-1.266.058-1.644.07-4.85.07-3.204 0-3.584-.012-4.849-.07-3.26-.149-4.771-1.699-4.919-4.92-.058-1.265-.07-1.644-.07-4.849 0-3.204.013-3.583.07-4.849.149-3.227 1.664-4.771 4.919-4.919 1.266-.057 1.645-.069 4.849-.069zm0-2.163c-3.259 0-3.667.014-4.947.072-4.358.2-6.78 2.618-6.98 6.98-.059 1.281-.073 1.689-.073 4.948 0 3.259.014 3.668.072 4.948.2 4.358 2.618 6.78 6.98 6.98 1.281.058 1.689.072 4.948.072 3.259 0 3.668-.014 4.948-.072 4.354-.2 6.782-2.618 6.979-6.98.059-1.28.073-1.689.073-4.948 0-3.259-.014-3.667-.072-4.947-.196-4.354-2.617-6.78-6.979-6.98-1.281-.059-1.69-.073-4.949-.073zm0 5.838c-3.403 0-6.162 2.759-6.162 6.162s2.759 6.163 6.162 6.163 6.162-2.759 6.162-6.163c0-3.403-2.759-6.162-6.162-6.162zm0 10.162c-2.209 0-4-1.79-4-4 0-2.209 1.791-4 4-4s4 1.791 4 4c0 2.21-1.791 4-4 4zm6.406-11.845c-.796 0-1.441.645-1.441 1.44s.645 1.44 1.441 1.44c.795 0 1.439-.645 1.439-1.44s-.644-1.44-1.439-1.44z"/>
+                </svg>
+              </Button>
+              <Button variant="outline" size="icon" className="rounded-full bg-white/10 hover:bg-accent/30 border-none">
+                <span className="sr-only">Twitter</span>
+                <svg className="w-5 h-5 text-primary-foreground" fill="currentColor" viewBox="0 0 24 24">
+                  <path d="M23.953 4.57a10 10 0 01-2.825.775 4.958 4.958 0 002.163-2.723c-.951.555-2.005.959-3.127 1.184a4.92 4.92 0 00-8.384 4.482C7.69 8.095 4.067 6.13 1.64 3.162a4.822 4.822 0 00-.666 2.475c0 1.71.87 3.213 2.188 4.096a4.904 4.904 0 01-2.228-.616v.06a4.923 4.923 0 003.946 4.827 4.996 4.996 0 01-2.212.085 4.936 4.936 0 004.604 3.417 9.867 9.867 0 01-6.102 2.105c-.39 0-.779-.023-1.17-.067a13.995 13.995 0 007.557 2.209c9.053 0 13.998-7.496 13.998-13.985 0-.21 0-.42-.015-.63A9.935 9.935 0 0024 4.59z"/>
+                </svg>
+              </Button>
+            </div>
+            <span className="text-xs text-primary-foreground/60 mt-2"> {new Date().getFullYear()} RemyAfya. All rights reserved.</span>
           </div>
         </div>
       </footer>

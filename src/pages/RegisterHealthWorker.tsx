@@ -1,6 +1,6 @@
 import { useState } from 'react';
-import { useNavigate, Link } from 'react-router-dom';
-import { Heart, MapPin, User, Phone, Lock, UserCheck, Stethoscope } from 'lucide-react';
+import { useNavigate, useLocation, Link } from 'react-router-dom';
+import { MapPin, User, Phone, Lock, UserCheck, Stethoscope } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
@@ -11,10 +11,13 @@ import { useToast } from '@/hooks/use-toast';
 
 export default function RegisterHealthWorker() {
   const navigate = useNavigate();
+  const location = useLocation();
   const { register } = useAuth();
   const { toast } = useToast();
-  const [showModal, setShowModal] = useState(true);
-  const [selectedRole, setSelectedRole] = useState<'chw' | 'nurse' | null>(null);
+  // Determine role from navigation state, default to 'chw'
+  const initialRole = location.state && (location.state.role === 'nurse' || location.state.role === 'chw') ? location.state.role : 'chw';
+  const [showModal, setShowModal] = useState(false); // Modal not used when navigating from landing
+  const [selectedRole, setSelectedRole] = useState<'chw' | 'nurse'>(initialRole);
   const [isLoading, setIsLoading] = useState(false);
   const [formData, setFormData] = useState({
     fullName: '',
@@ -132,7 +135,6 @@ export default function RegisterHealthWorker() {
         {/* Header */}
         <div className="text-center mb-6">
           <Link to="/" className="inline-flex items-center space-x-2 mb-4 hover:opacity-80 transition-opacity">
-            <Heart className="h-8 w-8 text-accent" />
             <span className="text-2xl font-bold text-primary">RemyAfya</span>
           </Link>
           <div className="flex items-center justify-center space-x-2 mb-2">
