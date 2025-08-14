@@ -248,21 +248,21 @@ const LandingPage = () => {
           <p className="text-primary-foreground/80 mb-6">
             Connecting communities for better maternal health outcomes
           </p>
-          <div className="flex flex-col sm:flex-row gap-4 justify-center">
-            <Button 
-              variant="outline" 
-              className="bg-transparent border-primary-foreground/20 text-primary-foreground hover:bg-primary-foreground/10"
-              onClick={() => navigate('/register/mother')}
+          <div className="flex flex-col sm:flex-row gap-6 justify-center text-sm">
+            <a 
+              href="#" 
+              onClick={(e) => { e.preventDefault(); navigate('/register/mother'); }}
+              className="text-primary-foreground/80 hover:text-primary-foreground transition-colors underline underline-offset-4"
             >
               Join as Mother
-            </Button>
-            <Button 
-              variant="outline" 
-              className="bg-transparent border-primary-foreground/20 text-primary-foreground hover:bg-primary-foreground/10"
-              onClick={() => navigate('/register/healthworker')}
+            </a>
+            <a 
+              href="#" 
+              onClick={(e) => { e.preventDefault(); navigate('/register/healthworker'); }}
+              className="text-primary-foreground/80 hover:text-primary-foreground transition-colors underline underline-offset-4"
             >
               Join as Health Worker
-            </Button>
+            </a>
           </div>
         </div>
       </footer>
