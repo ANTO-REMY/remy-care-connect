@@ -1,0 +1,164 @@
+import { useState } from 'react';
+import { useNavigate, Link } from 'react-router-dom';
+import { Heart, Phone, Lock, UserCheck } from 'lucide-react';
+import { Button } from '@/components/ui/button';
+import { Input } from '@/components/ui/input';
+import { Label } from '@/components/ui/label';
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
+import { useAuth } from '@/contexts/AuthContext';
+import { useToast } from '@/hooks/use-toast';
+
+export default function LoginCHW() {
+  const navigate = useNavigate();
+  const { login } = useAuth();
+  const { toast } = useToast();
+  const [isLoading, setIsLoading] = useState(false);
+  const [formData, setFormData] = useState({
+    phone: '',
+    password: ''
+  });
+
+  const handleSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setIsLoading(true);
+
+    if (!formData.phone || !formData.password) {
+      toast({
+        title: "Missing Information",
+        description: "Please enter both phone number and password.",
+        variant: "destructive"
+      });
+      setIsLoading(false);
+      return;
+    }
+
+    try {
+      const success = await login(formData.phone, formData.password, 'chw');
+      
+      if (success) {
+        toast({
+          title: "Welcome back!",
+          description: "You've successfully logged in.",
+        });
+        navigate('/dashboard/chw');
+      } else {
+        toast({
+          title: "Login Failed",
+          description: "Invalid phone number or password.",
+          variant: "destructive"
+        });
+      }
+    } catch (error) {
+      toast({
+        title: "Login Error",
+        description: "Something went wrong. Please try again.",
+        variant: "destructive"
+      });
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
+  const handleInputChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    setFormData({
+      ...formData,
+      [e.target.name]: e.target.value
+    });
+  };
+
+  return (
+    <div className="min-h-screen bg-gradient-to-br from-primary/5 to-accent/5 flex items-center justify-center p-3 sm:p-4">
+      <div className="w-full max-w-md">
+        {/* Header */}
+        <div className="text-center mb-6">
+          <Link to="/" className="inline-flex items-center space-x-2 mb-4 hover:opacity-80 transition-opacity">
+            <Heart className="h-8 w-8 text-accent" />
+            <span className="text-2xl font-bold text-primary">RemyAfya</span>
+          </Link>
+          <div className="flex items-center justify-center space-x-2 mb-2">
+            <UserCheck className="h-6 w-6 text-primary" />
+            <h1 className="text-2xl font-bold text-primary">CHW Portal</h1>
+          </div>
+          <p className="text-muted-foreground">
+            Sign in to manage your community health activities
+          </p>
+        </div>
+
+        <Card>
+          <CardHeader className="space-y-1 pb-4">
+            <CardTitle className="text-xl">Sign In</CardTitle>
+            <CardDescription>
+              Enter your credentials to access your dashboard
+            </CardDescription>
+          </CardHeader>
+          <CardContent>
+            <form onSubmit={handleSubmit} className="space-y-4">
+              {/* Phone Number */}
+              <div className="space-y-2">
+                <Label htmlFor="phone">Phone Number</Label>
+                <div className="relative">
+                  <Phone className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+                  <Input
+                    id="phone"
+                    name="phone"
+                    type="tel"
+                    placeholder="+254 123 456 789"
+                    value={formData.phone}
+                    onChange={handleInputChange}
+                    className="pl-10"
+                    required
+                  />
+                </div>
+              </div>
+
+              {/* Password */}
+              <div className="space-y-2">
+                <Label htmlFor="password">Password</Label>
+                <div className="relative">
+                  <Lock className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+                  <Input
+                    id="password"
+                    name="password"
+                    type="password"
+                    placeholder="Enter your password"
+                    value={formData.password}
+                    onChange={handleInputChange}
+                    className="pl-10"
+                    required
+                  />
+                </div>
+              </div>
+
+              <Button type="submit" className="w-full" disabled={isLoading}>
+                {isLoading ? "Signing In..." : "Sign In"}
+              </Button>
+            </form>
+
+            <div className="mt-4 text-center text-sm">
+              <span className="text-muted-foreground">Don't have an account? </span>
+              <Link to="/register/healthworker" className="text-accent hover:underline font-medium">
+                Register here
+              </Link>
+            </div>
+          </CardContent>
+        </Card>
+
+        {/* Quick Login for Demo */}
+        <div className="mt-4 p-3 bg-muted/50 rounded-lg border border-dashed border-muted-foreground/30">
+          <p className="text-xs text-muted-foreground text-center mb-2">
+            Demo Mode - Quick Login Options:
+          </p>
+          <div className="space-y-1 text-xs text-center">
+            <div>Phone: +254700000002 | Pass: demo123</div>
+          </div>
+        </div>
+
+        <div className="mt-4 text-center">
+          <Link to="/" className="text-sm text-muted-foreground hover:text-accent transition-colors">
+            ← Back to home
+          </Link>
+        </div>
+      </div>
+    </div>
+  );
+}
