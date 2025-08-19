@@ -1,4 +1,5 @@
 import { useState } from 'react';
+import { PinInput } from '@/components/PinInput';
 import { useNavigate, useLocation, Link } from 'react-router-dom';
 import { MapPin, User, Phone, Lock, UserCheck, Stethoscope } from 'lucide-react';
 import { Button } from '@/components/ui/button';
@@ -8,6 +9,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/com
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { useAuth } from '@/contexts/AuthContext';
 import { useToast } from '@/hooks/use-toast';
+import VerifyOTPModal from '@/components/VerifyOTPModal';
 
 export default function RegisterHealthWorker() {
   const navigate = useNavigate();
@@ -19,12 +21,24 @@ export default function RegisterHealthWorker() {
   const [showModal, setShowModal] = useState(false); // Modal not used when navigating from landing
   const [selectedRole, setSelectedRole] = useState<'chw' | 'nurse'>(initialRole);
   const [isLoading, setIsLoading] = useState(false);
+  const [showVerify, setShowVerify] = useState(false);
   const [formData, setFormData] = useState({
     fullName: '',
     phone: '',
+    licenceNumber: '',
     location: '',
-    password: ''
+    pin: '',
+    confirmPin: ''
   });
+
+  const handleConfirmPinChange = (val: string) => {
+    setFormData({ ...formData, confirmPin: val });
+  };
+
+
+  const handlePinChange = (val: string) => {
+    setFormData({ ...formData, pin: val });
+  };
 
   const handleRoleSelect = (role: 'chw' | 'nurse') => {
     setSelectedRole(role);
@@ -38,7 +52,7 @@ export default function RegisterHealthWorker() {
     setIsLoading(true);
 
     // Basic validation
-    if (!formData.fullName || !formData.phone || !formData.password || !formData.location) {
+    if (!formData.fullName || !formData.phone || !formData.pin || !formData.location) {
       toast({
         title: "Missing Information",
         description: "Please fill in all required fields.",
@@ -60,9 +74,9 @@ export default function RegisterHealthWorker() {
       if (success) {
         toast({
           title: "Registration Successful!",
-          description: `Welcome to RemyAfya as a ${selectedRole === 'chw' ? 'Community Health Worker' : 'Nurse'}.`,
+          description: "We've sent you an OTP. Please verify your phone.",
         });
-        navigate(`/dashboard/${selectedRole}`);
+        setShowVerify(true);
       } else {
         toast({
           title: "Registration Failed",
@@ -132,6 +146,22 @@ export default function RegisterHealthWorker() {
   return (
     <div className="min-h-screen bg-gradient-to-br from-primary/5 to-accent/5 flex items-center justify-center p-3 sm:p-4">
       <div className="w-full max-w-md">
+        <VerifyOTPModal
+          open={showVerify}
+          onOpenChange={setShowVerify}
+          phoneNumber={formData.phone}
+          onSubmit={async (_otp) => {
+            // Integrate with your verify OTP API here
+            return false;
+          }}
+          onResend={async () => {
+            // Integrate with your resend OTP API here
+          }}
+          onVerified={() => {
+            toast({ title: 'Phone verified', description: 'Redirecting to your dashboard…' });
+            navigate(`/dashboard/${selectedRole}`);
+          }}
+        />
         {/* Header */}
         <div className="text-center mb-6">
           <Link to="/" className="inline-flex items-center space-x-2 mb-4 hover:opacity-80 transition-opacity">
@@ -200,6 +230,24 @@ export default function RegisterHealthWorker() {
                 </div>
               </div>
 
+               {/* Licence number */}
+               <div className="space-y-2">
+                <Label htmlFor="password">Licence Number *</Label>
+                <div className="relative">
+                  <Lock className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+                  <Input
+                    id="licenceNumber"
+                    name="licenceNumber"
+                    type="text"
+                    placeholder="Enter your licence number"
+                    value={formData.licenceNumber}
+                    onChange={handleInputChange}
+                    className="pl-10"
+                    required
+                  />
+                </div>
+              </div>
+
               {/* Location */}
               <div className="space-y-2">
                 <Label htmlFor="location">Work Location *</Label>
@@ -218,19 +266,31 @@ export default function RegisterHealthWorker() {
                 </div>
               </div>
 
-              {/* Password */}
+              {/* PIN */}
               <div className="space-y-2">
-                <Label htmlFor="password">Password *</Label>
-                <div className="relative">
-                  <Lock className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-muted-foreground" />
-                  <Input
-                    id="password"
-                    name="password"
-                    type="password"
-                    placeholder="Create a secure password"
-                    value={formData.password}
-                    onChange={handleInputChange}
-                    className="pl-10"
+                <Label htmlFor="pin-0">PIN *</Label>
+                <div className="flex justify-center items-center gap-3">
+                  <Lock className="h-4 w-4 text-muted-foreground" />
+                  <PinInput
+                    value={formData.pin}
+                    onChange={handlePinChange}
+                    name="pin"
+                    label="PIN"
+                    required
+                  />
+                </div>
+              </div>
+
+              {/* Confirm PIN */}
+              <div className="space-y-2">
+                <Label htmlFor="confirm-pin-0">Confirm PIN *</Label>
+                <div className="flex justify-center items-center gap-3">
+                  <Lock className="h-4 w-4 text-muted-foreground" />
+                  <PinInput
+                    value={formData.confirmPin}
+                    onChange={handleConfirmPinChange}
+                    name="confirmPin"
+                    label="Confirm PIN"
                     required
                   />
                 </div>

@@ -1,4 +1,5 @@
 import { useState } from 'react';
+import { PinInput } from '@/components/PinInput';
 import { useNavigate, Link } from 'react-router-dom';
 import { Phone, Lock, UserCheck, Stethoscope } from 'lucide-react';
 import { Button } from '@/components/ui/button';
@@ -14,6 +15,8 @@ const roles = [
   { label: 'Nurse', value: 'nurse', icon: Stethoscope }
 ];
 
+import { RegisterModal } from '@/components/RegisterModal';
+
 export default function Login() {
   const navigate = useNavigate();
   const { login } = useAuth();
@@ -21,15 +24,21 @@ export default function Login() {
   const [isLoading, setIsLoading] = useState(false);
   const [formData, setFormData] = useState({
     phone: '',
-    password: '',
+    pin: '',
     role: 'mother',
   });
+  const [showRegisterModal, setShowRegisterModal] = useState(false);
+
 
   const handleInputChange = (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement>) => {
     setFormData({
       ...formData,
       [e.target.name]: e.target.value,
     });
+  };
+
+  const handlePinChange = (val: string) => {
+    setFormData({ ...formData, pin: val });
   };
 
   const handleSubmit = async (e: React.FormEvent) => {
@@ -47,6 +56,12 @@ export default function Login() {
     } finally {
       setIsLoading(false);
     }
+  };
+
+  const handleRegisterRoleSelect = (role: 'mother' | 'chw' | 'nurse') => {
+    setShowRegisterModal(false);
+    if (role === 'mother') navigate('/register/mother');
+    else navigate('/register/healthworker', { state: { role } });
   };
 
   return (
@@ -105,19 +120,16 @@ export default function Login() {
                   />
                 </div>
               </div>
-              {/* Password */}
+              {/* PIN */}
               <div className="space-y-2">
-                <Label htmlFor="password">Password</Label>
-                <div className="relative">
-                  <Lock className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-muted-foreground" />
-                  <Input
-                    id="password"
-                    name="password"
-                    type="password"
-                    placeholder="Enter your password"
-                    value={formData.password}
-                    onChange={handleInputChange}
-                    className="pl-10"
+                <Label htmlFor="pin-0">PIN *</Label>
+                <div className="flex justify-center items-center gap-3">
+                  <Lock className="h-4 w-4 text-muted-foreground" />
+                  <PinInput
+                    value={formData.pin}
+                    onChange={handlePinChange}
+                    name="pin"
+                    label="PIN"
                     required
                   />
                 </div>
@@ -128,9 +140,9 @@ export default function Login() {
             </form>
             <div className="mt-4 text-center text-sm">
               <span className="text-muted-foreground">Don't have an account? </span>
-              <Link to="/register/mother" className="text-accent hover:underline font-medium">
+              <button type="button" className="text-accent hover:underline font-medium" onClick={() => setShowRegisterModal(true)}>
                 Register here
-              </Link>
+              </button>
             </div>
           </CardContent>
         </Card>
@@ -151,6 +163,11 @@ export default function Login() {
           </Link>
         </div>
       </div>
+      <RegisterModal
+        open={showRegisterModal}
+        onClose={() => setShowRegisterModal(false)}
+        onSelect={handleRegisterRoleSelect}
+      />
     </div>
   );
 }

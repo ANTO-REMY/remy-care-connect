@@ -1,4 +1,5 @@
 import { useState } from 'react';
+import { PinInput } from '@/components/PinInput';
 import { useNavigate, Link } from 'react-router-dom';
 import { Phone, Lock } from 'lucide-react';
 import { Button } from '@/components/ui/button';
@@ -15,14 +16,18 @@ export default function LoginMother() {
   const [isLoading, setIsLoading] = useState(false);
   const [formData, setFormData] = useState({
     phone: '',
-    password: ''
+    pin: ''
   });
+
+  const handlePinChange = (val: string) => {
+    setFormData({ ...formData, pin: val });
+  };
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setIsLoading(true);
 
-    if (!formData.phone || !formData.password) {
+    if (!formData.phone || !formData.pin) {
       toast({
         title: "Missing Information",
         description: "Please enter both phone number and password.",
@@ -33,7 +38,7 @@ export default function LoginMother() {
     }
 
     try {
-      const success = await login(formData.phone, formData.password, 'mother');
+      const success = await login(formData.phone, formData.pin, 'mother');
       
       if (success) {
         toast({
@@ -107,19 +112,16 @@ export default function LoginMother() {
                 </div>
               </div>
 
-              {/* Password */}
+              {/* PIN */}
               <div className="space-y-2">
-                <Label htmlFor="password">Password</Label>
-                <div className="relative">
-                  <Lock className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-muted-foreground" />
-                  <Input
-                    id="password"
-                    name="password"
-                    type="password"
-                    placeholder="Enter your password"
-                    value={formData.password}
-                    onChange={handleInputChange}
-                    className="pl-10"
+                <Label htmlFor="pin-0">PIN *</Label>
+                <div className="flex justify-center items-center gap-3">
+                  <Lock className="h-4 w-4 text-muted-foreground" />
+                  <PinInput
+                    value={formData.pin}
+                    onChange={handlePinChange}
+                    name="pin"
+                    label="PIN"
                     required
                   />
                 </div>
