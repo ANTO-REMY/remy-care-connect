@@ -117,7 +117,7 @@ export default function LoginCHW() {
 
               {/* PIN */}
               <div className="space-y-2">
-                <Label htmlFor="pin-0">PIN *</Label>
+                <Label htmlFor="pin-0">PIN </Label>
                 <div className="flex justify-center items-center gap-3">
                   <Lock className="h-4 w-4 text-muted-foreground" />
                   <PinInput

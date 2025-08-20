@@ -1,0 +1,162 @@
+{
+  "info": {
+    "_postman_id": "remy-care-connect-collection",
+    "name": "RemyCareConnect API",
+    "description": "API collection for RemyCareConnect mother registration, login, profile, and verifications.",
+    "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
+  },
+  "item": [
+    {
+      "name": "Health",
+      "item": [
+        {
+          "name": "Health Check",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{base_url}}/api/v1/health",
+              "host": ["{{base_url}}"],
+              "path": ["api", "v1", "health"]
+            }
+          },
+          "response": []
+        }
+      ]
+    },
+    {
+      "name": "Authentication",
+      "item": [
+        {
+          "name": "Register Mother",
+          "request": {
+            "method": "POST",
+            "header": [],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"full_name\": \"Jane Doe\",\n  \"phone\": \"+254700000000\",\n  \"dob\": \"1990-01-01\",\n  \"due_date\": \"2025-12-01\",\n  \"location\": \"Nairobi\",\n  \"pin\": \"1234\",\n  \"confirm_pin\": \"1234\"\n}",
+              "options": {"raw": {"language": "json"}}
+            },
+            "url": {
+              "raw": "{{base_url}}/api/v1/mothers/register",
+              "host": ["{{base_url}}"],
+              "path": ["api", "v1", "mothers", "register"]
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "Login Mother",
+          "request": {
+            "method": "POST",
+            "header": [],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"phone\": \"+254700000000\",\n  \"pin\": \"1234\"\n}",
+              "options": {"raw": {"language": "json"}}
+            },
+            "url": {
+              "raw": "{{base_url}}/api/v1/auth/login",
+              "host": ["{{base_url}}"],
+              "path": ["api", "v1", "auth", "login"]
+            }
+          },
+          "response": []
+        }
+      ]
+    },
+    {
+      "name": "Verifications",
+      "item": [
+        {
+          "name": "Send OTP",
+          "request": {
+            "method": "POST",
+            "header": [],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"phone\": \"+254700000000\"\n}",
+              "options": {"raw": {"language": "json"}}
+            },
+            "url": {
+              "raw": "{{base_url}}/api/v1/verifications/send",
+              "host": ["{{base_url}}"],
+              "path": ["api", "v1", "verifications", "send"]
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "Verify OTP",
+          "request": {
+            "method": "POST",
+            "header": [],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"phone\": \"+254700000000\",\n  \"code\": \"12345\"\n}",
+              "options": {"raw": {"language": "json"}}
+            },
+            "url": {
+              "raw": "{{base_url}}/api/v1/verifications/verify",
+              "host": ["{{base_url}}"],
+              "path": ["api", "v1", "verifications", "verify"]
+            }
+          },
+          "response": []
+        }
+      ]
+    },
+    {
+      "name": "Mother Profile",
+      "item": [
+        {
+          "name": "Get Mother Profile",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{base_url}}/api/v1/mothers/:mother_id",
+              "host": ["{{base_url}}"],
+              "path": ["api", "v1", "mothers", ":mother_id"],
+              "variable": [{"key": "mother_id", "value": ""}]
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "Update Mother Profile",
+          "request": {
+            "method": "PUT",
+            "header": [],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"full_name\": \"Jane Doe\",\n  \"dob\": \"1990-01-01\",\n  \"due_date\": \"2025-12-01\",\n  \"location\": \"Nairobi\"\n}",
+              "options": {"raw": {"language": "json"}}
+            },
+            "url": {
+              "raw": "{{base_url}}/api/v1/mothers/:mother_id",
+              "host": ["{{base_url}}"],
+              "path": ["api", "v1", "mothers", ":mother_id"],
+              "variable": [{"key": "mother_id", "value": ""}]
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "Delete Mother Profile",
+          "request": {
+            "method": "DELETE",
+            "header": [],
+            "url": {
+              "raw": "{{base_url}}/api/v1/mothers/:mother_id",
+              "host": ["{{base_url}}"],
+              "path": ["api", "v1", "mothers", ":mother_id"],
+              "variable": [{"key": "mother_id", "value": ""}]
+            }
+          },
+          "response": []
+        }
+      ]
+    }
+  ]
+}
