@@ -16,6 +16,8 @@ services:
       timeout: 5s
       retries: 5
 
+  # NOTE: During development, use the local Flask backend on port 5050.
+  # This container can remain idle to avoid confusion with endpoints.
   backend:
     build: .
     command: flask run --host=0.0.0.0 --port=5000
