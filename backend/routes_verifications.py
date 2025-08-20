@@ -28,7 +28,7 @@ def send_otp():
     # Here you would send the OTP via SMS
     return jsonify({"message": "OTP sent successfully.", "otp": code}), 200
 
-@bp.route('/verifications/verify', methods=['POST'])
+@bp.route('/verify', methods=['POST'])
 def verify_otp():
     data = request.get_json()
     phone = data.get('phone')
