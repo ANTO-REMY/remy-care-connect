@@ -1,5 +1,6 @@
 import { ArrowRight, Users, Shield, Smartphone, Clock, Award, CheckCircle, Zap, Globe, Heart } from "lucide-react";
 import { RegisterModal } from "@/components/RegisterModal";
+import { Navigation } from "@/components/layout/Navigation";
 import { useState } from "react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
@@ -28,33 +29,11 @@ const LandingPage = () => {
       </head>
 
       {/* Navigation */}
-      <nav className="bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/60 sticky top-0 z-50 border-b border-border">
-        <div className="container mx-auto px-3 sm:px-4 py-3 sm:py-4">
-          <div className="flex items-center justify-between">
-            {/* Logo */}
-            <div className="flex items-center space-x-2">
-              <span className="text-3xl font-black tracking-tight text-primary">RemyAfya</span>
-            </div>
-            {/* Centered Links */}
-            <div className="hidden md:flex flex-1 justify-center">
-              <div className="flex items-center space-x-6 lg:space-x-8">
-                <a href="#platform" className="text-sm lg:text-base text-foreground hover:text-accent transition-colors">Platform</a>
-                <a href="#features" className="text-sm lg:text-base text-foreground hover:text-accent transition-colors">Features</a>
-                <a href="#impact" className="text-sm lg:text-base text-foreground hover:text-accent transition-colors">Impact</a>
-              </div>
-            </div>
-            {/* Login & Register Buttons */}
-            <div className="hidden md:flex items-center space-x-3">
-              <Button onClick={() => navigate('/login')} variant="outline" size="sm" className="text-sm">
-                Login
-              </Button>
-              <Button onClick={() => setRegisterModalOpen(true)} variant="default" size="sm" className="text-sm font-semibold">
-                Register
-              </Button>
-            </div>
-          </div>
-        </div>
-      </nav>
+      <Navigation
+        onLogin={() => navigate('/login')}
+        onRegister={() => setRegisterModalOpen(true)}
+        onHome={() => navigate('/')}
+      />
 
       <RegisterModal
         open={registerModalOpen}
@@ -117,6 +96,20 @@ const LandingPage = () => {
                 <span>24/7 Support</span>
               </div>
             </div>
+          </div>
+        </div>
+      </section>
+
+      {/* Platform Section */}
+      <section id="platform" className="py-16 lg:py-24 bg-gradient-to-br from-primary/5 to-accent/5">
+        <div className="container mx-auto px-4">
+          <div className="text-center space-y-4 mb-16">
+            <h2 className="text-3xl md:text-5xl font-bold text-primary">
+              Our Platform
+            </h2>
+            <p className="text-xl text-muted-foreground max-w-3xl mx-auto">
+              A comprehensive digital health ecosystem designed to connect and empower healthcare providers and mothers across Africa.
+            </p>
           </div>
         </div>
       </section>
@@ -247,6 +240,35 @@ const LandingPage = () => {
                 </ul>
               </CardContent>
             </Card>
+          </div>
+        </div>
+      </section>
+
+      {/* Impact Section */}
+      <section id="impact" className="py-16 lg:py-24 bg-gradient-to-br from-success/5 to-primary/5">
+        <div className="container mx-auto px-4">
+          <div className="text-center space-y-4 mb-16">
+            <h2 className="text-3xl md:text-5xl font-bold text-primary">
+              Our Impact
+            </h2>
+            <p className="text-xl text-muted-foreground max-w-3xl mx-auto">
+              Making a real difference in maternal health outcomes across communities.
+            </p>
+          </div>
+          
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-8 max-w-4xl mx-auto">
+            <div className="text-center space-y-2">
+              <div className="text-4xl font-bold text-accent">10,000+</div>
+              <div className="text-lg text-muted-foreground">Mothers Supported</div>
+            </div>
+            <div className="text-center space-y-2">
+              <div className="text-4xl font-bold text-primary">500+</div>
+              <div className="text-lg text-muted-foreground">Healthcare Workers</div>
+            </div>
+            <div className="text-center space-y-2">
+              <div className="text-4xl font-bold text-success">95%</div>
+              <div className="text-lg text-muted-foreground">Satisfaction Rate</div>
+            </div>
           </div>
         </div>
       </section>

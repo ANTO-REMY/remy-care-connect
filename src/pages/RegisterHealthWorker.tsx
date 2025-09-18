@@ -104,7 +104,7 @@ export default function RegisterHealthWorker() {
 
   if (showModal) {
     return (
-      <div className="min-h-screen bg-gradient-to-br from-primary/5 to-accent/5 flex items-center justify-center p-3 sm:p-4">
+      <div className="min-h-screen bg-gradient-to-br from-primary/5 to-accent/5 flex items-center justify-center p-3 sm:p-4 my-4">
         <Dialog open={showModal} onOpenChange={() => navigate('/')}>
           <DialogContent className="sm:max-w-md">
             <DialogHeader>
@@ -144,7 +144,7 @@ export default function RegisterHealthWorker() {
   }
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-primary/5 to-accent/5 flex items-center justify-center p-3 sm:p-4">
+    <div className="min-h-screen bg-gradient-to-br from-primary/5 to-accent/5 flex items-center justify-center p-3 sm:p-4 my-4">
       <div className="w-full max-w-md">
         <VerifyOTPModal
           open={showVerify}

@@ -12,7 +12,7 @@ interface RegisterModalProps {
 export const RegisterModal: React.FC<RegisterModalProps> = ({ open, onClose, onSelect }) => {
   return (
     <Dialog open={open} onOpenChange={onClose}>
-      <DialogContent className="sm:max-w-md animate-fade-in-out">
+      <DialogContent className="sm:max-w-md animate-fade-in-out my-4 sm:my-0">
         <DialogHeader>
           <DialogTitle className="text-center">Register As</DialogTitle>
           <DialogDescription className="text-center">

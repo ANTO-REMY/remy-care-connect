@@ -102,7 +102,7 @@ export default function RegisterMother() {
   };
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-accent/5 to-primary/5 flex items-center justify-center p-3 sm:p-4">
+    <div className="min-h-screen bg-gradient-to-br from-accent/5 to-primary/5 flex items-center justify-center p-3 sm:p-4 my-4">
       <div className="w-full max-w-md">
         <VerifyOTPModal
           open={showVerify}

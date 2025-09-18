@@ -15,6 +15,7 @@ import MotherIndex from "./pages/MotherIndex";
 import CHWIndex from "./pages/CHWIndex";
 import NurseIndex from "./pages/NurseIndex";
 import NotFound from "./pages/NotFound";
+import { Layout } from "@/components/layout/Layout";
 
 const queryClient = new QueryClient();
 
@@ -27,25 +28,21 @@ const App = () => (
         <BrowserRouter>
           <Routes>
             {/* Public Routes */}
-            <Route path="/" element={<LandingPage />} />
-            
+            <Route path="/" element={<Layout><LandingPage /></Layout>} />
             {/* Registration Routes */}
-            <Route path="/register/mother" element={<RegisterMother />} />
-            <Route path="/register/healthworker" element={<RegisterHealthWorker />} />
-            
+            <Route path="/register/mother" element={<Layout><RegisterMother /></Layout>} />
+            <Route path="/register/healthworker" element={<Layout><RegisterHealthWorker /></Layout>} />
             {/* Login Routes */}
-            <Route path="/login" element={<Login />} />
-            
+            <Route path="/login" element={<Layout><Login /></Layout>} />
+            <Route path="/login/mother" element={<Layout><LoginMother /></Layout>} />
+            <Route path="/login/chw" element={<Layout><LoginCHW /></Layout>} />
+            <Route path="/login/nurse" element={<Layout><LoginNurse /></Layout>} />
             {/* Dashboard Routes - Now directly accessible */}
-            <Route path="/dashboard/mother" element={<MotherIndex />} />
-            <Route path="/dashboard/chw" element={<CHWIndex />} />
-            <Route path="/dashboard/nurse" element={<NurseIndex />} />
-            
-            {/* Legacy redirects for old routes */}
-            
-            
+            <Route path="/dashboard/mother" element={<Layout><MotherIndex /></Layout>} />
+            <Route path="/dashboard/chw" element={<Layout><CHWIndex /></Layout>} />
+            <Route path="/dashboard/nurse" element={<Layout><NurseIndex /></Layout>} />
             {/* 404 Route */}
-            <Route path="*" element={<NotFound />} />
+            <Route path="*" element={<Layout><NotFound /></Layout>} />
           </Routes>
         </BrowserRouter>
       </TooltipProvider>
