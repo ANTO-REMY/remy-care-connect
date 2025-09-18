@@ -1,4 +1,3 @@
-**Edit a file directly in GitHub**
 # Remy Care Connect
 
 Remy Care Connect is a digital health platform designed to connect pregnant mothers, community health workers (CHWs), and nurse supervisors for improved maternal and child health outcomes.
@@ -72,14 +71,3 @@ This project is built with:
 - shadcn-ui
 - Tailwind CSS
 
-## How can I deploy this project?
-
-Simply open [Lovable](https://lovable.dev/projects/ca17067c-1e22-48dc-a95e-57fb815ce5e2) and click on Share -> Publish.
-
-## Can I connect a custom domain to my Lovable project?
-
-Yes, you can!
-
-To connect a domain, navigate to Project > Settings > Domains and click Connect Domain.
-
-Read more here: [Setting up a custom domain](https://docs.lovable.dev/tips-tricks/custom-domain#step-by-step-guide)
