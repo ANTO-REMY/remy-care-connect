@@ -5,14 +5,23 @@ import random
 
 bp = Blueprint('verifications', __name__)
 
-@bp.route('/verifications/send', methods=['POST'])
+@bp.route('/api/v1/verifications/send', methods=['POST'])
 def send_otp():
     data = request.get_json()
     phone = data.get('phone')
     if not phone:
         return jsonify({"error": "Phone is required."}), 400
-    code = str(random.randint(10000, 99999))
     now = datetime.utcnow()
+    one_hour_ago = now - timedelta(hours=1)
+    count = Verification.query.filter(
+        Verification.phone_number == phone,
+        Verification.created_at >= one_hour_ago
+    ).count()
+    if count >= 5:
+        return jsonify({"error": "OTP request limit reached. Try again later."}), 429
+    # Expire any previous pending OTPs for this phone
+    Verification.query.filter_by(phone_number=phone, status='pending').update({"status": "expired"})
+    code = str(random.randint(10000, 99999))
     expires_at = now + timedelta(minutes=5)
     user = User.query.filter_by(phone_number=phone).first()
     verification = Verification(
@@ -28,7 +37,7 @@ def send_otp():
     # Here you would send the OTP via SMS
     return jsonify({"message": "OTP sent successfully.", "otp": code}), 200
 
-@bp.route('/verify', methods=['POST'])
+@bp.route('/api/v1/verifications/verify', methods=['POST'])
 def verify_otp():
     data = request.get_json()
     phone = data.get('phone')
