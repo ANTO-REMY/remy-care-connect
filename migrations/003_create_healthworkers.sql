@@ -6,6 +6,7 @@ CREATE TABLE healthworkers (
   nurse_name VARCHAR,
   type VARCHAR NOT NULL CHECK (type IN ('chw', 'nurse')),
   license_number VARCHAR,
+  location VARCHAR NOT NULL,
   created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
 );
 

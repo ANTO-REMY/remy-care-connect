@@ -33,6 +33,7 @@ class HealthWorker(db.Model):
     nurse_name = db.Column(db.String(128))
     type = db.Column(db.Enum('chw', 'nurse', name='healthworker_types'), nullable=False)
     license_number = db.Column(db.String(64), nullable=False)
+    location = db.Column(db.String(128), nullable=False)
     created_at = db.Column(db.DateTime, nullable=False)
 
 # Verification model: stores OTP codes for phone verification, linked to User if exists
