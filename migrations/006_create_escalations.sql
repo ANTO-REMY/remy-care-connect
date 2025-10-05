@@ -1,9 +1,9 @@
 -- Escalations (CHW escalates to Nurse)
 CREATE TABLE escalations (
   id SERIAL PRIMARY KEY,
-  chw_id INTEGER NOT NULL REFERENCES healthworkers(id) ON DELETE CASCADE,
+  chw_id INTEGER NOT NULL REFERENCES chws(id) ON DELETE CASCADE,
   chw_name VARCHAR NOT NULL,
-  nurse_id INTEGER NOT NULL REFERENCES healthworkers(id) ON DELETE CASCADE,
+  nurse_id INTEGER NOT NULL REFERENCES nurses(id) ON DELETE CASCADE,
   nurse_name VARCHAR NOT NULL,
   mother_id INTEGER REFERENCES mothers(id) ON DELETE CASCADE,
   mother_name VARCHAR NOT NULL,
@@ -22,17 +22,17 @@ CREATE INDEX IF NOT EXISTS idx_escalations_status ON escalations(status);
 -- Trigger function to ensure CHW and Nurse types
 CREATE OR REPLACE FUNCTION trg_escalations_validate() RETURNS TRIGGER AS $$
 DECLARE
-  ctype VARCHAR;
-  ntype VARCHAR;
+  chw_exists INTEGER;
+  nurse_exists INTEGER;
 BEGIN
-  SELECT type INTO ctype FROM healthworkers WHERE id = NEW.chw_id;
-  IF ctype IS NULL OR ctype <> 'chw' THEN
-    RAISE EXCEPTION 'Healthworker % is not a CHW', NEW.chw_id;
+  SELECT COUNT(*) INTO chw_exists FROM chws WHERE id = NEW.chw_id;
+  IF chw_exists = 0 THEN
+    RAISE EXCEPTION 'CHW % does not exist', NEW.chw_id;
   END IF;
 
-  SELECT type INTO ntype FROM healthworkers WHERE id = NEW.nurse_id;
-  IF ntype IS NULL OR ntype <> 'nurse' THEN
-    RAISE EXCEPTION 'Healthworker % is not a nurse', NEW.nurse_id;
+  SELECT COUNT(*) INTO nurse_exists FROM nurses WHERE id = NEW.nurse_id;
+  IF nurse_exists = 0 THEN
+    RAISE EXCEPTION 'Nurse % does not exist', NEW.nurse_id;
   END IF;
 
   RETURN NEW;

@@ -19,12 +19,16 @@ def create_app():
     migrate.init_app(app, db)
 
     from backend.routes_health import bp as health_bp
-    from backend.routes_auth import bp as auth_bp
+    from backend.auth import bp as auth_bp
     from backend.routes_mothers import bp as mothers_bp
     from backend.routes_verifications import bp as verifications_bp
+    from backend.routes_chws import bp as chws_bp
+    from backend.routes_nurses import bp as nurses_bp
     app.register_blueprint(health_bp, url_prefix='/api/v1')
     app.register_blueprint(auth_bp, url_prefix='/api/v1')
     app.register_blueprint(mothers_bp, url_prefix='/api/v1')
     app.register_blueprint(verifications_bp, url_prefix='/api/v1')
+    app.register_blueprint(chws_bp, url_prefix='/api/v1')
+    app.register_blueprint(nurses_bp, url_prefix='/api/v1')
 
     return app
