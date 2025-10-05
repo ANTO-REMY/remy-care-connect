@@ -142,9 +142,9 @@
               "raw": "{\n  \"full_name\": \"John Doe\",\n  \"phone\": \"+254700000001\",\n  \"license_number\": \"CHW-123\",\n  \"location\": \"Kisumu\",\n  \"pin\": \"4321\",\n  \"confirm_pin\": \"4321\"\n}"
             },
             "url": {
-              "raw": "{{base_url}}/api/v1/healthworkers/register",
+              "raw": "{{base_url}}/api/v1/chws/register",
               "host": ["{{base_url}}"],
-              "path": ["api", "v1", "healthworkers", "register"]
+              "path": ["api", "v1", "chws", "register"]
             }
           },
           "response": [
@@ -163,9 +163,9 @@
           "request": {
             "method": "GET",
             "url": {
-              "raw": "{{base_url}}/api/v1/healthworkers/:chw_id",
+              "raw": "{{base_url}}/api/v1/chws/:chw_id",
               "host": ["{{base_url}}"],
-              "path": ["api", "v1", "healthworkers", ":chw_id"],
+              "path": ["api", "v1", "chws", ":chw_id"],
               "variable": [{"key": "chw_id", "value": ""}]
             }
           },
@@ -192,9 +192,9 @@
               "raw": "{\n  \"full_name\": \"John Doe\",\n  \"license_number\": \"CHW-1234\",\n  \"location\": \"Kakamega\"\n}"
             },
             "url": {
-              "raw": "{{base_url}}/api/v1/healthworkers/:chw_id",
+              "raw": "{{base_url}}/api/v1/chws/:chw_id",
               "host": ["{{base_url}}"],
-              "path": ["api", "v1", "healthworkers", ":chw_id"],
+              "path": ["api", "v1", "chws", ":chw_id"],
               "variable": [{"key": "chw_id", "value": ""}]
             }
           },
@@ -214,9 +214,9 @@
           "request": {
             "method": "DELETE",
             "url": {
-              "raw": "{{base_url}}/api/v1/healthworkers/:chw_id",
+              "raw": "{{base_url}}/api/v1/chws/:chw_id",
               "host": ["{{base_url}}"],
-              "path": ["api", "v1", "healthworkers", ":chw_id"],
+              "path": ["api", "v1", "chws", ":chw_id"],
               "variable": [{"key": "chw_id", "value": ""}]
             }
           },
@@ -236,9 +236,9 @@
           "request": {
             "method": "GET",
             "url": {
-              "raw": "{{base_url}}/api/v1/healthworkers/:chw_id/mothers",
+              "raw": "{{base_url}}/api/v1/chws/:chw_id/mothers",
               "host": ["{{base_url}}"],
-              "path": ["api", "v1", "healthworkers", ":chw_id", "mothers"],
+              "path": ["api", "v1", "chws", ":chw_id", "mothers"],
               "variable": [{"key": "chw_id", "value": ""}]
             }
           },
@@ -265,9 +265,9 @@
               "raw": "{\n  \"mother_id\": 1,\n  \"case_description\": \"High blood pressure detected.\"\n}"
             },
             "url": {
-              "raw": "{{base_url}}/api/v1/healthworkers/:chw_id/escalate",
+              "raw": "{{base_url}}/api/v1/chws/:chw_id/escalate",
               "host": ["{{base_url}}"],
-              "path": ["api", "v1", "healthworkers", ":chw_id", "escalate"],
+              "path": ["api", "v1", "chws", ":chw_id", "escalate"],
               "variable": [{"key": "chw_id", "value": ""}]
             }
           },
@@ -287,9 +287,9 @@
           "request": {
             "method": "GET",
             "url": {
-              "raw": "{{base_url}}/api/v1/healthworkers/:chw_id/escalations",
+              "raw": "{{base_url}}/api/v1/chws/:chw_id/escalations",
               "host": ["{{base_url}}"],
-              "path": ["api", "v1", "healthworkers", ":chw_id", "escalations"],
+              "path": ["api", "v1", "chws", ":chw_id", "escalations"],
               "variable": [{"key": "chw_id", "value": ""}]
             }
           },
@@ -329,6 +329,133 @@
       ]
     },
     {
+      "name": "Nurse",
+      "item": [
+        {
+          "name": "Register Nurse",
+          "request": {
+            "method": "POST",
+            "header": [
+              { "key": "Content-Type", "value": "application/json" }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"full_name\": \"Jane Nurse\",\n  \"phone\": \"+254700000002\",\n  \"license_number\": \"NURSE-456\",\n  \"location\": \"Nairobi\",\n  \"pin\": \"5678\",\n  \"confirm_pin\": \"5678\"\n}"
+            },
+            "url": {
+              "raw": "{{base_url}}/api/v1/nurses/register",
+              "host": ["{{base_url}}"],
+              "path": ["api", "v1", "nurses", "register"]
+            }
+          },
+          "response": [
+            {
+              "name": "Success",
+              "originalRequest": {},
+              "status": "Created",
+              "code": 201,
+              "body": "{\n  \"message\": \"Nurse registered successfully\",\n  \"nurse_id\": 1\n}",
+              "header": []
+            }
+          ]
+        },
+        {
+          "name": "Get Nurse Profile",
+          "request": {
+            "method": "GET",
+            "url": {
+              "raw": "{{base_url}}/api/v1/nurses/:nurse_id",
+              "host": ["{{base_url}}"],
+              "path": ["api", "v1", "nurses", ":nurse_id"],
+              "variable": [{"key": "nurse_id", "value": ""}]
+            }
+          },
+          "response": [
+            {
+              "name": "Success",
+              "originalRequest": {},
+              "status": "OK",
+              "code": 200,
+              "body": "{\n  \"nurse_id\": 1,\n  \"user_id\": 2,\n  \"name\": \"Jane Nurse\",\n  \"phone\": \"+254700000002\",\n  \"license_number\": \"NURSE-456\",\n  \"location\": \"Nairobi\",\n  \"created_at\": \"2025-10-04T21:00:00Z\"\n}",
+              "header": []
+            }
+          ]
+        },
+        {
+          "name": "Update Nurse Profile",
+          "request": {
+            "method": "PUT",
+            "header": [
+              { "key": "Content-Type", "value": "application/json" }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"full_name\": \"Jane Nurse\",\n  \"license_number\": \"NURSE-4567\",\n  \"location\": \"Mombasa\"\n}"
+            },
+            "url": {
+              "raw": "{{base_url}}/api/v1/nurses/:nurse_id",
+              "host": ["{{base_url}}"],
+              "path": ["api", "v1", "nurses", ":nurse_id"],
+              "variable": [{"key": "nurse_id", "value": ""}]
+            }
+          },
+          "response": [
+            {
+              "name": "Success",
+              "originalRequest": {},
+              "status": "OK",
+              "code": 200,
+              "body": "{\n  \"message\": \"Nurse profile updated successfully.\"\n}",
+              "header": []
+            }
+          ]
+        },
+        {
+          "name": "Delete Nurse Profile",
+          "request": {
+            "method": "DELETE",
+            "url": {
+              "raw": "{{base_url}}/api/v1/nurses/:nurse_id",
+              "host": ["{{base_url}}"],
+              "path": ["api", "v1", "nurses", ":nurse_id"],
+              "variable": [{"key": "nurse_id", "value": ""}]
+            }
+          },
+          "response": [
+            {
+              "name": "Success",
+              "originalRequest": {},
+              "status": "OK",
+              "code": 200,
+              "body": "{\n  \"message\": \"Nurse profile deleted successfully.\"\n}",
+              "header": []
+            }
+          ]
+        },
+        {
+          "name": "List Nurses",
+          "request": {
+            "method": "GET",
+            "url": {
+              "raw": "{{base_url}}/api/v1/nurses",
+              "host": ["{{base_url}}"],
+              "path": ["api", "v1", "nurses"]
+            }
+          },
+          "response": [
+            {
+              "name": "Success",
+              "originalRequest": {},
+              "status": "OK",
+              "code": 200,
+              "body": "{\n  \"nurses\": [\n    {\n      \"nurse_id\": 1,\n      \"user_id\": 2,\n      \"name\": \"Jane Nurse\",\n      \"phone\": \"+254700000002\",\n      \"license_number\": \"NURSE-456\",\n      \"location\": \"Nairobi\",\n      \"created_at\": \"2025-10-04T21:00:00Z\"\n    }\n  ]\n}",
+              "header": []
+            }
+          ]
+        }
+      ]
+    },
+    {
       "name": "Mother Profile",
       "item": [
         {
@@ -349,7 +476,9 @@
           "name": "Update Mother Profile",
           "request": {
             "method": "PUT",
-            "header": [],
+            "header": [
+              { "key": "Content-Type", "value": "application/json" }
+            ],
             "body": {
               "mode": "raw",
               "raw": "{\n  \"full_name\": \"Jane Doe\",\n  \"dob\": \"1990-01-01\",\n  \"due_date\": \"2025-12-01\",\n  \"location\": \"Nairobi\"\n}",

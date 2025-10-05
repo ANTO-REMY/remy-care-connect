@@ -11,7 +11,8 @@ class User(db.Model):
     created_at = db.Column(db.DateTime, nullable=False)
     updated_at = db.Column(db.DateTime, nullable=False)
     mother = db.relationship('Mother', backref='user', uselist=False)
-    healthworker = db.relationship('HealthWorker', backref='user', uselist=False)
+    chw = db.relationship('CHW', backref='user', uselist=False)
+    nurse = db.relationship('Nurse', backref='user', uselist=False)
 
 # Mother model: profile and demographic info for mothers, linked to User
 class Mother(db.Model):
@@ -24,14 +25,22 @@ class Mother(db.Model):
     location = db.Column(db.String(128), nullable=False)
     created_at = db.Column(db.DateTime, nullable=False)
 
-# HealthWorker model: profile for CHWs and nurses, linked to User
-class HealthWorker(db.Model):
-    __tablename__ = 'healthworkers'
+# CHW model: profile for community health workers, linked to User
+class CHW(db.Model):
+    __tablename__ = 'chws'
     id = db.Column(db.Integer, primary_key=True)
-    user_id = db.Column(db.Integer, db.ForeignKey('users.id'), nullable=False)
-    chw_name = db.Column(db.String(128))
-    nurse_name = db.Column(db.String(128))
-    type = db.Column(db.Enum('chw', 'nurse', name='healthworker_types'), nullable=False)
+    user_id = db.Column(db.Integer, db.ForeignKey('users.id'), unique=True, nullable=False)
+    chw_name = db.Column(db.String(128), nullable=False)
+    license_number = db.Column(db.String(64), nullable=False)
+    location = db.Column(db.String(128), nullable=False)
+    created_at = db.Column(db.DateTime, nullable=False)
+
+# Nurse model: profile for nurses, linked to User
+class Nurse(db.Model):
+    __tablename__ = 'nurses'
+    id = db.Column(db.Integer, primary_key=True)
+    user_id = db.Column(db.Integer, db.ForeignKey('users.id'), unique=True, nullable=False)
+    nurse_name = db.Column(db.String(128), nullable=False)
     license_number = db.Column(db.String(64), nullable=False)
     location = db.Column(db.String(128), nullable=False)
     created_at = db.Column(db.DateTime, nullable=False)
