@@ -16,6 +16,9 @@ def register_nurse():
         if not data.get(field):
             logging.error(f"[NURSE REGISTER] Missing field: {field}")
             return jsonify({"error": f"{field} is required."}), 400
+    if data['location'] not in ['Nairobi', 'Kiambu']:
+        logging.error(f"[NURSE REGISTER] Invalid location: {data['location']}")
+        return jsonify({"error": "Location must be either 'Nairobi' or 'Kiambu'."}), 400
     if User.query.filter_by(phone_number=data['phone']).first():
         logging.error(f"[NURSE REGISTER] Phone number already registered: {data['phone']}")
         return jsonify({"error": "Phone number already registered."}), 409
