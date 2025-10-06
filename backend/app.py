@@ -24,11 +24,15 @@ def create_app():
     from backend.routes_verifications import bp as verifications_bp
     from backend.routes_chws import bp as chws_bp
     from backend.routes_nurses import bp as nurses_bp
+    from backend.routes_materials import bp as materials_bp
+    from backend.routes_assignment import bp as assignment_bp
     app.register_blueprint(health_bp, url_prefix='/api/v1')
     app.register_blueprint(auth_bp, url_prefix='/api/v1')
     app.register_blueprint(mothers_bp, url_prefix='/api/v1')
     app.register_blueprint(verifications_bp, url_prefix='/api/v1')
     app.register_blueprint(chws_bp, url_prefix='/api/v1')
     app.register_blueprint(nurses_bp, url_prefix='/api/v1')
+    app.register_blueprint(materials_bp, url_prefix='/api/v1')
+    app.register_blueprint(assignment_bp, url_prefix='/api/v1')
 
     return app
