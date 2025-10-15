@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { Users, AlertTriangle, MessageCircle, Phone, Upload, Calendar, CheckCircle, X } from "lucide-react";
+import { Users, AlertTriangle, MessageCircle, Phone, Upload, Calendar, CheckCircle, X, User, LogOut } from "lucide-react";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
@@ -7,15 +7,21 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Textarea } from "@/components/ui/textarea";
+import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuLabel, DropdownMenuSeparator, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
+import { Avatar, AvatarFallback } from "@/components/ui/avatar";
 import { mockMothers, mockCHWs, currentUser } from "@/data/mockData";
 import { useToast } from "@/hooks/use-toast";
+import { useAuth } from "@/contexts/AuthContext";
+import { CHWProfile } from "./CHWProfile";
 
 export function CHWDashboard() {
+  const { user, logout } = useAuth();
   const [showIssuesOnly, setShowIssuesOnly] = useState(false);
   const [escalationModal, setEscalationModal] = useState(false);
   const [selectedMother, setSelectedMother] = useState<string>("");
   const [issueType, setIssueType] = useState<string>("");
   const [issueDescription, setIssueDescription] = useState("");
+  const [showProfile, setShowProfile] = useState(false);
   const { toast } = useToast();
 
   // For demo, using first CHW
@@ -77,8 +83,61 @@ export function CHWDashboard() {
     setIssueDescription("");
   };
 
+  if (showProfile) {
+    return <CHWProfile onBack={() => setShowProfile(false)} />;
+  }
+
+  const handleLogout = () => {
+    logout();
+    window.location.href = '/';
+  };
+
+  const getInitials = (name: string) => {
+    return name
+      .split(' ')
+      .map(n => n[0])
+      .join('')
+      .toUpperCase()
+      .substring(0, 2);
+  };
+
   return (
     <div className="space-y-6">
+      {/* Profile and Logout */}
+      <div className="fixed top-4 right-4 z-50">
+        <DropdownMenu>
+          <DropdownMenuTrigger asChild>
+            <Button variant="ghost" className="relative h-10 w-10 rounded-full bg-white shadow-md hover:shadow-lg">
+              <Avatar className="h-10 w-10">
+                <AvatarFallback className="bg-primary text-primary-foreground">
+                  {getInitials(user?.name || 'U')}
+                </AvatarFallback>
+              </Avatar>
+            </Button>
+          </DropdownMenuTrigger>
+          <DropdownMenuContent className="w-56" align="end" forceMount>
+            <DropdownMenuLabel className="font-normal">
+              <div className="flex flex-col space-y-1">
+                <p className="text-sm font-medium leading-none">{user?.name}</p>
+                <p className="text-xs leading-none text-muted-foreground">
+                  {user?.phone}
+                </p>
+              </div>
+            </DropdownMenuLabel>
+            <DropdownMenuSeparator />
+            <DropdownMenuItem onClick={() => setShowProfile(true)}>
+              <User className="mr-2 h-4 w-4" />
+              <span>Profile</span>
+            </DropdownMenuItem>
+            <DropdownMenuSeparator />
+            <DropdownMenuItem onClick={handleLogout}>
+              <LogOut className="mr-2 h-4 w-4" />
+              <span>Log out</span>
+            </DropdownMenuItem>
+          </DropdownMenuContent>
+        </DropdownMenu>
+      </div>
+
       {/* Header */}
       <Card className="bg-gradient-to-r from-primary to-primary/80 text-primary-foreground">
         <CardHeader>

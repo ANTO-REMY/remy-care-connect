@@ -7,6 +7,7 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from '@/components/ui/dialog';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { useAuth } from '@/contexts/AuthContext';
 import { useToast } from '@/hooks/use-toast';
 import VerifyOTPModal from '@/components/VerifyOTPModal';
@@ -252,17 +253,16 @@ export default function RegisterHealthWorker() {
               <div className="space-y-2">
                 <Label htmlFor="location">Work Location *</Label>
                 <div className="relative">
-                  <MapPin className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-muted-foreground" />
-                  <Input
-                    id="location"
-                    name="location"
-                    type="text"
-                    placeholder="Health facility or area"
-                    value={formData.location}
-                    onChange={handleInputChange}
-                    className="pl-10"
-                    required
-                  />
+                  <MapPin className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-muted-foreground z-10" />
+                  <Select value={formData.location} onValueChange={(value) => setFormData({ ...formData, location: value })} required>
+                    <SelectTrigger className="pl-10">
+                      <SelectValue placeholder="Select work location" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="Nairobi">Nairobi</SelectItem>
+                      <SelectItem value="Kisumu">Kisumu</SelectItem>
+                    </SelectContent>
+                  </Select>
                 </div>
               </div>
 

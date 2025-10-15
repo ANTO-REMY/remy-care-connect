@@ -1,14 +1,20 @@
 import { useState } from "react";
-import { Baby, MessageCircle, Phone, AlertCircle, BookOpen, CheckCircle, X } from "lucide-react";
+import { Baby, MessageCircle, Phone, AlertCircle, BookOpen, CheckCircle, X, User, LogOut } from "lucide-react";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
+import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuLabel, DropdownMenuSeparator, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
+import { Avatar, AvatarFallback } from "@/components/ui/avatar";
 import { currentUser, mockMothers, mockCHWs, weeklyTips } from "@/data/mockData";
+import { useAuth } from "@/contexts/AuthContext";
+import { MotherProfile } from "./MotherProfile";
 
 export function MotherDashboard() {
+  const { user, logout } = useAuth();
   const [showCheckInModal, setShowCheckInModal] = useState(false);
   const [checkInResponse, setCheckInResponse] = useState<'ok' | 'not_ok' | null>(null);
+  const [showProfile, setShowProfile] = useState(false);
   
   const mother = mockMothers.find(m => m.id === currentUser.id);
   const chw = mockCHWs.find(c => c.id === mother?.assignedCHW);
@@ -29,8 +35,61 @@ export function MotherDashboard() {
     window.open(`sms:${phone}`, '_blank');
   };
 
+  if (showProfile) {
+    return <MotherProfile onBack={() => setShowProfile(false)} />;
+  }
+
+  const handleLogout = () => {
+    logout();
+    window.location.href = '/';
+  };
+
+  const getInitials = (name: string) => {
+    return name
+      .split(' ')
+      .map(n => n[0])
+      .join('')
+      .toUpperCase()
+      .substring(0, 2);
+  };
+
   return (
     <div className="space-y-4 sm:space-y-6">
+      {/* Profile and Logout */}
+      <div className="fixed top-4 right-4 z-50">
+        <DropdownMenu>
+          <DropdownMenuTrigger asChild>
+            <Button variant="ghost" className="relative h-10 w-10 rounded-full bg-white shadow-md hover:shadow-lg">
+              <Avatar className="h-10 w-10">
+                <AvatarFallback className="bg-primary text-primary-foreground">
+                  {getInitials(user?.name || 'U')}
+                </AvatarFallback>
+              </Avatar>
+            </Button>
+          </DropdownMenuTrigger>
+          <DropdownMenuContent className="w-56" align="end" forceMount>
+            <DropdownMenuLabel className="font-normal">
+              <div className="flex flex-col space-y-1">
+                <p className="text-sm font-medium leading-none">{user?.name}</p>
+                <p className="text-xs leading-none text-muted-foreground">
+                  {user?.phone}
+                </p>
+              </div>
+            </DropdownMenuLabel>
+            <DropdownMenuSeparator />
+            <DropdownMenuItem onClick={() => setShowProfile(true)}>
+              <User className="mr-2 h-4 w-4" />
+              <span>Profile</span>
+            </DropdownMenuItem>
+            <DropdownMenuSeparator />
+            <DropdownMenuItem onClick={handleLogout}>
+              <LogOut className="mr-2 h-4 w-4" />
+              <span>Log out</span>
+            </DropdownMenuItem>
+          </DropdownMenuContent>
+        </DropdownMenu>
+      </div>
+
       {/* Welcome Banner */}
       <Card className="bg-gradient-to-r from-primary to-primary/80 text-primary-foreground">
         <CardHeader className="p-4 sm:p-6">
