@@ -108,3 +108,15 @@ class DietaryRecommendation(db.Model):
     is_active = db.Column(db.Boolean, nullable=False, default=True)
     created_at = db.Column(db.DateTime, nullable=False)
     updated_at = db.Column(db.DateTime, nullable=False)
+
+# NextOfKin model: stores next of kin for mothers
+class NextOfKin(db.Model):
+    __tablename__ = 'next_of_kin'
+    id = db.Column(db.Integer, primary_key=True)
+    user_id = db.Column(db.Integer, db.ForeignKey('mothers.id'), nullable=False)
+    mother_name = db.Column(db.String(128), nullable=False)
+    name = db.Column(db.String(255), nullable=False)
+    phone = db.Column(db.String(32), nullable=False)
+    sex = db.Column(db.String(8), nullable=False)
+    relationship = db.Column(db.String(64), nullable=False)
+    created_at = db.Column(db.DateTime, nullable=False)

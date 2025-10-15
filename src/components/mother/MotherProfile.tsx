@@ -7,6 +7,7 @@ import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { useAuth } from "@/contexts/AuthContext";
 import { useToast } from "@/hooks/use-toast";
+import { NextOfKinSection } from "./NextOfKinSection";
 
 interface MotherProfileProps {
   onBack?: () => void;
@@ -24,6 +25,11 @@ export function MotherProfile({ onBack }: MotherProfileProps) {
     weeksPregnant: user?.weeksPregnant?.toString() || '',
   });
 
+  const [nextOfKin, setNextOfKin] = useState([
+    (user?.nextOfKin && user.nextOfKin[0]) || { name: '', phone: '', sex: '', relationship: '' },
+    (user?.nextOfKin && user.nextOfKin[1]) || { name: '', phone: '', sex: '', relationship: '' },
+  ]);
+
   const handleInputChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     setFormData({
       ...formData,
@@ -32,11 +38,20 @@ export function MotherProfile({ onBack }: MotherProfileProps) {
   };
 
   const handleSave = () => {
+    // Validate at least one next of kin is filled (required fields)
+    if (!nextOfKin[0].name || !nextOfKin[0].phone || !nextOfKin[0].sex || !nextOfKin[0].relationship) {
+      toast({
+        title: "Next of Kin Required",
+        description: "Please fill all required fields for the first Next of Kin.",
+        variant: "destructive",
+      });
+      return;
+    }
     const users = JSON.parse(localStorage.getItem('remyafya_users') || '[]');
     const userIndex = users.findIndex((u: any) => u.id === user?.id);
 
     if (userIndex !== -1) {
-      users[userIndex] = { ...users[userIndex], ...formData };
+      users[userIndex] = { ...users[userIndex], ...formData, nextOfKin };
       localStorage.setItem('remyafya_users', JSON.stringify(users));
 
       const updatedUser = { ...users[userIndex] };
@@ -61,6 +76,10 @@ export function MotherProfile({ onBack }: MotherProfileProps) {
       dueDate: user?.dueDate || '',
       weeksPregnant: user?.weeksPregnant?.toString() || '',
     });
+    setNextOfKin([
+      (user?.nextOfKin && user.nextOfKin[0]) || { name: '', phone: '', sex: '', relationship: '' },
+      (user?.nextOfKin && user.nextOfKin[1]) || { name: '', phone: '', sex: '', relationship: '' },
+    ]);
     setIsEditing(false);
   };
 
@@ -180,21 +199,24 @@ export function MotherProfile({ onBack }: MotherProfileProps) {
               disabled={!isEditing}
             />
           </div>
-
-          {isEditing && (
-            <div className="flex flex-col sm:flex-row gap-2 pt-4">
-              <Button onClick={handleSave} className="flex-1">
-                <Save className="h-4 w-4 mr-2" />
-                Save Changes
-              </Button>
-              <Button onClick={handleCancel} variant="outline" className="flex-1">
-                <X className="h-4 w-4 mr-2" />
-                Cancel
-              </Button>
-            </div>
-          )}
         </CardContent>
       </Card>
+
+      {/* Next of Kin Section */}
+      <NextOfKinSection kin={nextOfKin} isEditing={isEditing} onChange={setNextOfKin} />
+
+      {isEditing && (
+        <div className="flex flex-col sm:flex-row gap-2 pt-4">
+          <Button onClick={handleSave} className="flex-1">
+            <Save className="h-4 w-4 mr-2" />
+            Save Changes
+          </Button>
+          <Button onClick={handleCancel} variant="outline" className="flex-1">
+            <X className="h-4 w-4 mr-2" />
+            Cancel
+          </Button>
+        </div>
+      )}
     </div>
   );
 }

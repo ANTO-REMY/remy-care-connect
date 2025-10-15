@@ -26,6 +26,7 @@ def create_app():
     from backend.routes_nurses import bp as nurses_bp
     from backend.routes_materials import bp as materials_bp
     from backend.routes_assignment import bp as assignment_bp
+    from backend.routes_nextofkin import bp as nextofkin_bp
     app.register_blueprint(health_bp, url_prefix='/api/v1')
     app.register_blueprint(auth_bp, url_prefix='/api/v1')
     app.register_blueprint(mothers_bp, url_prefix='/api/v1')
@@ -34,5 +35,6 @@ def create_app():
     app.register_blueprint(nurses_bp, url_prefix='/api/v1')
     app.register_blueprint(materials_bp, url_prefix='/api/v1')
     app.register_blueprint(assignment_bp, url_prefix='/api/v1')
+    app.register_blueprint(nextofkin_bp, url_prefix='/api/v1')
 
     return app

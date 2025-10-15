@@ -1,4 +1,5 @@
 export interface Mother {
+  nextOfKin: any;
   id: string;
   name: string;
   phone: string;

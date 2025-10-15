@@ -1,6 +1,7 @@
 import React, { createContext, useContext, useState, useEffect } from 'react';
 
 interface User {
+  nextOfKin: any;
   id: string;
   name: string;
   phone: string;

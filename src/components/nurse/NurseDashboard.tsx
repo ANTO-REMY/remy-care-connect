@@ -72,56 +72,53 @@ export function NurseDashboard() {
   };
 
   return (
-    <div className="space-y-6">
-      {/* Profile and Logout */}
-      <div className="fixed top-4 right-4 z-50">
-        <DropdownMenu>
-          <DropdownMenuTrigger asChild>
-            <Button variant="ghost" className="relative h-10 w-10 rounded-full bg-white shadow-md hover:shadow-lg">
-              <Avatar className="h-10 w-10">
-                <AvatarFallback className="bg-primary text-primary-foreground">
-                  {getInitials(user?.name || 'U')}
-                </AvatarFallback>
-              </Avatar>
-            </Button>
-          </DropdownMenuTrigger>
-          <DropdownMenuContent className="w-56" align="end" forceMount>
-            <DropdownMenuLabel className="font-normal">
-              <div className="flex flex-col space-y-1">
-                <p className="text-sm font-medium leading-none">{user?.name}</p>
-                <p className="text-xs leading-none text-muted-foreground">
-                  {user?.phone}
-                </p>
-              </div>
-            </DropdownMenuLabel>
-            <DropdownMenuSeparator />
-            <DropdownMenuItem onClick={() => setShowProfile(true)}>
-              <User className="mr-2 h-4 w-4" />
-              <span>Profile</span>
-            </DropdownMenuItem>
-            <DropdownMenuSeparator />
-            <DropdownMenuItem onClick={handleLogout}>
-              <LogOut className="mr-2 h-4 w-4" />
-              <span>Log out</span>
-            </DropdownMenuItem>
-          </DropdownMenuContent>
-        </DropdownMenu>
-      </div>
-
-      {/* Header */}
-      <Card className="bg-gradient-to-r from-primary to-primary/80 text-primary-foreground">
-        <CardHeader>
+    <div className="min-h-screen bg-background">
+      <div className="relative w-full">
+        <div className="w-full bg-gradient-to-r from-primary to-primary/80 text-primary-foreground rounded-t-none shadow-sm flex items-center justify-between px-4 sm:px-6 py-4 sm:py-6" style={{marginTop:0, borderTopLeftRadius:0, borderTopRightRadius:0}}>
           <div className="flex items-center gap-3">
             <AlertTriangle className="h-8 w-8" />
-            <div>
-              <CardTitle className="text-2xl">Nurse Supervisor Dashboard</CardTitle>
-              <CardDescription className="text-primary-foreground/80">
+            <div className="min-w-0">
+              <div className="text-2xl font-semibold">Nurse Supervisor Dashboard</div>
+              <div className="text-primary-foreground/80">
                 Monitor critical cases and support CHWs
-              </CardDescription>
+              </div>
             </div>
           </div>
-        </CardHeader>
-      </Card>
+          <div className="flex items-center">
+            <DropdownMenu>
+              <DropdownMenuTrigger asChild>
+                <Button variant="ghost" className="relative h-14 w-14 rounded-full bg-white shadow-md hover:shadow-lg">
+                  <Avatar className="h-14 w-14">
+                    <AvatarFallback className="bg-primary text-primary-foreground text-xl">
+                      {getInitials(user?.name || 'U')}
+                    </AvatarFallback>
+                  </Avatar>
+                </Button>
+              </DropdownMenuTrigger>
+              <DropdownMenuContent className="w-56" align="end" forceMount>
+                <DropdownMenuLabel className="font-normal">
+                  <div className="flex flex-col space-y-1">
+                    <p className="text-sm font-medium leading-none">{user?.name}</p>
+                    <p className="text-xs leading-none text-muted-foreground">
+                      {user?.phone}
+                    </p>
+                  </div>
+                </DropdownMenuLabel>
+                <DropdownMenuSeparator />
+                <DropdownMenuItem onClick={() => setShowProfile(true)}>
+                  <User className="mr-2 h-4 w-4" />
+                  <span>Profile</span>
+                </DropdownMenuItem>
+                <DropdownMenuSeparator />
+                <DropdownMenuItem onClick={handleLogout}>
+                  <LogOut className="mr-2 h-4 w-4" />
+                  <span>Log out</span>
+                </DropdownMenuItem>
+              </DropdownMenuContent>
+            </DropdownMenu>
+          </div>
+        </div>
+      </div>
 
       {/* Stats Overview */}
       <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 sm:gap-4">
