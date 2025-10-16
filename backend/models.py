@@ -1,4 +1,4 @@
-from .app import db
+from app import db
 
 # User model: stores all users (mothers, CHWs, nurses) with authentication info
 class User(db.Model):
@@ -8,11 +8,27 @@ class User(db.Model):
     name = db.Column(db.String(128), nullable=False)
     pin_hash = db.Column(db.String(128), nullable=False)
     role = db.Column(db.Enum('mother', 'chw', 'nurse', name='user_roles'), nullable=False)
+    is_verified = db.Column(db.Boolean, default=False, nullable=False)
+    is_active = db.Column(db.Boolean, default=True, nullable=False)
     created_at = db.Column(db.DateTime, nullable=False)
     updated_at = db.Column(db.DateTime, nullable=False)
     mother = db.relationship('Mother', backref='user', uselist=False)
     chw = db.relationship('CHW', backref='user', uselist=False)
     nurse = db.relationship('Nurse', backref='user', uselist=False)
+
+# UserSession model: stores active sessions for hybrid authentication
+class UserSession(db.Model):
+    __tablename__ = 'user_sessions'
+    id = db.Column(db.Integer, primary_key=True)
+    user_id = db.Column(db.Integer, db.ForeignKey('users.id'), nullable=False)
+    session_token = db.Column(db.String(255), unique=True, nullable=False)
+    device_info = db.Column(db.String(255))
+    ip_address = db.Column(db.String(45))
+    is_active = db.Column(db.Boolean, default=True, nullable=False)
+    created_at = db.Column(db.DateTime, nullable=False)
+    expires_at = db.Column(db.DateTime, nullable=False)
+    last_activity = db.Column(db.DateTime, nullable=False)
+    user = db.relationship('User', backref='sessions')
 
 # Mother model: profile and demographic info for mothers, linked to User
 class Mother(db.Model):

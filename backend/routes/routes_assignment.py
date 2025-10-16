@@ -1,6 +1,6 @@
 from flask import Blueprint, jsonify, request
-from .models import db, CHW, Mother, User
-from .models_standard import MotherCHWAssignment
+from models import db, CHW, Mother, User
+from models_standard import MotherCHWAssignment
 
 bp = Blueprint('assignment', __name__)
 

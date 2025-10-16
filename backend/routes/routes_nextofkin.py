@@ -1,5 +1,5 @@
 from flask import Blueprint, request, jsonify
-from .models import db, NextOfKin, Mother
+from models import db, NextOfKin, Mother
 from datetime import datetime
 
 bp = Blueprint('nextofkin', __name__)

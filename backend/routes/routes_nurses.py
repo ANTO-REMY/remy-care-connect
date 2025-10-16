@@ -1,7 +1,7 @@
 from flask import Blueprint, request, jsonify
-from .models import db, User, Nurse
+from models import db, User, Nurse
+from auth_utils import require_auth, require_role, get_current_user
 from datetime import datetime
-import hashlib
 
 bp = Blueprint('nurses', __name__)
 

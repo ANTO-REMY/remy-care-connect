@@ -1,4 +1,4 @@
-from .app import db
+from app import db
 
 class MotherCHWAssignment(db.Model):
     __tablename__ = 'mother_chw_assignments'
