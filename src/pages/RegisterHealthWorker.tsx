@@ -11,6 +11,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { useAuth } from '@/contexts/AuthContext';
 import { useToast } from '@/hooks/use-toast';
 import VerifyOTPModal from '@/components/VerifyOTPModal';
+import { normalizePhoneNumber, validatePhoneNumber } from '@/lib/utils';
 
 export default function RegisterHealthWorker() {
   const navigate = useNavigate();
@@ -63,6 +64,17 @@ export default function RegisterHealthWorker() {
       return;
     }
 
+    const normalizedPhone = normalizePhoneNumber(formData.phone);
+    if (!validatePhoneNumber(normalizedPhone)) {
+      toast({
+        title: "Invalid phone number",
+        description: "Please enter a valid Kenyan phone number (e.g., 0712345678)",
+        variant: "destructive"
+      });
+      setIsLoading(false);
+      return;
+    }
+
     if (formData.pin !== formData.confirmPin) {
       toast({
         title: "PIN Mismatch",
@@ -75,7 +87,7 @@ export default function RegisterHealthWorker() {
 
     try {
       const result = await register({
-        phone_number: formData.phone,
+        phone_number: normalizedPhone,
         name: formData.fullName,
         pin: formData.pin,
         role: selectedRole
@@ -159,10 +171,10 @@ export default function RegisterHealthWorker() {
         <VerifyOTPModal
           open={showVerify}
           onOpenChange={setShowVerify}
-          phoneNumber={formData.phone}
+          phoneNumber={normalizePhoneNumber(formData.phone)}
           onSubmit={async (otp) => {
             try {
-              const success = await verifyOTP(formData.phone, otp);
+              const success = await verifyOTP(normalizePhoneNumber(formData.phone), otp);
               return success;
             } catch (error) {
               return false;
@@ -235,14 +247,14 @@ export default function RegisterHealthWorker() {
 
               {/* Phone Number */}
               <div className="space-y-2">
-                <Label htmlFor="phone">Phone Number *</Label>
+                <Label htmlFor="phone">Phone Number (07xxxxxxxx) *</Label>
                 <div className="relative">
                   <Phone className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-muted-foreground" />
                   <Input
                     id="phone"
                     name="phone"
                     type="tel"
-                    placeholder="+254 123 456 789"
+                    placeholder="0712345678"
                     value={formData.phone}
                     onChange={handleInputChange}
                     className="pl-10"

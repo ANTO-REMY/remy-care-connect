@@ -170,14 +170,14 @@ export default function RegisterMother() {
 
               {/* Phone Number */}
               <div className="space-y-2">
-                <Label htmlFor="phone">Phone Number *</Label>
+                <Label htmlFor="phone">Phone Number (07xxxxxxxx) *</Label>
                 <div className="relative">
                   <Phone className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-muted-foreground" />
                   <Input
                     id="phone"
                     name="phone"
                     type="tel"
-                    placeholder="+254 123 456 789"
+                    placeholder="0712345678"
                     value={formData.phone}
                     onChange={handleInputChange}
                     className="pl-10"

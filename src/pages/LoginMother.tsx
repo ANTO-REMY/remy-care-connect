@@ -37,19 +37,27 @@ export default function LoginMother() {
       return;
     }
 
-    // Basic phone number validation
-    if (!formData.phone.startsWith('+') || formData.phone.length < 10) {
+    // Phone number validation and normalization
+    console.log('🔍 Validating phone:', formData.phone);
+    const normalizedPhone = normalizePhoneNumber(formData.phone);
+    console.log('📞 Normalized phone:', normalizedPhone);
+    
+    if (!validatePhoneNumber(formData.phone)) {
+      console.log('❌ Phone validation failed for:', formData.phone);
       toast({
-        title: "Invalid Phone Number",
-        description: "Phone number must include country code (e.g., +254...)",
+        title: "Invalid phone number",
+        description: "Please enter phone number in 07xxxxxxxx format (e.g., 0712345678)",
         variant: "destructive"
       });
       setIsLoading(false);
       return;
     }
+    
+    console.log('✅ Phone validation passed');
 
     // PIN validation
     if (formData.pin.length < 4 || formData.pin.length > 6 || !/^\d+$/.test(formData.pin)) {
+      console.log('❌ PIN validation failed for:', formData.pin);
       toast({
         title: "Invalid PIN",
         description: "PIN must be 4-6 digits",
@@ -58,10 +66,12 @@ export default function LoginMother() {
       setIsLoading(false);
       return;
     }
+    
+    console.log('✅ PIN validation passed');
 
     try {
       console.log('🔑 Starting login process...');
-      const result = await login(formData.phone, formData.pin);
+      const result = await login(normalizedPhone, formData.pin);
       console.log('📋 Login result:', result);
       
       if (result.success) {
@@ -130,14 +140,14 @@ export default function LoginMother() {
             <form onSubmit={handleSubmit} className="space-y-4">
               {/* Phone Number */}
               <div className="space-y-2">
-                <Label htmlFor="phone">Phone Number</Label>
+                <Label htmlFor="phone">Phone Number (07xxxxxxxx) *</Label>
                 <div className="relative">
                   <Phone className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-muted-foreground" />
                   <Input
                     id="phone"
                     name="phone"
                     type="tel"
-                    placeholder="+254 123 456 789"
+                    placeholder="0712345678"
                     value={formData.phone}
                     onChange={handleInputChange}
                     className="pl-10"

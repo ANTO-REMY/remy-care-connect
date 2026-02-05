@@ -8,6 +8,7 @@ import { Label } from '@/components/ui/label';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { useAuth } from '@/contexts/AuthContext';
 import { useToast } from '@/hooks/use-toast';
+import { normalizePhoneNumber, validatePhoneNumber } from '@/lib/utils';
 
 export default function LoginCHW() {
   const navigate = useNavigate();
@@ -37,8 +38,20 @@ export default function LoginCHW() {
       return;
     }
 
+    // Phone number validation and normalization
+    const normalizedPhone = normalizePhoneNumber(formData.phone);
+    if (!validatePhoneNumber(formData.phone)) {
+      toast({
+        title: "Invalid phone number",
+        description: "Please enter phone number in 07xxxxxxxx format (e.g., 0712345678)",
+        variant: "destructive"
+      });
+      setIsLoading(false);
+      return;
+    }
+
     try {
-      const result = await login(formData.phone, formData.pin);
+      const result = await login(normalizedPhone, formData.pin);
       
       if (result.success) {
         toast({
@@ -99,14 +112,14 @@ export default function LoginCHW() {
             <form onSubmit={handleSubmit} className="space-y-4">
               {/* Phone Number */}
               <div className="space-y-2">
-                <Label htmlFor="phone">Phone Number</Label>
+                <Label htmlFor="phone">Phone Number (07xxxxxxxx) *</Label>
                 <div className="relative">
                   <Phone className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-muted-foreground" />
                   <Input
                     id="phone"
                     name="phone"
                     type="tel"
-                    placeholder="+254 123 456 789"
+                    placeholder="0712345678"
                     value={formData.phone}
                     onChange={handleInputChange}
                     className="pl-10"
