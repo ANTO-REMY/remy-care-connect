@@ -38,9 +38,9 @@ export default function LoginCHW() {
     }
 
     try {
-      const success = await login(formData.phone, formData.pin);
+      const result = await login(formData.phone, formData.pin);
       
-      if (success) {
+      if (result.success) {
         toast({
           title: "Welcome back!",
           description: "You've successfully logged in.",
@@ -49,7 +49,7 @@ export default function LoginCHW() {
       } else {
         toast({
           title: "Login Failed",
-          description: "Invalid phone number or password.",
+          description: result.error || "Invalid phone number or password.",
           variant: "destructive"
         });
       }
@@ -144,15 +144,7 @@ export default function LoginCHW() {
           </CardContent>
         </Card>
 
-        {/* Quick Login for Demo */}
-        <div className="mt-4 p-3 bg-muted/50 rounded-lg border border-dashed border-muted-foreground/30">
-          <p className="text-xs text-muted-foreground text-center mb-2">
-            Demo Mode - Quick Login Options:
-          </p>
-          <div className="space-y-1 text-xs text-center">
-            <div>Phone: +254700000002 | Pass: demo123</div>
-          </div>
-        </div>
+
 
         <div className="mt-4 text-center">
           <Link to="/" className="text-sm text-muted-foreground hover:text-accent transition-colors">

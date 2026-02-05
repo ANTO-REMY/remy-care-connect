@@ -23,14 +23,14 @@ export interface Mother {
 }
 
 export interface CompleteProfileRequest {
-  date_of_birth: string;
+  dob: string;           // Changed from date_of_birth to match API
   due_date: string;
   location: string;
 }
 
 export interface UpdateProfileRequest {
-  name?: string;
-  date_of_birth?: string;
+  full_name?: string;    // Changed from name to match API
+  dob?: string;          // Changed from date_of_birth to match API
   due_date?: string;
   location?: string;
 }
@@ -68,8 +68,8 @@ class MotherService {
   /**
    * Complete mother profile after registration
    */
-  async completeProfile(data: CompleteProfileRequest): Promise<Mother> {
-    return apiClient.post<Mother>('/mothers/complete-profile', data);
+  async completeProfile(data: CompleteProfileRequest): Promise<{ mother_id: number; message: string }> {
+    return apiClient.post<{ mother_id: number; message: string }>('/mothers/complete-profile', data);
   }
 
   /**
@@ -80,10 +80,11 @@ class MotherService {
   }
 
   /**
-   * Get current mother's profile (uses JWT token)
+   * Get current mother's profile (from auth context)
    */
   async getCurrentProfile(): Promise<Mother> {
-    return apiClient.get<Mother>('/mothers/profile');
+    // This would need to be implemented in the backend or we use the user context
+    throw new Error('Use profile from auth context instead');
   }
 
   /**

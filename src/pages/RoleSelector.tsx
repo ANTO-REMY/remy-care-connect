@@ -86,13 +86,6 @@ export default function RoleSelector() {
             <span className="text-sm sm:text-base">Landing Page (Illustrations)</span>
           </Button>
         </div>
-
-        {/* Demo Notice */}
-        <div className="mt-8 p-4 bg-accent/10 rounded-lg border border-accent/20 text-center">
-          <p className="text-sm text-accent font-medium">
-            🔒 Demo Version - This is a demonstration of the RemyAfya platform with mock data
-          </p>
-        </div>
       </div>
     </div>
   );

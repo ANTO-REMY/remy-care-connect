@@ -37,9 +37,19 @@ export function VerifyOTPModal({ open, onOpenChange, onVerified, onSubmit, onRes
     }
     try {
       setIsVerifying(true);
-      const ok = await onSubmit(otp);
-      if (ok) {
-        // brief success state then close and redirect after fade-out
+      const result = await onSubmit(otp);
+      if (result && typeof result === 'object' && 'success' in result) {
+        // New format with detailed error handling
+        if (result.success) {
+          onOpenChange(false);
+          setTimeout(() => {
+            onVerified();
+          }, 220);
+        } else {
+          setError(result.error || 'Invalid or expired code.');
+        }
+      } else if (result === true) {
+        // Legacy boolean format
         onOpenChange(false);
         setTimeout(() => {
           onVerified();

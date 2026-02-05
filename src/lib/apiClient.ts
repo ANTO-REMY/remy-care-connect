@@ -56,7 +56,7 @@ class ApiClient {
     if (!refreshToken) return null;
 
     try {
-      const response = await fetch(`${this.baseUrl}/auth/refresh`, {
+      const response = await fetch(`${this.baseUrl}/api/v1/auth/refresh`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
@@ -127,8 +127,46 @@ class ApiClient {
       // Handle error responses
       if (!response.ok) {
         const errorData = await response.json().catch(() => ({}));
+        
+        // Create user-friendly error messages
+        let userMessage = '';
+        
+        switch (response.status) {
+          case 400:
+            userMessage = errorData.error || errorData.message || 'Invalid request. Please check your input.';
+            break;
+          case 401:
+            userMessage = 'Invalid credentials. Please check your phone number and PIN.';
+            break;
+          case 403:
+            userMessage = 'Access denied. You don\'t have permission for this action.';
+            break;
+          case 404:
+            userMessage = 'Resource not found. The requested item may have been removed.';
+            break;
+          case 409:
+            userMessage = errorData.error || 'This information already exists. Please use different details.';
+            break;
+          case 422:
+            userMessage = errorData.error || 'Invalid data provided. Please check all required fields.';
+            break;
+          case 429:
+            userMessage = 'Too many requests. Please wait a moment and try again.';
+            break;
+          case 500:
+            userMessage = 'Server error occurred. Please try again later.';
+            break;
+          case 502:
+          case 503:
+          case 504:
+            userMessage = 'Service temporarily unavailable. Please try again in a few minutes.';
+            break;
+          default:
+            userMessage = errorData.error || errorData.message || `An error occurred (${response.status}). Please try again.`;
+        }
+        
         const error: ApiError = {
-          message: errorData.message || errorData.error || `HTTP ${response.status}: ${response.statusText}`,
+          message: userMessage,
           status: response.status,
         };
         throw error;
@@ -149,8 +187,19 @@ class ApiClient {
       }
       
       // Network or other errors
+      const errorMessage = error instanceof Error ? error.message : 'An unexpected error occurred';
+      
+      let userFriendlyMessage = '';
+      if (errorMessage.includes('fetch')) {
+        userFriendlyMessage = 'Unable to connect to server. Please check your internet connection.';
+      } else if (errorMessage.includes('timeout')) {
+        userFriendlyMessage = 'Request timed out. Please try again.';
+      } else {
+        userFriendlyMessage = 'Network error occurred. Please check your connection and try again.';
+      }
+      
       throw {
-        message: error instanceof Error ? error.message : 'Network error occurred',
+        message: userFriendlyMessage,
         status: 0,
       } as ApiError;
     }

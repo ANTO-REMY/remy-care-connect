@@ -11,9 +11,9 @@ interface User {
 
 interface AuthContextType {
   user: User | null;
-  login: (phone: string, pin: string) => Promise<boolean>;
+  login: (phone: string, pin: string) => Promise<{ success: boolean; error?: string }>;
   register: (userData: RegisterRequest) => Promise<{ success: boolean; userId?: number; error?: string }>;
-  verifyOTP: (phone: string, otpCode: string) => Promise<boolean>;
+  verifyOTP: (phone: string, otpCode: string) => Promise<{ success: boolean; error?: string }>;
   logout: () => void;
   isAuthenticated: boolean;
   loading: boolean;
@@ -36,7 +36,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     setLoading(false);
   }, []);
 
-  const login = async (phone: string, pin: string): Promise<boolean> => {
+  const login = async (phone: string, pin: string): Promise<{ success: boolean; error?: string }> => {
     try {
       const response = await authService.login({
         phone_number: phone,
@@ -45,10 +45,14 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 
       setUser(response.user);
       setIsAuthenticated(true);
-      return true;
+      return { success: true };
     } catch (error: any) {
       console.error('Login error:', error);
-      return false;
+      
+      // Use the user-friendly message from the API client
+      const errorMessage = error.message || 'Login failed. Please try again.';
+      
+      return { success: false, error: errorMessage };
     }
   };
 
@@ -62,14 +66,18 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       };
     } catch (error: any) {
       console.error('Registration error:', error);
+      
+      // Use the user-friendly message from the API client
+      const errorMessage = error.message || 'Registration failed. Please try again.';
+      
       return {
         success: false,
-        error: error.message || 'Registration failed',
+        error: errorMessage,
       };
     }
   };
 
-  const verifyOTP = async (phone: string, otpCode: string): Promise<boolean> => {
+  const verifyOTP = async (phone: string, otpCode: string): Promise<{ success: boolean; error?: string }> => {
     try {
       const response = await authService.verifyOTP({
         phone_number: phone,
@@ -77,10 +85,14 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       });
 
       // OTP verified successfully, but user still needs to login
-      return true;
+      return { success: true };
     } catch (error: any) {
       console.error('OTP verification error:', error);
-      return false;
+      
+      // Use the user-friendly message from the API client
+      const errorMessage = error.message || 'OTP verification failed. Please try again.';
+      
+      return { success: false, error: errorMessage };
     }
   };
 

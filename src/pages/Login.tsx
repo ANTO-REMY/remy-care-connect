@@ -44,15 +44,49 @@ export default function Login() {
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setIsLoading(true);
-    // No validation, allow free navigation
-    try {
-      // Always welcome toast, regardless of credentials
+
+    if (!formData.phone || !formData.pin) {
       toast({
-        title: `Welcome, ${formData.role.charAt(0).toUpperCase() + formData.role.slice(1)}!`,
-        description: "You've successfully logged in.",
+        title: "Missing Information",
+        description: "Please enter both phone number and password.",
+        variant: "destructive"
       });
-      // Navigate to dashboard for selected role
-      navigate(`/dashboard/${formData.role}`);
+      setIsLoading(false);
+      return;
+    }
+
+    try {
+      const result = await login(formData.phone, formData.pin);
+      
+      if (result.success) {
+        toast({
+          title: "Welcome back!",
+          description: "You've successfully logged in.",
+        });
+        
+        // Redirect based on user role from backend
+        if (user?.role === 'mother') {
+          navigate('/dashboard/mother');
+        } else if (user?.role === 'chw') {
+          navigate('/dashboard/chw');
+        } else if (user?.role === 'nurse') {
+          navigate('/dashboard/nurse');
+        } else {
+          navigate('/dashboard');
+        }
+      } else {
+        toast({
+          title: "Login Failed",
+          description: result.error || "Invalid phone number or PIN.",
+          variant: "destructive"
+        });
+      }
+    } catch (error) {
+      toast({
+        title: "Login Error",
+        description: "Something went wrong. Please try again.",
+        variant: "destructive"
+      });
     } finally {
       setIsLoading(false);
     }
@@ -146,17 +180,7 @@ export default function Login() {
             </div>
           </CardContent>
         </Card>
-        {/* Quick Login for Demo */}
-        <div className="mt-4 p-3 bg-muted/50 rounded-lg border border-dashed border-muted-foreground/30">
-          <p className="text-xs text-muted-foreground text-center mb-2">
-            Demo Mode - Quick Login Options:
-          </p>
-          <div className="space-y-1 text-xs text-center">
-            <div>Mother: +254700000001 | Pass: demo123</div>
-            <div>CHW: +254700000002 | Pass: demo123</div>
-            <div>Nurse: +254700000003 | Pass: demo123</div>
-          </div>
-        </div>
+
         <div className="mt-4 text-center">
           <Link to="/" className="text-sm text-muted-foreground hover:text-accent transition-colors">
             ← Back to home

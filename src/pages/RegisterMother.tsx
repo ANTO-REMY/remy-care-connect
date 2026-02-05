@@ -109,8 +109,8 @@ export default function RegisterMother() {
           phoneNumber={formData.phone}
           onSubmit={async (otp) => {
             try {
-              const success = await verifyOTP(formData.phone, otp);
-              return success;
+              const result = await verifyOTP(formData.phone, otp);
+              return result.success;
             } catch (error) {
               return false;
             }
