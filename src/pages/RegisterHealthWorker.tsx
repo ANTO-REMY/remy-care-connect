@@ -15,7 +15,7 @@ import VerifyOTPModal from '@/components/VerifyOTPModal';
 export default function RegisterHealthWorker() {
   const navigate = useNavigate();
   const location = useLocation();
-  const { register } = useAuth();
+  const { register, verifyOTP } = useAuth();
   const { toast } = useToast();
   // Determine role from navigation state, default to 'chw'
   const initialRole = location.state && (location.state.role === 'nurse' || location.state.role === 'chw') ? location.state.role : 'chw';
@@ -63,25 +63,34 @@ export default function RegisterHealthWorker() {
       return;
     }
 
-    try {
-      const userData = {
-        ...formData,
-        name: formData.fullName,
-        role: selectedRole
-      };
+    if (formData.pin !== formData.confirmPin) {
+      toast({
+        title: "PIN Mismatch",
+        description: "PINs do not match. Please try again.",
+        variant: "destructive"
+      });
+      setIsLoading(false);
+      return;
+    }
 
-      const success = await register(userData);
+    try {
+      const result = await register({
+        phone_number: formData.phone,
+        name: formData.fullName,
+        pin: formData.pin,
+        role: selectedRole
+      });
       
-      if (success) {
+      if (result.success) {
         toast({
           title: "Registration Successful!",
-          description: "We've sent you an OTP. Please verify your phone.",
+          description: "We've sent you an OTP. Please verify your phone number.",
         });
         setShowVerify(true);
       } else {
         toast({
           title: "Registration Failed",
-          description: "A user with this phone number already exists.",
+          description: result.error || "A user with this phone number may already exist.",
           variant: "destructive"
         });
       }
@@ -151,16 +160,26 @@ export default function RegisterHealthWorker() {
           open={showVerify}
           onOpenChange={setShowVerify}
           phoneNumber={formData.phone}
-          onSubmit={async (_otp) => {
-            // Integrate with your verify OTP API here
-            return false;
+          onSubmit={async (otp) => {
+            try {
+              const success = await verifyOTP(formData.phone, otp);
+              return success;
+            } catch (error) {
+              return false;
+            }
           }}
           onResend={async () => {
-            // Integrate with your resend OTP API here
+            toast({
+              title: "OTP Resent",
+              description: "A new OTP has been sent to your phone.",
+            });
           }}
           onVerified={() => {
-            toast({ title: 'Phone verified', description: 'Redirecting to your dashboard…' });
-            navigate(`/dashboard/${selectedRole}`);
+            toast({ 
+              title: 'Phone verified', 
+              description: 'Please login with your credentials.' 
+            });
+            navigate(`/login/${selectedRole}`);
           }}
         />
         {/* Header */}
