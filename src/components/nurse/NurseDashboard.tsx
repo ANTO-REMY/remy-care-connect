@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { AlertTriangle, MessageCircle, Phone, Clock, CheckCircle, User, FileText, LogOut } from "lucide-react";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -7,25 +7,52 @@ import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, Di
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuLabel, DropdownMenuSeparator, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
-import { mockEscalatedCases, mockMothers, mockCHWs } from "@/data/mockData";
 import { useToast } from "@/hooks/use-toast";
 import { useAuth } from "@/contexts/AuthContext";
 import { NurseProfile } from "./NurseProfile";
+import { nurseService } from "@/services/nurseService";
+
+interface Nurse {
+  id: number;
+  name: string;
+  phone_number: string;
+}
 
 export function NurseDashboard() {
   const { user, logout } = useAuth();
   const [selectedCase, setSelectedCase] = useState<string | null>(null);
   const [showProfile, setShowProfile] = useState(false);
+  const [loading, setLoading] = useState(true);
+  const [currentNurse, setCurrentNurse] = useState<Nurse | null>(null);
   const { toast } = useToast();
 
-  const pendingCases = mockEscalatedCases.filter(c => c.status === 'pending');
-  const resolvedCases = mockEscalatedCases.filter(c => c.status === 'resolved');
+  useEffect(() => {
+    const loadData = async () => {
+      try {
+        setLoading(true);
+        const nurseData = await nurseService.getCurrentProfile();
+        setCurrentNurse(nurseData);
+      } catch (error: any) {
+        toast({
+          title: "Error",
+          description: error.message || "Failed to load dashboard data",
+          variant: "destructive"
+        });
+      } finally {
+        setLoading(false);
+      }
+    };
+
+    loadData();
+  }, [toast]);
+
+  // Placeholder for escalated cases - will be implemented when backend endpoint is ready
+  const pendingCases: any[] = [];
+  const resolvedCases: any[] = [];
 
   const getCaseDetails = (caseId: string) => {
-    const escalatedCase = mockEscalatedCases.find(c => c.id === caseId);
-    const mother = mockMothers.find(m => m.id === escalatedCase?.motherId);
-    const chw = mockCHWs.find(c => c.name === escalatedCase?.escalatedBy);
-    return { escalatedCase, mother, chw };
+    // Placeholder - will be implemented when backend endpoint is ready
+    return { escalatedCase: null, mother: null, chw: null };
   };
 
   const openWhatsApp = (phone: string) => {
@@ -52,6 +79,17 @@ export function NurseDashboard() {
       minute: '2-digit'
     });
   };
+
+  if (loading) {
+    return (
+      <div className="min-h-screen flex items-center justify-center">
+        <div className="text-center">
+          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-primary mx-auto"></div>
+          <p className="mt-4 text-muted-foreground">Loading dashboard...</p>
+        </div>
+      </div>
+    );
+  }
 
   if (showProfile) {
     return <NurseProfile onBack={() => setShowProfile(false)} />;

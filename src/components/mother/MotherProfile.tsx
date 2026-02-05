@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { User, Phone, MapPin, Calendar, Edit2, Save, X, ArrowLeft } from "lucide-react";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -7,28 +7,43 @@ import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { useAuth } from "@/contexts/AuthContext";
 import { useToast } from "@/hooks/use-toast";
+import { motherService, type Mother } from "@/services/motherService";
 import { NextOfKinSection } from "./NextOfKinSection";
 
 interface MotherProfileProps {
   onBack?: () => void;
+  motherData?: Mother | null;
 }
 
-export function MotherProfile({ onBack }: MotherProfileProps) {
-  const { user, logout } = useAuth();
+export function MotherProfile({ onBack, motherData }: MotherProfileProps) {
+  const { user } = useAuth();
   const { toast } = useToast();
-  const [isEditing, setIsEditing] = useState(false);
+  const [isEditing, setIsEditing] = useState(!motherData?.date_of_birth); // Edit mode if profile incomplete
+  const [loading, setLoading] = useState(false);
   const [formData, setFormData] = useState({
     name: user?.name || '',
-    phone: user?.phone || '',
-    location: user?.location || '',
-    dueDate: user?.dueDate || '',
-    weeksPregnant: user?.weeksPregnant?.toString() || '',
+    phone_number: user?.phone_number || '',
+    location: motherData?.location || '',
+    date_of_birth: motherData?.date_of_birth || '',
+    due_date: motherData?.due_date || '',
   });
 
   const [nextOfKin, setNextOfKin] = useState([
-    (user?.nextOfKin && user.nextOfKin[0]) || { name: '', phone: '', sex: '', relationship: '' },
-    (user?.nextOfKin && user.nextOfKin[1]) || { name: '', phone: '', sex: '', relationship: '' },
+    { name: '', phone: '', sex: '', relationship: '' },
+    { name: '', phone: '', sex: '', relationship: '' },
   ]);
+
+  useEffect(() => {
+    if (motherData) {
+      setFormData({
+        name: motherData.name,
+        phone_number: motherData.phone_number,
+        location: motherData.location || '',
+        date_of_birth: motherData.date_of_birth || '',
+        due_date: motherData.due_date || '',
+      });
+    }
+  }, [motherData]);
 
   const handleInputChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     setFormData({
@@ -37,47 +52,82 @@ export function MotherProfile({ onBack }: MotherProfileProps) {
     });
   };
 
-  const handleSave = () => {
-    // Validate at least one next of kin is filled (required fields)
-    if (!nextOfKin[0].name || !nextOfKin[0].phone || !nextOfKin[0].sex || !nextOfKin[0].relationship) {
+  const handleSave = async () => {
+    if (!motherData) return;
+
+    // Validate required fields
+    if (!formData.location || !formData.date_of_birth || !formData.due_date) {
       toast({
-        title: "Next of Kin Required",
-        description: "Please fill all required fields for the first Next of Kin.",
+        title: "Missing Information",
+        description: "Please fill in all required fields (location, date of birth, due date).",
         variant: "destructive",
       });
       return;
     }
-    const users = JSON.parse(localStorage.getItem('remyafya_users') || '[]');
-    const userIndex = users.findIndex((u: any) => u.id === user?.id);
 
-    if (userIndex !== -1) {
-      users[userIndex] = { ...users[userIndex], ...formData, nextOfKin };
-      localStorage.setItem('remyafya_users', JSON.stringify(users));
+    setLoading(true);
+    try {
+      // Check if this is profile completion or update
+      if (!motherData.date_of_birth) {
+        // Complete profile
+        await motherService.completeProfile({
+          date_of_birth: formData.date_of_birth,
+          due_date: formData.due_date,
+          location: formData.location,
+        });
+        
+        toast({
+          title: "Profile Completed",
+          description: "Your profile has been successfully completed.",
+        });
+      } else {
+        // Update profile
+        await motherService.updateProfile(motherData.id, {
+          date_of_birth: formData.date_of_birth,
+          due_date: formData.due_date,
+          location: formData.location,
+        });
 
-      const updatedUser = { ...users[userIndex] };
-      delete updatedUser.password;
-      localStorage.setItem('remyafya_user', JSON.stringify(updatedUser));
-
-      toast({
-        title: "Profile Updated",
-        description: "Your profile has been successfully updated.",
-      });
+        toast({
+          title: "Profile Updated",
+          description: "Your profile has been successfully updated.",
+        });
+      }
 
       setIsEditing(false);
-      window.location.reload();
+      if (onBack) onBack();
+    } catch (error: any) {
+      console.error('Profile save error:', error);
+      toast({
+        title: "Error",
+        description: error.message || "Failed to save profile",
+        variant: "destructive",
+      });
+    } finally {
+      setLoading(false);
     }
   };
 
   const handleCancel = () => {
+    if (!motherData?.date_of_birth) {
+      // Can't cancel if profile incomplete
+      toast({
+        title: "Profile Incomplete",
+        description: "Please complete your profile before continuing.",
+        variant: "destructive",
+      });
+      return;
+    }
+
     setFormData({
-      name: user?.name || '',
-      phone: user?.phone || '',
-      location: user?.location || '',
-      dueDate: user?.dueDate || '',
-      weeksPregnant: user?.weeksPregnant?.toString() || '',
+      name: motherData.name,
+      phone_number: motherData.phone_number,
+      location: motherData.location || '',
+      date_of_birth: motherData.date_of_birth || '',
+      due_date: motherData.due_date || '',
     });
-    setNextOfKin([
-      (user?.nextOfKin && user.nextOfKin[0]) || { name: '', phone: '', sex: '', relationship: '' },
+    setIsEditing(false);
+  };
       (user?.nextOfKin && user.nextOfKin[1]) || { name: '', phone: '', sex: '', relationship: '' },
     ]);
     setIsEditing(false);
@@ -120,30 +170,28 @@ export function MotherProfile({ onBack }: MotherProfileProps) {
                 id="name"
                 name="name"
                 value={formData.name}
-                onChange={handleInputChange}
-                disabled={!isEditing}
-                className="pl-10"
+                disabled
+                className="pl-10 bg-muted"
               />
             </div>
           </div>
 
           <div className="space-y-2">
-            <Label htmlFor="phone">Phone Number</Label>
+            <Label htmlFor="phone_number">Phone Number</Label>
             <div className="relative">
               <Phone className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-muted-foreground" />
               <Input
-                id="phone"
-                name="phone"
-                value={formData.phone}
-                onChange={handleInputChange}
-                disabled={!isEditing}
-                className="pl-10"
+                id="phone_number"
+                name="phone_number"
+                value={formData.phone_number}
+                disabled
+                className="pl-10 bg-muted"
               />
             </div>
           </div>
 
           <div className="space-y-2">
-            <Label htmlFor="location">Location</Label>
+            <Label htmlFor="location">Location *</Label>
             {isEditing ? (
               <div className="relative">
                 <MapPin className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-muted-foreground z-10" />
@@ -157,6 +205,8 @@ export function MotherProfile({ onBack }: MotherProfileProps) {
                   <SelectContent>
                     <SelectItem value="Nairobi">Nairobi</SelectItem>
                     <SelectItem value="Kisumu">Kisumu</SelectItem>
+                    <SelectItem value="Mombasa">Mombasa</SelectItem>
+                    <SelectItem value="Nakuru">Nakuru</SelectItem>
                   </SelectContent>
                 </Select>
               </div>
@@ -166,21 +216,21 @@ export function MotherProfile({ onBack }: MotherProfileProps) {
                 <Input
                   value={formData.location}
                   disabled
-                  className="pl-10"
+                  className="pl-10 bg-muted"
                 />
               </div>
             )}
           </div>
 
           <div className="space-y-2">
-            <Label htmlFor="dueDate">Due Date</Label>
+            <Label htmlFor="date_of_birth">Date of Birth *</Label>
             <div className="relative">
               <Calendar className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-muted-foreground" />
               <Input
-                id="dueDate"
-                name="dueDate"
+                id="date_of_birth"
+                name="date_of_birth"
                 type="date"
-                value={formData.dueDate}
+                value={formData.date_of_birth}
                 onChange={handleInputChange}
                 disabled={!isEditing}
                 className="pl-10"
@@ -189,15 +239,19 @@ export function MotherProfile({ onBack }: MotherProfileProps) {
           </div>
 
           <div className="space-y-2">
-            <Label htmlFor="weeksPregnant">Weeks Pregnant</Label>
-            <Input
-              id="weeksPregnant"
-              name="weeksPregnant"
-              type="number"
-              value={formData.weeksPregnant}
-              onChange={handleInputChange}
-              disabled={!isEditing}
-            />
+            <Label htmlFor="due_date">Due Date *</Label>
+            <div className="relative">
+              <Calendar className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+              <Input
+                id="due_date"
+                name="due_date"
+                type="date"
+                value={formData.due_date}
+                onChange={handleInputChange}
+                disabled={!isEditing}
+                className="pl-10"
+              />
+            </div>
           </div>
         </CardContent>
       </Card>

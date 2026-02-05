@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { User, Phone, MapPin, Lock, Edit2, Save, X, ArrowLeft } from "lucide-react";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -7,6 +7,7 @@ import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { useAuth } from "@/contexts/AuthContext";
 import { useToast } from "@/hooks/use-toast";
+import { chwService } from "@/services/chwService";
 
 interface CHWProfileProps {
   onBack?: () => void;
@@ -16,12 +17,35 @@ export function CHWProfile({ onBack }: CHWProfileProps) {
   const { user, logout } = useAuth();
   const { toast } = useToast();
   const [isEditing, setIsEditing] = useState(false);
+  const [loading, setLoading] = useState(false);
   const [formData, setFormData] = useState({
-    name: user?.name || '',
-    phone: user?.phone || '',
-    location: user?.location || '',
-    licenceNumber: (user as any)?.licenceNumber || '',
+    name: '',
+    phone_number: '',
+    location: '',
+    license_number: '',
   });
+
+  useEffect(() => {
+    const loadProfile = async () => {
+      try {
+        const profile = await chwService.getCurrentProfile();
+        setFormData({
+          name: profile.name || '',
+          phone_number: profile.phone_number || '',
+          location: profile.location || '',
+          license_number: profile.license_number || '',
+        });
+      } catch (error: any) {
+        toast({
+          title: "Error",
+          description: error.message || "Failed to load profile",
+          variant: "destructive"
+        });
+      }
+    };
+
+    loadProfile();
+  }, [toast]);
 
   const handleInputChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     setFormData({
@@ -30,17 +54,13 @@ export function CHWProfile({ onBack }: CHWProfileProps) {
     });
   };
 
-  const handleSave = () => {
-    const users = JSON.parse(localStorage.getItem('remyafya_users') || '[]');
-    const userIndex = users.findIndex((u: any) => u.id === user?.id);
-
-    if (userIndex !== -1) {
-      users[userIndex] = { ...users[userIndex], ...formData };
-      localStorage.setItem('remyafya_users', JSON.stringify(users));
-
-      const updatedUser = { ...users[userIndex] };
-      delete updatedUser.password;
-      localStorage.setItem('remyafya_user', JSON.stringify(updatedUser));
+  const handleSave = async () => {
+    try {
+      setLoading(true);
+      await chwService.updateProfile({
+        location: formData.location,
+        license_number: formData.license_number
+      });
 
       toast({
         title: "Profile Updated",
@@ -48,17 +68,18 @@ export function CHWProfile({ onBack }: CHWProfileProps) {
       });
 
       setIsEditing(false);
-      window.location.reload();
+    } catch (error: any) {
+      toast({
+        title: "Error",
+        description: error.message || "Failed to update profile",
+        variant: "destructive"
+      });
+    } finally {
+      setLoading(false);
     }
   };
 
   const handleCancel = () => {
-    setFormData({
-      name: user?.name || '',
-      phone: user?.phone || '',
-      location: user?.location || '',
-      licenceNumber: (user as any)?.licenceNumber || '',
-    });
     setIsEditing(false);
   };
 
@@ -99,36 +120,36 @@ export function CHWProfile({ onBack }: CHWProfileProps) {
                 id="name"
                 name="name"
                 value={formData.name}
-                onChange={handleInputChange}
-                disabled={!isEditing}
-                className="pl-10"
+                disabled
+                className="pl-10 bg-muted"
               />
             </div>
           </div>
 
           <div className="space-y-2">
-            <Label htmlFor="phone">Phone Number</Label>
+            <Label htmlFor="phone_number">Phone Number</Label>
             <div className="relative">
               <Phone className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-muted-foreground" />
               <Input
-                id="phone"
-                name="phone"
-                value={formData.phone}
-                onChange={handleInputChange}
+                id="phone_number"
+                name="phone_number"
+                value={formData.phone_number}
+                disabled
+                className="pl-10 bg-muted"
                 disabled={!isEditing}
-                className="pl-10"
+                className="pl-10 bg-muted"
               />
             </div>
           </div>
 
           <div className="space-y-2">
-            <Label htmlFor="licenceNumber">Licence Number</Label>
+            <Label htmlFor="license_number">License Number</Label>
             <div className="relative">
               <Lock className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-muted-foreground" />
               <Input
-                id="licenceNumber"
-                name="licenceNumber"
-                value={formData.licenceNumber}
+                id="license_number"
+                name="license_number"
+                value={formData.license_number}
                 onChange={handleInputChange}
                 disabled={!isEditing}
                 className="pl-10"
@@ -151,6 +172,8 @@ export function CHWProfile({ onBack }: CHWProfileProps) {
                   <SelectContent>
                     <SelectItem value="Nairobi">Nairobi</SelectItem>
                     <SelectItem value="Kisumu">Kisumu</SelectItem>
+                    <SelectItem value="Mombasa">Mombasa</SelectItem>
+                    <SelectItem value="Nakuru">Nakuru</SelectItem>
                   </SelectContent>
                 </Select>
               </div>
@@ -168,11 +191,11 @@ export function CHWProfile({ onBack }: CHWProfileProps) {
 
           {isEditing && (
             <div className="flex flex-col sm:flex-row gap-2 pt-4">
-              <Button onClick={handleSave} className="flex-1">
+              <Button onClick={handleSave} disabled={loading} className="flex-1">
                 <Save className="h-4 w-4 mr-2" />
-                Save Changes
+                {loading ? 'Saving...' : 'Save Changes'}
               </Button>
-              <Button onClick={handleCancel} variant="outline" className="flex-1">
+              <Button onClick={handleCancel} variant="outline" className="flex-1" disabled={loading}>
                 <X className="h-4 w-4 mr-2" />
                 Cancel
               </Button>

@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { Users, AlertTriangle, MessageCircle, Phone, Upload, Calendar, CheckCircle, X, User, LogOut } from "lucide-react";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -9,10 +9,25 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Textarea } from "@/components/ui/textarea";
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuLabel, DropdownMenuSeparator, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
-import { mockMothers, mockCHWs, currentUser } from "@/data/mockData";
 import { useToast } from "@/hooks/use-toast";
 import { useAuth } from "@/contexts/AuthContext";
 import { CHWProfile } from "./CHWProfile";
+import { chwService } from "@/services/chwService";
+
+interface Mother {
+  id: number;
+  name: string;
+  phone_number: string;
+  status?: string;
+  last_check_in?: string;
+  weeks_pregnant?: number;
+}
+
+interface CHW {
+  id: number;
+  name: string;
+  phone_number: string;
+}
 
 export function CHWDashboard() {
   const { user, logout } = useAuth();
@@ -22,13 +37,34 @@ export function CHWDashboard() {
   const [issueType, setIssueType] = useState<string>("");
   const [issueDescription, setIssueDescription] = useState("");
   const [showProfile, setShowProfile] = useState(false);
+  const [loading, setLoading] = useState(true);
+  const [currentCHW, setCurrentCHW] = useState<CHW | null>(null);
+  const [assignedMothers, setAssignedMothers] = useState<Mother[]>([]);
   const { toast } = useToast();
 
-  // For demo, using first CHW
-  const currentCHW = mockCHWs[0];
-  const assignedMothers = mockMothers.filter(m => 
-    currentCHW.assignedMothers.includes(m.id)
-  );
+  useEffect(() => {
+    const loadData = async () => {
+      try {
+        setLoading(true);
+        const [chwData, mothersData] = await Promise.all([
+          chwService.getCurrentProfile(),
+          chwService.getAssignedMothers()
+        ]);
+        setCurrentCHW(chwData);
+        setAssignedMothers(mothersData);
+      } catch (error: any) {
+        toast({
+          title: "Error",
+          description: error.message || "Failed to load dashboard data",
+          variant: "destructive"
+        });
+      } finally {
+        setLoading(false);
+      }
+    };
+
+    loadData();
+  }, [toast]);
 
   const mothersWithIssues = assignedMothers.filter(m => 
     m.status === 'not_ok' || m.status === 'no_response'
@@ -83,6 +119,17 @@ export function CHWDashboard() {
     setIssueDescription("");
   };
 
+  if (loading) {
+    return (
+      <div className="min-h-screen flex items-center justify-center">
+        <div className="text-center">
+          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-primary mx-auto"></div>
+          <p className="mt-4 text-muted-foreground">Loading dashboard...</p>
+        </div>
+      </div>
+    );
+  }
+
   if (showProfile) {
     return <CHWProfile onBack={() => setShowProfile(false)} />;
   }
@@ -108,7 +155,7 @@ export function CHWDashboard() {
           <div className="flex items-center gap-3">
             <Users className="h-8 w-8" />
             <div className="min-w-0">
-              <div className="text-2xl font-semibold">Welcome, {currentCHW.name}</div>
+              <div className="text-2xl font-semibold">Welcome, {currentCHW?.name || user?.name}</div>
               <div className="text-primary-foreground/80">
                 Community Health Worker Dashboard
               </div>
@@ -249,7 +296,7 @@ export function CHWDashboard() {
                       </SelectTrigger>
                       <SelectContent>
                         {mothersWithIssues.map(mother => (
-                          <SelectItem key={mother.id} value={mother.id}>
+                          <SelectItem key={mother.id} value={String(mother.id)}>
                             {mother.name}
                           </SelectItem>
                         ))}
@@ -308,7 +355,7 @@ export function CHWDashboard() {
                     <div className="min-w-0 flex-1">
                       <CardTitle className="text-base sm:text-lg break-words">{mother.name}</CardTitle>
                       <CardDescription className="text-xs sm:text-sm">
-                        {mother.pregnancyWeek ? `${mother.pregnancyWeek} weeks pregnant` : `${mother.postpartumWeek} weeks postpartum`}
+                        {mother.weeks_pregnant ? `${mother.weeks_pregnant} weeks pregnant` : 'Postpartum'}
                       </CardDescription>
                     </div>
                     <Badge className={`${getStatusColor(mother.status)} text-xs flex-shrink-0`}>
@@ -319,23 +366,13 @@ export function CHWDashboard() {
                 <CardContent className="p-3 sm:p-6 pt-0">
                   <div className="space-y-3">
                     <div className="text-xs sm:text-sm">
-                      <p className="text-muted-foreground">Last check-in: {mother.lastCheckIn}</p>
-                      {mother.issues && (
-                        <div className="mt-2">
-                          <p className="font-medium text-destructive text-xs sm:text-sm">Issues reported:</p>
-                          <ul className="list-disc list-inside text-xs sm:text-sm text-muted-foreground space-y-1">
-                            {mother.issues.map((issue, index) => (
-                              <li key={index} className="break-words">{issue}</li>
-                            ))}
-                          </ul>
-                        </div>
-                      )}
+                      <p className="text-muted-foreground">Last check-in: {mother.last_check_in || 'No check-ins yet'}</p>
                     </div>
                     
                     <div className="flex flex-col sm:flex-row gap-2">
                       <Button
                         size="sm"
-                        onClick={() => openWhatsApp(mother.phone)}
+                        onClick={() => openWhatsApp(mother.phone_number)}
                         className="flex-1 bg-green-600 hover:bg-green-700 text-xs sm:text-sm"
                       >
                         <MessageCircle className="h-3 w-3 mr-1" />
@@ -345,7 +382,7 @@ export function CHWDashboard() {
                       <Button
                         size="sm"
                         variant="outline"
-                        onClick={() => openSMS(mother.phone)}
+                        onClick={() => openSMS(mother.phone_number)}
                         className="flex-1 text-xs sm:text-sm"
                       >
                         <MessageCircle className="h-3 w-3 mr-1" />
