@@ -101,10 +101,7 @@ export function MotherDashboard() {
         name: kinData.name,
         relationship: kinData.relationship,
         phone_number: kinData.phone
-      });motherData={motherProfile} onBack={() => {
-      setShowProfile(false);
-      loadMotherData(); // Reload data after profile update
-    }
+      });
       
       setHasNextOfKin(true);
       setShowNextOfKinModal(false);
@@ -127,10 +124,17 @@ export function MotherDashboard() {
     return (
       <div className="flex items-center justify-center min-h-screen">
         <div className="text-center">
-          <div className="text-lg font-semibold">Loading...</div>user?.name}!</div>
-                <div className="text-primary-foreground/80 text-sm sm:text-base">
-                  {motherProfile?.location || 'Your maternal health journey'{
-    return <MotherProfile onBack={() => setShowProfile(false)} />;
+          <div className="text-lg font-semibold">Loading...</div>
+        </div>
+      </div>
+    );
+  }
+
+  if (showProfile) {
+    return <MotherProfile motherData={motherProfile} onBack={() => {
+      setShowProfile(false);
+      loadMotherData(); // Reload data after profile update
+    }} />;
   }
 
   const handleLogout = () => {
@@ -156,13 +160,9 @@ export function MotherDashboard() {
             <div className="flex items-center gap-3">
               <Baby className="h-6 w-6 sm:h-8 sm:w-8 flex-shrink-0" />
               <div className="min-w-0">
-                <div className="text-lg sm:text-xl md:text-2xl font-semibold break-words">Welcome back, {currentUser.name}!</div>
+                <div className="text-lg sm:text-xl md:text-2xl font-semibold break-words">Welcome back, {user?.name || 'Mother'}!</div>
                 <div className="text-primary-foreground/80 text-sm sm:text-base">
-                  {mother?.pregnancyWeek ? (
-                    `You are ${mother.pregnancyWeek} weeks pregnant`
-                  ) : (
-                    `${mother?.postpartumWeek} weeks postpartum`
-                  )}
+                  {motherProfile?.location || 'Your maternal health journey'}
                 </div>
               </div>
             </div>
@@ -361,5 +361,8 @@ export function MotherDashboard() {
               </CardContent>
             </Card>
           </div>
-
+        </div>
+      </div>
+    </>
+  );
 }

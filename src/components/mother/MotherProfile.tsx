@@ -128,10 +128,6 @@ export function MotherProfile({ onBack, motherData }: MotherProfileProps) {
     });
     setIsEditing(false);
   };
-      (user?.nextOfKin && user.nextOfKin[1]) || { name: '', phone: '', sex: '', relationship: '' },
-    ]);
-    setIsEditing(false);
-  };
 
   return (
     <div className="space-y-4 sm:space-y-6 p-4 sm:p-6">
