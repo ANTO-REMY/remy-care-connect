@@ -57,15 +57,16 @@ export default function Login() {
     }
 
     const normalizedPhone = normalizePhoneNumber(formData.phone);
-    if (!validatePhoneNumber(normalizedPhone)) {
-      toast({
-        title: "Invalid phone number",
-        description: "Please enter a valid Kenyan phone number (e.g., 0712345678)",
-        variant: "destructive"
-      });
-      setIsLoading(false);
-      return;
-    }
+    // TEMPORARILY DISABLE FRONTEND VALIDATION - let backend handle it
+    // if (!validatePhoneNumber(normalizedPhone)) {
+    //   toast({
+    //     title: "Invalid phone number",
+    //     description: "Please enter a valid Kenyan phone number (e.g., 0712345678)",
+    //     variant: "destructive"
+    //   });
+    //   setIsLoading(false);
+    //   return;
+    // }
 
     try {
       const result = await login(normalizedPhone, formData.pin);

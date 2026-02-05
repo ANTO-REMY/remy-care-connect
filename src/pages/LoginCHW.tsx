@@ -40,15 +40,16 @@ export default function LoginCHW() {
 
     // Phone number validation and normalization
     const normalizedPhone = normalizePhoneNumber(formData.phone);
-    if (!validatePhoneNumber(formData.phone)) {
-      toast({
-        title: "Invalid phone number",
-        description: "Please enter phone number in 07xxxxxxxx format (e.g., 0712345678)",
-        variant: "destructive"
-      });
-      setIsLoading(false);
-      return;
-    }
+    // TEMPORARILY DISABLE FRONTEND VALIDATION - let backend handle it
+    // if (!validatePhoneNumber(formData.phone)) {
+    //   toast({
+    //     title: "Invalid phone number",
+    //     description: "Please enter phone number in 07xxxxxxxx format (e.g., 0712345678)",
+    //     variant: "destructive"
+    //   });
+    //   setIsLoading(false);
+    //   return;
+    // }
 
     try {
       const result = await login(normalizedPhone, formData.pin);

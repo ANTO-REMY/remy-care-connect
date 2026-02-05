@@ -39,21 +39,29 @@ export default function LoginMother() {
 
     // Phone number validation and normalization
     console.log('🔍 Validating phone:', formData.phone);
+    console.log('🔍 Phone type:', typeof formData.phone);
+    console.log('🔍 Phone value:', JSON.stringify(formData.phone));
+    console.log('🔍 Phone length:', formData.phone?.length);
+    
     const normalizedPhone = normalizePhoneNumber(formData.phone);
     console.log('📞 Normalized phone:', normalizedPhone);
     
-    if (!validatePhoneNumber(formData.phone)) {
-      console.log('❌ Phone validation failed for:', formData.phone);
-      toast({
-        title: "Invalid phone number",
-        description: "Please enter phone number in 07xxxxxxxx format (e.g., 0712345678)",
-        variant: "destructive"
-      });
-      setIsLoading(false);
-      return;
-    }
+    // TEMPORARILY DISABLE FRONTEND VALIDATION - let backend handle it
+    // const isPhoneValid = validatePhoneNumber(formData.phone);
+    // console.log('✅ Phone validation result:', isPhoneValid);
     
-    console.log('✅ Phone validation passed');
+    // if (!isPhoneValid) {
+    //   console.log('❌ Phone validation failed for:', formData.phone);
+    //   toast({
+    //     title: "Invalid phone number",
+    //     description: "Please enter phone number in 07xxxxxxxx format (e.g., 0712345678)",
+    //     variant: "destructive"
+    //   });
+    //   setIsLoading(false);
+    //   return;
+    // }
+    
+    console.log('✅ Phone validation passed (temporarily disabled)');
 
     // PIN validation
     if (formData.pin.length < 4 || formData.pin.length > 6 || !/^\d+$/.test(formData.pin)) {

@@ -28,10 +28,19 @@ export function normalizePhoneNumber(phone: string): string {
  * Validate Kenyan phone number in 07xxxxxxxx format
  */
 export function validatePhoneNumber(phone: string): boolean {
+  console.log('🔍 validatePhoneNumber input:', phone);
+  console.log('🔍 phone type:', typeof phone);
+  console.log('🔍 phone length:', phone?.length);
+  
   // Remove all spaces and special characters
   const cleaned = phone.replace(/[^0-9]/g, '');
+  console.log('🔍 cleaned phone:', cleaned);
+  console.log('🔍 cleaned length:', cleaned.length);
   
   // Check if it's exactly 07 followed by 8 digits
   const pattern = /^07[0-9]{8}$/;
-  return pattern.test(cleaned);
+  const isValid = pattern.test(cleaned);
+  console.log('🔍 validation result:', isValid);
+  
+  return isValid;
 }
