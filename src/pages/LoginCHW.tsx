@@ -38,7 +38,7 @@ export default function LoginCHW() {
     }
 
     try {
-      const success = await login(formData.phone, formData.pin, 'chw');
+      const success = await login(formData.phone, formData.pin);
       
       if (success) {
         toast({

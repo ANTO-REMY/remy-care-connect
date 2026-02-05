@@ -38,7 +38,7 @@ export default function LoginNurse() {
     }
 
     try {
-      const success = await login(formData.phone, formData.pin, 'nurse');
+      const success = await login(formData.phone, formData.pin);
       
       if (success) {
         toast({

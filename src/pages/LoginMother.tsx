@@ -38,7 +38,7 @@ export default function LoginMother() {
     }
 
     try {
-      const success = await login(formData.phone, formData.pin, 'mother');
+      const success = await login(formData.phone, formData.pin);
       
       if (success) {
         toast({
@@ -49,7 +49,7 @@ export default function LoginMother() {
       } else {
         toast({
           title: "Login Failed",
-          description: "Invalid phone number or password.",
+          description: "Invalid phone number or PIN.",
           variant: "destructive"
         });
       }

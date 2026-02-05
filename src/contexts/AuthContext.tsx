@@ -1,22 +1,22 @@
 import React, { createContext, useContext, useState, useEffect } from 'react';
+import { authService, type LoginRequest, type RegisterRequest } from '@/services/authService';
 
 interface User {
-  nextOfKin: any;
-  id: string;
+  id: number;
   name: string;
-  phone: string;
+  phone_number: string;
   role: 'mother' | 'chw' | 'nurse';
-  location?: string;
-  dueDate?: string;
-  weeksPregnant?: number;
+  is_active: boolean;
 }
 
 interface AuthContextType {
   user: User | null;
-  login: (phone: string, password: string, role: string) => Promise<boolean>;
-  register: (userData: any) => Promise<boolean>;
+  login: (phone: string, pin: string) => Promise<boolean>;
+  register: (userData: RegisterRequest) => Promise<{ success: boolean; userId?: number; error?: string }>;
+  verifyOTP: (phone: string, otpCode: string) => Promise<boolean>;
   logout: () => void;
   isAuthenticated: boolean;
+  loading: boolean;
 }
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
@@ -24,77 +24,74 @@ const AuthContext = createContext<AuthContextType | undefined>(undefined);
 export function AuthProvider({ children }: { children: React.ReactNode }) {
   const [user, setUser] = useState<User | null>(null);
   const [isAuthenticated, setIsAuthenticated] = useState(false);
+  const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    // Check localStorage for existing session
-    const savedUser = localStorage.getItem('remyafya_user');
-    if (savedUser) {
-      setUser(JSON.parse(savedUser));
+    // Check if user is authenticated on mount
+    const currentUser = authService.getCurrentUser();
+    if (currentUser && authService.isAuthenticated()) {
+      setUser(currentUser);
       setIsAuthenticated(true);
     }
+    setLoading(false);
   }, []);
 
-  const login = async (phone: string, password: string, role: string): Promise<boolean> => {
-    // Simple validation - in real app this would call an API
-    const users = JSON.parse(localStorage.getItem('remyafya_users') || '[]');
-    const foundUser = users.find((u: any) => 
-      u.phone === phone && u.password === password && u.role === role
-    );
+  const login = async (phone: string, pin: string): Promise<boolean> => {
+    try {
+      const response = await authService.login({
+        phone_number: phone,
+        pin: pin,
+      });
 
-    if (foundUser) {
-      const userWithoutPassword = { ...foundUser };
-      delete userWithoutPassword.password;
-      setUser(userWithoutPassword);
+      setUser(response.user);
       setIsAuthenticated(true);
-      localStorage.setItem('remyafya_user', JSON.stringify(userWithoutPassword));
       return true;
+    } catch (error: any) {
+      console.error('Login error:', error);
+      return false;
     }
-    return false;
   };
 
-  const register = async (userData: any): Promise<boolean> => {
+  const register = async (userData: RegisterRequest): Promise<{ success: boolean; userId?: number; error?: string }> => {
     try {
-      // Get existing users or create empty array
-      const users = JSON.parse(localStorage.getItem('remyafya_users') || '[]');
+      const response = await authService.register(userData);
       
-      // Check if user already exists
-      const existingUser = users.find((u: any) => u.phone === userData.phone);
-      if (existingUser) {
-        return false; // User already exists
-      }
-
-      // Create new user with ID
-      const newUser = {
-        ...userData,
-        id: Date.now().toString()
+      return {
+        success: true,
+        userId: response.user_id,
       };
-
-      // Save to users array
-      users.push(newUser);
-      localStorage.setItem('remyafya_users', JSON.stringify(users));
-
-      // Auto-login the user
-      const userWithoutPassword = { ...newUser };
-      delete userWithoutPassword.password;
-      setUser(userWithoutPassword);
-      setIsAuthenticated(true);
-      localStorage.setItem('remyafya_user', JSON.stringify(userWithoutPassword));
-      
-      return true;
-    } catch (error) {
+    } catch (error: any) {
       console.error('Registration error:', error);
+      return {
+        success: false,
+        error: error.message || 'Registration failed',
+      };
+    }
+  };
+
+  const verifyOTP = async (phone: string, otpCode: string): Promise<boolean> => {
+    try {
+      const response = await authService.verifyOTP({
+        phone_number: phone,
+        otp_code: otpCode,
+      });
+
+      // OTP verified successfully, but user still needs to login
+      return true;
+    } catch (error: any) {
+      console.error('OTP verification error:', error);
       return false;
     }
   };
 
   const logout = () => {
+    authService.logout();
     setUser(null);
     setIsAuthenticated(false);
-    localStorage.removeItem('remyafya_user');
   };
 
   return (
-    <AuthContext.Provider value={{ user, login, register, logout, isAuthenticated }}>
+    <AuthContext.Provider value={{ user, login, register, verifyOTP, logout, isAuthenticated, loading }}>
       {children}
     </AuthContext.Provider>
   );
