@@ -60,15 +60,25 @@ export default function LoginMother() {
     }
 
     try {
+      console.log('🔑 Starting login process...');
       const result = await login(formData.phone, formData.pin);
+      console.log('📋 Login result:', result);
       
       if (result.success) {
+        console.log('✅ Login successful, navigating to dashboard');
         toast({
           title: "Welcome back!",
           description: "You've successfully logged in.",
         });
-        navigate('/dashboard/mother');
+        
+        // Use setTimeout to ensure state updates are processed
+        setTimeout(() => {
+          console.log('🚀 Navigating to /dashboard/mother');
+          navigate('/dashboard/mother');
+        }, 100);
+        
       } else {
+        console.log('❌ Login failed:', result.error);
         toast({
           title: "Login Failed",
           description: result.error || "Invalid phone number or PIN.",
@@ -76,12 +86,14 @@ export default function LoginMother() {
         });
       }
     } catch (error) {
+      console.error('💥 Unexpected login error:', error);
       toast({
         title: "Login Error",
         description: "Something went wrong. Please try again.",
         variant: "destructive"
       });
     } finally {
+      console.log('🏁 Login process finished');
       setIsLoading(false);
     }
   };
@@ -129,6 +141,7 @@ export default function LoginMother() {
                     value={formData.phone}
                     onChange={handleInputChange}
                     className="pl-10"
+                    autoComplete="tel"
                     required
                   />
                 </div>

@@ -224,6 +224,7 @@ export default function RegisterHealthWorker() {
                     name="fullName"
                     type="text"
                     placeholder="Enter your full name"
+                    autoComplete="name"
                     value={formData.fullName}
                     onChange={handleInputChange}
                     className="pl-10"
@@ -245,6 +246,7 @@ export default function RegisterHealthWorker() {
                     value={formData.phone}
                     onChange={handleInputChange}
                     className="pl-10"
+                    autoComplete="tel"
                     required
                   />
                 </div>

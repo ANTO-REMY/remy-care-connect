@@ -110,6 +110,7 @@ export default function LoginCHW() {
                     value={formData.phone}
                     onChange={handleInputChange}
                     className="pl-10"
+                    autoComplete="tel"
                     required
                   />
                 </div>

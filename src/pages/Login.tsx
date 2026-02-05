@@ -150,6 +150,7 @@ export default function Login() {
                     value={formData.phone}
                     onChange={handleInputChange}
                     className="pl-10"
+                    autoComplete="tel"
                     required
                   />
                 </div>

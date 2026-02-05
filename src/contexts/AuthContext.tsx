@@ -6,7 +6,6 @@ interface User {
   name: string;
   phone_number: string;
   role: 'mother' | 'chw' | 'nurse';
-  is_active: boolean;
 }
 
 interface AuthContextType {
@@ -37,17 +36,24 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   }, []);
 
   const login = async (phone: string, pin: string): Promise<{ success: boolean; error?: string }> => {
+    console.log('🚪 AuthContext login called');
+    
     try {
       const response = await authService.login({
         phone_number: phone,
         pin: pin,
       });
 
+      console.log('✅ AuthService login successful, response:', response);
+      console.log('👤 Setting user:', response.user);
+      
       setUser(response.user);
       setIsAuthenticated(true);
+      
+      console.log('💾 User state updated successfully');
       return { success: true };
     } catch (error: any) {
-      console.error('Login error:', error);
+      console.error('❌ AuthContext login error:', error);
       
       // Use the user-friendly message from the API client
       const errorMessage = error.message || 'Login failed. Please try again.';

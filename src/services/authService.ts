@@ -49,7 +49,6 @@ export interface LoginResponse {
     phone_number: string;
     name: string;
     role: string;
-    is_active: boolean;
   };
 }
 
@@ -76,16 +75,31 @@ class AuthService {
    * Login user
    */
   async login(data: LoginRequest): Promise<LoginResponse> {
-    const response = await apiClient.post<LoginResponse>('/auth/login', data);
+    console.log('🔐 Attempting login with:', { phone: data.phone_number, pin: '***' });
     
-    // Save tokens to localStorage
-    if (response.access_token && response.refresh_token) {
-      apiClient.saveTokens(response.access_token, response.refresh_token);
-      // Save user data
-      localStorage.setItem('user', JSON.stringify(response.user));
+    try {
+      const response = await apiClient.post<LoginResponse>('/auth/login', data);
+      console.log('✅ Login response received:', { 
+        hasAccessToken: !!response.access_token,
+        hasUser: !!response.user,
+        userRole: response.user?.role 
+      });
+      
+      // Save tokens to localStorage
+      if (response.access_token && response.refresh_token) {
+        apiClient.saveTokens(response.access_token, response.refresh_token);
+        // Save user data
+        localStorage.setItem('user', JSON.stringify(response.user));
+        console.log('💾 Tokens and user data saved to localStorage');
+      } else {
+        console.warn('⚠️ Missing tokens in response:', response);
+      }
+      
+      return response;
+    } catch (error) {
+      console.error('❌ Login failed:', error);
+      throw error;
     }
-    
-    return response;
   }
 
   /**
