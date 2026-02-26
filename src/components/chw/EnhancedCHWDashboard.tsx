@@ -463,7 +463,7 @@ export function EnhancedCHWDashboard({ isFirstLogin = false }: CHWDashboardProps
    * Fetch the volatile data that should be kept fresh:
    * check-ins, escalations, assigned mothers, and appointments.
    * Called once on mount (inside the setup useEffect) and then
-   * every 30 s by the usePolling hook below.
+   * every 15 s by the usePolling hook below.
    */
   const refreshData = useCallback(async () => {
     const profileId = chwProfileIdRef.current;
@@ -495,9 +495,7 @@ export function EnhancedCHWDashboard({ isFirstLogin = false }: CHWDashboardProps
     // Assigned mothers
     try {
       const mothersResp = await assignmentService.getMothersForCHW(profileId, 'active');
-      if (mothersResp.mothers.length > 0) {
-        setRealMothers(mothersResp.mothers);
-      }
+      setRealMothers(mothersResp.mothers);
     } catch { /* ignore */ }
 
     // Appointments

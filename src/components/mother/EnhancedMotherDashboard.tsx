@@ -1,11 +1,11 @@
-import { useState, useEffect, useCallback } from "react";
+import { useState, useEffect, useCallback, useRef } from "react";
 import { useNavigate } from "react-router-dom";
 import {
   Baby, MessageCircle, Phone, AlertCircle, BookOpen, CheckCircle,
   User, LogOut, Camera, Heart, Apple, Bell, Calendar, Clock,
   ChevronRight, Sparkles, Utensils, Droplets, Moon, Sun,
   Activity, TrendingUp, FileText, Video, ExternalLink, Bookmark,
-  Share2, Play, Pause, Volume2, VolumeX, Loader2
+  Share2, Play, Pause, Volume2, VolumeX, Loader2, Plus
 } from "lucide-react";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle, CardFooter } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -25,6 +25,10 @@ import { appointmentService, type Appointment } from "@/services/appointmentServ
 import { motherService } from "@/services/motherService";
 import { checkinService } from "@/services/checkinService";
 import { Textarea } from "@/components/ui/textarea";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { usePolling } from "@/hooks/usePolling";
 
 // Mock data for daily insights
 const dailyNutritionTips = [
@@ -206,6 +210,58 @@ export function EnhancedMotherDashboard({ isFirstLogin = false }: MotherDashboar
   // Appointments state
   const [appointments, setAppointments] = useState<Appointment[]>([]);
   const [appointmentsLoading, setAppointmentsLoading] = useState(false);
+  // Mother appointment scheduling
+  const [showMotherScheduleModal, setShowMotherScheduleModal] = useState(false);
+  const [motherScheduleForm, setMotherScheduleForm] = useState({
+    scheduledTime: '',
+    appointmentType: 'prenatal_checkup',
+    notes: '',
+  });
+  const [motherScheduleSubmitting, setMotherScheduleSubmitting] = useState(false);
+  const motherProfileIdRef = useRef<number | null>(null);
+
+  /**
+   * Silently refresh appointments + motherProfileId every 15 s.
+   * No loading spinners — only the initial mount shows the spinner.
+   */
+  const refreshData = useCallback(async () => {
+    if (!user?.id) return;
+
+    // Appointments (all statuses so completed/cancelled also visible)
+    try {
+      const resp = await appointmentService.getAllForMother(user.id);
+      setAppointments(resp.appointments);
+    } catch { /* ignore */ }
+  }, [user?.id]);
+
+  // Poll every 15 seconds so appointments from CHW/nurse show automatically
+  usePolling(refreshData, 15_000, !!user?.id);
+
+  /** Mother schedules an appointment with their assigned health worker */
+  const handleMotherScheduleAppointment = async () => {
+    if (!motherScheduleForm.scheduledTime) {
+      toast({ title: "Missing Information", description: "Please pick a date & time.", variant: "destructive" });
+      return;
+    }
+    setMotherScheduleSubmitting(true);
+    try {
+      const appt = await appointmentService.create({
+        mother_id: user!.id,
+        health_worker_id: user!.id, // backend links to assigned CHW/nurse
+        scheduled_time: new Date(motherScheduleForm.scheduledTime).toISOString(),
+        appointment_type: motherScheduleForm.appointmentType,
+        notes: motherScheduleForm.notes.trim() || undefined,
+      });
+      setAppointments(prev => [appt, ...prev]);
+      toast({ title: "Appointment Requested ✓", description: `Visit on ${new Date(appt.scheduled_time).toLocaleString()}.` });
+      setShowMotherScheduleModal(false);
+      setMotherScheduleForm({ scheduledTime: '', appointmentType: 'prenatal_checkup', notes: '' });
+    } catch (err: any) {
+      toast({ title: "Scheduling Failed", description: err.message || "Could not schedule appointment.", variant: "destructive" });
+    } finally {
+      setMotherScheduleSubmitting(false);
+    }
+  };
 
   // Handle photo upload
   const handlePhotoUpload = async (event: React.ChangeEvent<HTMLInputElement>) => {
@@ -311,40 +367,32 @@ export function EnhancedMotherDashboard({ isFirstLogin = false }: MotherDashboar
   const greeting = getGreeting();
   const GreetingIcon = greeting.icon;
 
-  // Load profile photo + upcoming appointments on mount
+  // One-time setup: load profile photo + mother profile, then initial data fetch (with spinners)
   useEffect(() => {
     let isMounted = true;
     (async () => {
+      // Photo
       try {
         const meta = await getMyPhoto();
         if (meta && isMounted) setProfileImage(getPhotoFileUrl(meta.file_url));
-      } catch {
-        console.error("Failed to load profile photo");
-      }
+      } catch { /* ignore */ }
 
-      // Load mother profile ID for check-in submissions
+      // Mother profile ID (needed for check-in; fetched once, not on every poll)
       try {
         const profile = await motherService.getMyProfile();
-        if (isMounted && profile?.id) setMotherProfileId(profile.id);
-      } catch {
-        // ignore — profile may not yet be complete
-      }
-
-      // Load upcoming appointments (mother_id = user.id in the users table)
-      if (user?.id) {
-        try {
-          setAppointmentsLoading(true);
-          const resp = await appointmentService.getUpcomingForMother(user.id);
-          if (isMounted) setAppointments(resp.appointments);
-        } catch {
-          // Keep empty list silently — backend may not be running
-        } finally {
-          if (isMounted) setAppointmentsLoading(false);
+        if (profile?.id && isMounted) {
+          setMotherProfileId(profile.id);
+          motherProfileIdRef.current = profile.id;
         }
-      }
+      } catch { /* ignore */ }
+
+      // Initial data load — show spinner for appointments
+      if (isMounted) setAppointmentsLoading(true);
+      await refreshData();
+      if (isMounted) setAppointmentsLoading(false);
     })();
     return () => { isMounted = false; };
-  }, [user?.id]);
+  }, [refreshData]);
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-pink-50 via-white to-purple-50">
@@ -932,8 +980,66 @@ export function EnhancedMotherDashboard({ isFirstLogin = false }: MotherDashboar
             <div className="flex items-center justify-between">
               <div>
                 <h3 className="font-semibold text-lg">Your Appointments</h3>
-                <p className="text-sm text-muted-foreground">Upcoming scheduled visits with your health worker</p>
+                <p className="text-sm text-muted-foreground">Scheduled visits with your health worker</p>
               </div>
+              {/* Schedule Appointment Modal */}
+              <Dialog open={showMotherScheduleModal} onOpenChange={setShowMotherScheduleModal}>
+                <DialogTrigger asChild>
+                  <Button size="sm">
+                    <Plus className="h-4 w-4 mr-1" />
+                    Schedule
+                  </Button>
+                </DialogTrigger>
+                <DialogContent>
+                  <DialogHeader>
+                    <DialogTitle>Schedule an Appointment</DialogTitle>
+                    <DialogDescription>Request a visit with your health worker.</DialogDescription>
+                  </DialogHeader>
+                  <div className="space-y-4 py-2">
+                    <div className="space-y-2">
+                      <Label>Date & Time *</Label>
+                      <Input
+                        type="datetime-local"
+                        value={motherScheduleForm.scheduledTime}
+                        onChange={e => setMotherScheduleForm(f => ({ ...f, scheduledTime: e.target.value }))}
+                      />
+                    </div>
+                    <div className="space-y-2">
+                      <Label>Appointment Type</Label>
+                      <Select
+                        value={motherScheduleForm.appointmentType}
+                        onValueChange={v => setMotherScheduleForm(f => ({ ...f, appointmentType: v }))}
+                      >
+                        <SelectTrigger><SelectValue /></SelectTrigger>
+                        <SelectContent>
+                          <SelectItem value="prenatal_checkup">Prenatal Checkup</SelectItem>
+                          <SelectItem value="home_visit">Home Visit</SelectItem>
+                          <SelectItem value="ultrasound">Ultrasound</SelectItem>
+                          <SelectItem value="lab_test">Lab Test</SelectItem>
+                          <SelectItem value="postnatal_care">Postnatal Care</SelectItem>
+                          <SelectItem value="other">Other</SelectItem>
+                        </SelectContent>
+                      </Select>
+                    </div>
+                    <div className="space-y-2">
+                      <Label>Notes (optional)</Label>
+                      <Textarea
+                        placeholder="Reason for the visit, any symptoms..."
+                        value={motherScheduleForm.notes}
+                        onChange={e => setMotherScheduleForm(f => ({ ...f, notes: e.target.value }))}
+                        rows={3}
+                      />
+                    </div>
+                    <Button className="w-full" onClick={handleMotherScheduleAppointment} disabled={motherScheduleSubmitting}>
+                      {motherScheduleSubmitting ? (
+                        <><Loader2 className="h-4 w-4 mr-2 animate-spin" />Scheduling...</>
+                      ) : (
+                        <><Calendar className="h-4 w-4 mr-2" />Confirm Appointment</>
+                      )}
+                    </Button>
+                  </div>
+                </DialogContent>
+              </Dialog>
             </div>
 
             {appointmentsLoading ? (

@@ -95,8 +95,12 @@ class AppointmentService {
     return this.list({
       mother_id: motherUserId,
       status: 'scheduled',
-      from: new Date().toISOString(),
     });
+  }
+
+  /** Convenience: get ALL appointments for a mother (any status) */
+  async getAllForMother(motherUserId: number): Promise<AppointmentListResponse> {
+    return this.list({ mother_id: motherUserId });
   }
 
   /** Convenience: get all appointments for a health worker (CHW or Nurse) */

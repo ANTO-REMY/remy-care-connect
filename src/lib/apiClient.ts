@@ -18,34 +18,34 @@ class ApiClient {
   }
 
   /**
-   * Get access token from localStorage
+   * Get access token from sessionStorage (per-tab isolation)
    */
   private getAccessToken(): string | null {
-    return localStorage.getItem('access_token');
+    return sessionStorage.getItem('access_token');
   }
 
   /**
-   * Get refresh token from localStorage
+   * Get refresh token from sessionStorage
    */
   private getRefreshToken(): string | null {
-    return localStorage.getItem('refresh_token');
+    return sessionStorage.getItem('refresh_token');
   }
 
   /**
-   * Save tokens to localStorage
+   * Save tokens to sessionStorage (per-tab)
    */
   saveTokens(accessToken: string, refreshToken: string): void {
-    localStorage.setItem('access_token', accessToken);
-    localStorage.setItem('refresh_token', refreshToken);
+    sessionStorage.setItem('access_token', accessToken);
+    sessionStorage.setItem('refresh_token', refreshToken);
   }
 
   /**
-   * Clear tokens from localStorage
+   * Clear tokens from sessionStorage
    */
   clearTokens(): void {
-    localStorage.removeItem('access_token');
-    localStorage.removeItem('refresh_token');
-    localStorage.removeItem('user');
+    sessionStorage.removeItem('access_token');
+    sessionStorage.removeItem('refresh_token');
+    sessionStorage.removeItem('user');
   }
 
   /**
@@ -67,7 +67,7 @@ class ApiClient {
       if (response.ok) {
         const data = await response.json();
         if (data.access_token) {
-          localStorage.setItem('access_token', data.access_token);
+          sessionStorage.setItem('access_token', data.access_token);
           return data.access_token;
         }
       }

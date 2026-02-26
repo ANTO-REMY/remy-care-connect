@@ -24,7 +24,7 @@ export default function MotherIndex() {
 
         // Check if at least one next-of-kin exists
         let hasKin = false;
-        const storedId = localStorage.getItem("mother_profile_id");
+        const storedId = sessionStorage.getItem("mother_profile_id");
         const motherId = storedId ? Number(storedId) : NaN;
         if (motherId) {
           const kinList = await motherService.getNextOfKin(motherId).catch(() => []);

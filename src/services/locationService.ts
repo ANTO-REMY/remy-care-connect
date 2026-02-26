@@ -36,7 +36,7 @@ export async function getWards(subCountyId: number): Promise<Ward[]> {
 
 /** Save the selected ward to the calling user's role-specific profile row. */
 export async function saveWard(wardId: number): Promise<void> {
-    const token = localStorage.getItem('access_token');
+    const token = sessionStorage.getItem('access_token');
     const res = await fetch(`${API_BASE}/locations/ward`, {
         method: 'PATCH',
         headers: {

@@ -409,7 +409,7 @@ export function EnhancedNurseDashboard({ isFirstLogin = false }: NurseDashboardP
   /**
    * Fetch volatile data that should be kept fresh:
    * escalations, CHW assignments, and appointments.
-   * Called once on mount and then every 30 s via usePolling.
+   * Called once on mount and then every 15 s via usePolling.
    */
   const refreshData = useCallback(async () => {
     const profileId = nurseProfileIdRef.current;
@@ -442,9 +442,7 @@ export function EnhancedNurseDashboard({ isFirstLogin = false }: NurseDashboardP
     // CHW assignments
     try {
       const assignResp = await assignmentService.getAssignmentsForNurse(profileId, 'active');
-      if (assignResp.assignments.length > 0) {
-        setRealCHWAssignments(assignResp.assignments);
-      }
+      setRealCHWAssignments(assignResp.assignments);
     } catch { /* ignore */ }
 
     // Appointments

@@ -147,7 +147,7 @@ export default function OnboardingModal({ open, onComplete }: OnboardingModalPro
 
         setSavingNok(true);
         try {
-            const token = localStorage.getItem('access_token');
+            const token = sessionStorage.getItem('access_token');
             const res = await fetch(
                 `${import.meta.env.VITE_API_BASE_URL || 'http://localhost:5001/api/v1'}/nextofkin`,
                 {

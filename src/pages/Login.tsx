@@ -1,7 +1,7 @@
 import { useState } from 'react';
 import { PinInput } from '@/components/PinInput';
 import { useNavigate, Link } from 'react-router-dom';
-import { Phone, Lock, UserCheck, Stethoscope } from 'lucide-react';
+import { Phone, Lock } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
@@ -11,12 +11,6 @@ import { toast } from '@/components/ui/sonner';
 import { normalizePhoneNumber } from '@/lib/utils';
 import { RegisterModal } from '@/components/RegisterModal';
 
-const roles = [
-    { label: 'Mother', value: 'mother', icon: null },
-    { label: 'CHW', value: 'chw', icon: UserCheck },
-    { label: 'Nurse', value: 'nurse', icon: Stethoscope }
-];
-
 export default function Login() {
     const navigate = useNavigate();
     const { login } = useAuth();
@@ -24,7 +18,6 @@ export default function Login() {
     const [formData, setFormData] = useState({
         phone: '',
         pin: '',
-        role: 'mother',
     });
     const [showRegisterModal, setShowRegisterModal] = useState(false);
 
@@ -98,21 +91,6 @@ export default function Login() {
                     </CardHeader>
                     <CardContent>
                         <form onSubmit={handleSubmit} className="space-y-4">
-                            {/* Role Selector */}
-                            <div className="space-y-2">
-                                <Label htmlFor="role">Role</Label>
-                                <select
-                                    id="role"
-                                    name="role"
-                                    value={formData.role}
-                                    onChange={handleInputChange}
-                                    className="w-full border rounded px-3 py-2 bg-background text-foreground"
-                                >
-                                    {roles.map((role) => (
-                                        <option key={role.value} value={role.value}>{role.label}</option>
-                                    ))}
-                                </select>
-                            </div>
                             {/* Phone */}
                             <div className="space-y-2">
                                 <Label htmlFor="phone">Phone Number (07xxxxxxxx) *</Label>

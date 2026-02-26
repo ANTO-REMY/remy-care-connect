@@ -99,11 +99,11 @@ class AuthService {
         userRole: response.user?.role
       });
 
-      // Save tokens to localStorage
+      // Save tokens to sessionStorage (per-tab isolation)
       if (response.access_token && response.refresh_token) {
         apiClient.saveTokens(response.access_token, response.refresh_token);
-        // Save user data
-        localStorage.setItem('user', JSON.stringify(response.user));
+        // Save user data to sessionStorage
+        sessionStorage.setItem('user', JSON.stringify(response.user));
 
         // Track first login for ALL roles so the onboarding modal fires on first login
         const alreadySeen = localStorage.getItem(`${FIRST_LOGIN_KEY}_${response.user.id}`);
@@ -111,7 +111,7 @@ class AuthService {
           localStorage.setItem(`${FIRST_LOGIN_KEY}_${response.user.id}`, 'pending');
         }
 
-        console.log('💾 Tokens and user data saved to localStorage');
+        console.log('💾 Tokens and user data saved to sessionStorage');
       } else {
         console.warn('⚠️ Missing tokens in response:', response);
       }
@@ -152,10 +152,10 @@ class AuthService {
   }
 
   /**
-   * Get current user from localStorage
+   * Get current user from sessionStorage
    */
   getCurrentUser(): LoginResponse['user'] | null {
-    const userStr = localStorage.getItem('user');
+    const userStr = sessionStorage.getItem('user');
     if (!userStr) return null;
 
     try {
@@ -166,10 +166,40 @@ class AuthService {
   }
 
   /**
+   * Fetch the authenticated user's profile from the server.
+   * Returns the canonical user data (id, role, name, etc.) as the
+   * backend sees it — useful for validating a cached localStorage session.
+   */
+  async getServerProfile(): Promise<LoginResponse['user']> {
+    const data = await apiClient.get<{
+      id: number;
+      phone_number: string;
+      name: string;
+      role: string;
+      is_verified: boolean;
+    }>('/auth/profile');
+
+    // The /auth/profile endpoint returns name as a single field.
+    // Split it into first/last to match the LoginResponse shape.
+    const parts = (data.name ?? '').split(' ');
+    const first_name = parts[0] ?? '';
+    const last_name = parts.slice(1).join(' ');
+
+    return {
+      id: data.id,
+      phone_number: data.phone_number,
+      name: data.name,
+      first_name,
+      last_name,
+      role: data.role,
+    };
+  }
+
+  /**
    * Check if user is authenticated
    */
   isAuthenticated(): boolean {
-    const accessToken = localStorage.getItem('access_token');
+    const accessToken = sessionStorage.getItem('access_token');
     const user = this.getCurrentUser();
     return !!(accessToken && user);
   }

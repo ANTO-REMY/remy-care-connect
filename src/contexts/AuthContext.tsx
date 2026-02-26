@@ -32,16 +32,47 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   const [isFirstLogin, setIsFirstLogin] = useState(false);
 
   useEffect(() => {
-    // Restore session on mount
-    const currentUser = authService.getCurrentUser();
-    if (currentUser && authService.isAuthenticated()) {
-      const typedUser = currentUser as User;
-      setUser(typedUser);
-      setIsAuthenticated(true);
-      // Restore first-login flag for ALL roles
-      setIsFirstLogin(authService.isFirstLogin(typedUser.id));
-    }
-    setLoading(false);
+    let cancelled = false;
+
+    const restoreSession = async () => {
+      // Quick restore from localStorage so the UI doesn't flash /login
+      const cachedUser = authService.getCurrentUser();
+      if (cachedUser && authService.isAuthenticated()) {
+        const typedUser = cachedUser as User;
+        if (!cancelled) {
+          setUser(typedUser);
+          setIsAuthenticated(true);
+          setIsFirstLogin(authService.isFirstLogin(typedUser.id));
+        }
+
+        // Validate against the server — the JWT determines the real role/user.
+        // If they differ (e.g. another login in the same browser overwrote
+        // localStorage), update both localStorage and React state.
+        try {
+          const serverUser = await authService.getServerProfile();
+          if (!cancelled) {
+            const fresh: User = {
+              id: serverUser.id,
+              phone_number: serverUser.phone_number,
+              first_name: serverUser.first_name,
+              last_name: serverUser.last_name,
+              name: serverUser.name,
+              role: serverUser.role as User['role'],
+            };
+            // Persist the authoritative data so same-tab refreshes are correct
+            sessionStorage.setItem('user', JSON.stringify(fresh));
+            setUser(fresh);
+          }
+        } catch {
+          // Server unreachable or token expired — keep cached user for now;
+          // the first API call will trigger a token refresh / redirect anyway.
+        }
+      }
+      if (!cancelled) setLoading(false);
+    };
+
+    restoreSession();
+    return () => { cancelled = true; };
   }, []);
 
   const login = async (phone: string, pin: string): Promise<{ success: boolean; role?: string; error?: string }> => {
@@ -102,7 +133,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       // Store the role-specific profile ID so components can use it
       // e.g. OnboardingModal needs mothers.id (not users.id) for next-of-kin
       if (response.profile_id && response.role === 'mother') {
-        localStorage.setItem('mother_profile_id', String(response.profile_id));
+        sessionStorage.setItem('mother_profile_id', String(response.profile_id));
       }
       return { success: true };
     } catch (error: any) {
