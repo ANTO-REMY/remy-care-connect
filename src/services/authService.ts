@@ -7,32 +7,37 @@ import { apiClient } from '@/lib/apiClient';
 
 export interface RegisterRequest {
   phone_number: string;
-  name: string;
+  first_name: string;
+  last_name: string;
+  email?: string;
   pin: string;
   role: 'mother' | 'chw' | 'nurse';
+  license_number?: string;
+  location?: string;
 }
 
 export interface RegisterResponse {
   message: string;
   user_id: number;
-  phone_number: string;
-  verification_sent: boolean;
+  role: string;
+  first_name: string;
+  last_name: string;
+  otp_code: string;      // dev only — remove check in production
+  expires_in: string;
 }
 
 export interface VerifyOTPRequest {
   phone_number: string;
   otp_code: string;
+  license_number?: string; // forwarded for CHW/Nurse profile creation
+  location?: string;       // forwarded for CHW/Nurse profile creation
 }
 
 export interface VerifyOTPResponse {
   message: string;
-  user: {
-    id: number;
-    phone_number: string;
-    name: string;
-    role: string;
-    is_active: boolean;
-  };
+  user_id: number;
+  role: string;
+  profile_id: number | null;
 }
 
 export interface LoginRequest {
@@ -47,6 +52,9 @@ export interface LoginResponse {
   user: {
     id: number;
     phone_number: string;
+    first_name: string;
+    last_name: string;
+    email?: string;
     name: string;
     role: string;
   };
@@ -55,6 +63,8 @@ export interface LoginResponse {
 export interface RefreshTokenResponse {
   access_token: string;
 }
+
+const FIRST_LOGIN_KEY = 'remy_first_login';
 
 class AuthService {
   /**
@@ -76,30 +86,53 @@ class AuthService {
    */
   async login(data: LoginRequest): Promise<LoginResponse> {
     console.log('🔐 Attempting login with:', { phone: data.phone_number, pin: '***' });
-    
+
     try {
       const response = await apiClient.post<LoginResponse>('/auth/login', data);
-      console.log('✅ Login response received:', { 
+      console.log('✅ Login response received:', {
         hasAccessToken: !!response.access_token,
         hasUser: !!response.user,
-        userRole: response.user?.role 
+        userRole: response.user?.role
       });
-      
+
       // Save tokens to localStorage
       if (response.access_token && response.refresh_token) {
         apiClient.saveTokens(response.access_token, response.refresh_token);
         // Save user data
         localStorage.setItem('user', JSON.stringify(response.user));
+
+        // Track first login for mothers so onboarding modal fires
+        if (response.user.role === 'mother') {
+          const alreadySeen = localStorage.getItem(`${FIRST_LOGIN_KEY}_${response.user.id}`);
+          if (!alreadySeen) {
+            localStorage.setItem(`${FIRST_LOGIN_KEY}_${response.user.id}`, 'pending');
+          }
+        }
+
         console.log('💾 Tokens and user data saved to localStorage');
       } else {
         console.warn('⚠️ Missing tokens in response:', response);
       }
-      
+
       return response;
     } catch (error) {
       console.error('❌ Login failed:', error);
       throw error;
     }
+  }
+
+  /**
+   * Mark onboarding as complete for this user
+   */
+  markOnboardingComplete(userId: number): void {
+    localStorage.setItem(`${FIRST_LOGIN_KEY}_${userId}`, 'complete');
+  }
+
+  /**
+   * Check if this is the user's first login (onboarding pending)
+   */
+  isFirstLogin(userId: number): boolean {
+    return localStorage.getItem(`${FIRST_LOGIN_KEY}_${userId}`) === 'pending';
   }
 
   /**
@@ -122,7 +155,7 @@ class AuthService {
   getCurrentUser(): LoginResponse['user'] | null {
     const userStr = localStorage.getItem('user');
     if (!userStr) return null;
-    
+
     try {
       return JSON.parse(userStr);
     } catch {

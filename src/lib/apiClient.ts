@@ -56,7 +56,7 @@ class ApiClient {
     if (!refreshToken) return null;
 
     try {
-      const response = await fetch(`${this.baseUrl}/api/v1/auth/refresh`, {
+      const response = await fetch(`${this.baseUrl}/auth/refresh`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
@@ -108,7 +108,7 @@ class ApiClient {
       // Handle 401 - Try to refresh token
       if (response.status === 401 && accessToken) {
         const newAccessToken = await this.refreshAccessToken();
-        
+
         if (newAccessToken) {
           // Retry request with new token
           headers['Authorization'] = `Bearer ${newAccessToken}`;
@@ -127,10 +127,10 @@ class ApiClient {
       // Handle error responses
       if (!response.ok) {
         const errorData = await response.json().catch(() => ({}));
-        
+
         // Create user-friendly error messages
         let userMessage = '';
-        
+
         switch (response.status) {
           case 400:
             userMessage = errorData.error || errorData.message || 'Invalid request. Please check your input.';
@@ -164,7 +164,7 @@ class ApiClient {
           default:
             userMessage = errorData.error || errorData.message || `An error occurred (${response.status}). Please try again.`;
         }
-        
+
         const error: ApiError = {
           message: userMessage,
           status: response.status,
@@ -185,10 +185,10 @@ class ApiClient {
       if ((error as ApiError).status) {
         throw error;
       }
-      
+
       // Network or other errors
       const errorMessage = error instanceof Error ? error.message : 'An unexpected error occurred';
-      
+
       let userFriendlyMessage = '';
       if (errorMessage.includes('fetch')) {
         userFriendlyMessage = 'Unable to connect to server. Please check your internet connection.';
@@ -197,7 +197,7 @@ class ApiClient {
       } else {
         userFriendlyMessage = 'Network error occurred. Please check your connection and try again.';
       }
-      
+
       throw {
         message: userFriendlyMessage,
         status: 0,

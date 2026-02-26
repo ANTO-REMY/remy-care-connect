@@ -1,19 +1,24 @@
 import React, { createContext, useContext, useState, useEffect } from 'react';
 import { authService, type LoginRequest, type RegisterRequest } from '@/services/authService';
 
-interface User {
+export interface User {
   id: number;
-  name: string;
   phone_number: string;
+  first_name: string;
+  last_name: string;
+  email?: string;
+  name: string; // kept for backward compat — equals first_name + ' ' + last_name
   role: 'mother' | 'chw' | 'nurse';
 }
 
 interface AuthContextType {
   user: User | null;
-  login: (phone: string, pin: string) => Promise<{ success: boolean; error?: string }>;
+  isFirstLogin: boolean;
+  login: (phone: string, pin: string) => Promise<{ success: boolean; role?: string; error?: string }>;
   register: (userData: RegisterRequest) => Promise<{ success: boolean; userId?: number; error?: string }>;
-  verifyOTP: (phone: string, otpCode: string) => Promise<{ success: boolean; error?: string }>;
+  verifyOTP: (phone: string, otpCode: string, extras?: { license_number?: string; location?: string }) => Promise<{ success: boolean; error?: string }>;
   logout: () => void;
+  markOnboardingComplete: () => void;
   isAuthenticated: boolean;
   loading: boolean;
 }
@@ -24,20 +29,26 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   const [user, setUser] = useState<User | null>(null);
   const [isAuthenticated, setIsAuthenticated] = useState(false);
   const [loading, setLoading] = useState(true);
+  const [isFirstLogin, setIsFirstLogin] = useState(false);
 
   useEffect(() => {
-    // Check if user is authenticated on mount
+    // Restore session on mount
     const currentUser = authService.getCurrentUser();
     if (currentUser && authService.isAuthenticated()) {
-      setUser(currentUser);
+      const typedUser = currentUser as User;
+      setUser(typedUser);
       setIsAuthenticated(true);
+      // Check if onboarding is still pending for mothers
+      if (typedUser.role === 'mother') {
+        setIsFirstLogin(authService.isFirstLogin(typedUser.id));
+      }
     }
     setLoading(false);
   }, []);
 
-  const login = async (phone: string, pin: string): Promise<{ success: boolean; error?: string }> => {
+  const login = async (phone: string, pin: string): Promise<{ success: boolean; role?: string; error?: string }> => {
     console.log('🚪 AuthContext login called');
-    
+
     try {
       const response = await authService.login({
         phone_number: phone,
@@ -45,19 +56,24 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       });
 
       console.log('✅ AuthService login successful, response:', response);
-      console.log('👤 Setting user:', response.user);
-      
-      setUser(response.user);
+
+      const typedUser = response.user as User;
+      setUser(typedUser);
       setIsAuthenticated(true);
-      
+
+      // Set first-login flag for mothers
+      if (typedUser.role === 'mother') {
+        const firstTime = authService.isFirstLogin(typedUser.id);
+        setIsFirstLogin(firstTime);
+      } else {
+        setIsFirstLogin(false);
+      }
+
       console.log('💾 User state updated successfully');
-      return { success: true };
+      return { success: true, role: response.user.role };
     } catch (error: any) {
       console.error('❌ AuthContext login error:', error);
-      
-      // Use the user-friendly message from the API client
       const errorMessage = error.message || 'Login failed. Please try again.';
-      
       return { success: false, error: errorMessage };
     }
   };
@@ -65,17 +81,13 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   const register = async (userData: RegisterRequest): Promise<{ success: boolean; userId?: number; error?: string }> => {
     try {
       const response = await authService.register(userData);
-      
       return {
         success: true,
         userId: response.user_id,
       };
     } catch (error: any) {
       console.error('Registration error:', error);
-      
-      // Use the user-friendly message from the API client
       const errorMessage = error.message || 'Registration failed. Please try again.';
-      
       return {
         success: false,
         error: errorMessage,
@@ -83,22 +95,34 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     }
   };
 
-  const verifyOTP = async (phone: string, otpCode: string): Promise<{ success: boolean; error?: string }> => {
+  const verifyOTP = async (
+    phone: string,
+    otpCode: string,
+    extras?: { license_number?: string; location?: string }
+  ): Promise<{ success: boolean; error?: string }> => {
     try {
       const response = await authService.verifyOTP({
         phone_number: phone,
         otp_code: otpCode,
+        ...extras,
       });
-
-      // OTP verified successfully, but user still needs to login
+      // Store the role-specific profile ID so components can use it
+      // e.g. OnboardingModal needs mothers.id (not users.id) for next-of-kin
+      if (response.profile_id && response.role === 'mother') {
+        localStorage.setItem('mother_profile_id', String(response.profile_id));
+      }
       return { success: true };
     } catch (error: any) {
       console.error('OTP verification error:', error);
-      
-      // Use the user-friendly message from the API client
       const errorMessage = error.message || 'OTP verification failed. Please try again.';
-      
       return { success: false, error: errorMessage };
+    }
+  };
+
+  const markOnboardingComplete = () => {
+    if (user) {
+      authService.markOnboardingComplete(user.id);
+      setIsFirstLogin(false);
     }
   };
 
@@ -106,10 +130,23 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     authService.logout();
     setUser(null);
     setIsAuthenticated(false);
+    setIsFirstLogin(false);
   };
 
   return (
-    <AuthContext.Provider value={{ user, login, register, verifyOTP, logout, isAuthenticated, loading }}>
+    <AuthContext.Provider
+      value={{
+        user,
+        isFirstLogin,
+        login,
+        register,
+        verifyOTP,
+        logout,
+        markOnboardingComplete,
+        isAuthenticated,
+        loading,
+      }}
+    >
       {children}
     </AuthContext.Provider>
   );

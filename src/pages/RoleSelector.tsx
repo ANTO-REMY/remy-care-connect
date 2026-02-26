@@ -1,7 +1,7 @@
 import { useNavigate } from "react-router-dom";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
-import { Users, UserCheck, Stethoscope } from "lucide-react";
+import { Users, UserCheck, Stethoscope, Heart } from "lucide-react";
 
 export default function RoleSelector() {
   const navigate = useNavigate();
@@ -63,7 +63,7 @@ export default function RoleSelector() {
                 </CardDescription>
               </CardHeader>
               <CardContent className="pt-0 p-4 sm:p-6">
-                <Button 
+                <Button
                   onClick={() => navigate(role.path)}
                   className="w-full text-sm sm:text-base"
                   size="lg"
@@ -77,8 +77,8 @@ export default function RoleSelector() {
 
         {/* Landing Pages */}
         <div className="mt-6 sm:mt-8 flex flex-col sm:flex-row gap-3 sm:gap-4 justify-center">
-          <Button 
-            variant="outline" 
+          <Button
+            variant="outline"
             onClick={() => navigate('/landing-illustrations')}
             className="group w-full sm:w-auto"
           >

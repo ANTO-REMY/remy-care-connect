@@ -1,10 +1,5 @@
-import { Layout } from "@/components/layout/Layout";
-import { NurseDashboard } from "@/components/nurse/NurseDashboard";
+import { EnhancedNurseDashboard } from "@/components/nurse/EnhancedNurseDashboard";
 
 export default function NurseIndex() {
-  return (
-    <Layout>
-      <NurseDashboard />
-    </Layout>
-  );
+  return <EnhancedNurseDashboard />;
 }

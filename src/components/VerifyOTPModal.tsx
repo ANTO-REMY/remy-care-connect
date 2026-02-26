@@ -86,7 +86,7 @@ export function VerifyOTPModal({ open, onOpenChange, onVerified, onSubmit, onRes
         <div className="flex flex-col items-center gap-4">
           <InputOTP maxLength={5} value={otp} onChange={(value) => setOtp(value.replace(/\D/g, '').slice(0, 5))}>
             <InputOTPGroup>
-              {[0,1,2,3,4].map((i) => (
+              {[0, 1, 2, 3, 4].map((i) => (
                 <InputOTPSlot key={i} index={i} autoComplete="one-time-code" />
               ))}
             </InputOTPGroup>

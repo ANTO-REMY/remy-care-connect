@@ -1,6 +1,7 @@
 import { useState } from 'react';
 import { PinInput } from '@/components/PinInput';
 import { useNavigate, Link } from 'react-router-dom';
+import { normalizePhoneNumber, validatePhoneNumber } from '@/lib/utils';
 import { Calendar, MapPin, User, Phone, Lock } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -8,17 +9,17 @@ import { Label } from '@/components/ui/label';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { useAuth } from '@/contexts/AuthContext';
-import { useToast } from '@/hooks/use-toast';
+import { toast } from '@/components/ui/sonner';
 import VerifyOTPModal from '@/components/VerifyOTPModal';
 
 export default function RegisterMother() {
   const navigate = useNavigate();
   const { register, verifyOTP } = useAuth();
-  const { toast } = useToast();
   const [isLoading, setIsLoading] = useState(false);
   const [showVerify, setShowVerify] = useState(false);
   const [formData, setFormData] = useState({
-    fullName: '',
+    firstName: '',
+    lastName: '',
     phone: '',
     dueDate: '',
     dobDate: '',
@@ -41,21 +42,27 @@ export default function RegisterMother() {
     setIsLoading(true);
 
     // Basic validation
-    if (!formData.fullName || !formData.phone || !formData.pin || !formData.location) {
-      toast({
-        title: "Missing Information",
-        description: "Please fill in all required fields.",
-        variant: "destructive"
+    if (!formData.firstName || !formData.lastName || !formData.phone || !formData.pin || !formData.location) {
+      toast.warning('Missing information', {
+        description: 'Please fill in all required fields before creating your account.',
       });
       setIsLoading(false);
       return;
     }
 
+    if (!validatePhoneNumber(formData.phone)) {
+      toast.error('Invalid phone number', {
+        description: 'Please enter a valid Kenyan phone number (e.g. 0712345678).',
+      });
+      setIsLoading(false);
+      return;
+    }
+
+    const normalizedPhone = normalizePhoneNumber(formData.phone);
+
     if (formData.pin !== formData.confirmPin) {
-      toast({
-        title: "PIN Mismatch",
-        description: "PINs do not match. Please try again.",
-        variant: "destructive"
+      toast.error('PINs do not match', {
+        description: 'Make sure both PIN fields are identical before continuing.',
       });
       setIsLoading(false);
       return;
@@ -63,30 +70,26 @@ export default function RegisterMother() {
 
     try {
       const result = await register({
-        phone_number: formData.phone,
-        name: formData.fullName,
+        phone_number: normalizedPhone,
+        first_name: formData.firstName.trim(),
+        last_name: formData.lastName.trim(),
         pin: formData.pin,
         role: 'mother'
       });
-      
+
       if (result.success) {
-        toast({
-          title: "Registration Successful!",
-          description: "We've sent you an OTP. Please verify your phone number.",
+        toast.success('Almost there! 🎉', {
+          description: "We've sent a verification code to your phone. Please check your messages.",
         });
         setShowVerify(true);
       } else {
-        toast({
-          title: "Registration Failed",
-          description: result.error || "A user with this phone number may already exist.",
-          variant: "destructive"
+        toast.error('Registration failed', {
+          description: result.error || 'A user with this phone number may already exist. Try logging in instead.',
         });
       }
     } catch (error) {
-      toast({
-        title: "Registration Error",
-        description: "Something went wrong. Please try again.",
-        variant: "destructive"
+      toast.error('Something went wrong', {
+        description: 'We could not complete your registration. Please check your connection and try again.',
       });
     } finally {
       setIsLoading(false);
@@ -109,23 +112,20 @@ export default function RegisterMother() {
           phoneNumber={formData.phone}
           onSubmit={async (otp) => {
             try {
-              const result = await verifyOTP(formData.phone, otp);
+              const result = await verifyOTP(normalizePhoneNumber(formData.phone), otp);
               return result.success;
             } catch (error) {
               return false;
             }
           }}
           onResend={async () => {
-            // OTP resend would require a backend endpoint
-            toast({
-              title: "OTP Resent",
-              description: "A new OTP has been sent to your phone.",
+            toast.info('Code resent', {
+              description: 'A new verification code has been sent to your phone.',
             });
           }}
           onVerified={() => {
-            toast({ 
-              title: 'Phone verified', 
-              description: 'Please login with your credentials.' 
+            toast.success('Phone verified! ✅', {
+              description: 'Your account is ready. Please sign in with your credentials.',
             });
             navigate('/login/mother');
           }}
@@ -150,21 +150,41 @@ export default function RegisterMother() {
           </CardHeader>
           <CardContent>
             <form onSubmit={handleSubmit} className="space-y-4">
-              {/* Full Name */}
-              <div className="space-y-2">
-                <Label htmlFor="fullName">Full Name *</Label>
-                <div className="relative">
-                  <User className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-muted-foreground" />
-                  <Input
-                    id="fullName"
-                    name="fullName"
-                    type="text"
-                    placeholder="Enter your full name"
-                    value={formData.fullName}
-                    onChange={handleInputChange}
-                    className="pl-10"
-                    required
-                  />
+              {/* Name row: First + Last side by side */}
+              <div className="grid grid-cols-2 gap-3">
+                <div className="space-y-2">
+                  <Label htmlFor="firstName">First Name *</Label>
+                  <div className="relative">
+                    <User className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+                    <Input
+                      id="firstName"
+                      name="firstName"
+                      type="text"
+                      placeholder="Jane"
+                      value={formData.firstName}
+                      onChange={handleInputChange}
+                      className="pl-10"
+                      required
+                      autoComplete="given-name"
+                    />
+                  </div>
+                </div>
+                <div className="space-y-2">
+                  <Label htmlFor="lastName">Last Name *</Label>
+                  <div className="relative">
+                    <User className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+                    <Input
+                      id="lastName"
+                      name="lastName"
+                      type="text"
+                      placeholder="Wanjiru"
+                      value={formData.lastName}
+                      onChange={handleInputChange}
+                      className="pl-10"
+                      required
+                      autoComplete="family-name"
+                    />
+                  </div>
                 </div>
               </div>
 
@@ -204,8 +224,8 @@ export default function RegisterMother() {
                 </div>
               </div>
 
-               {/* DOB */}
-               <div className="space-y-2">
+              {/* DOB */}
+              <div className="space-y-2">
                 <Label htmlFor="dueDate">Date of birth </Label>
                 <div className="relative">
                   <Calendar className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-muted-foreground" />
@@ -237,7 +257,7 @@ export default function RegisterMother() {
                 </div>
               </div>
 
-              
+
 
               {/* PIN */}
               <div className="space-y-2">

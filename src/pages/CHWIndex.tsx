@@ -1,10 +1,5 @@
-import { Layout } from "@/components/layout/Layout";
-import { CHWDashboard } from "@/components/chw/CHWDashboard";
+import { EnhancedCHWDashboard } from "@/components/chw/EnhancedCHWDashboard";
 
 export default function CHWIndex() {
-  return (
-    <Layout>
-      <CHWDashboard />
-    </Layout>
-  );
+  return <EnhancedCHWDashboard />;
 }

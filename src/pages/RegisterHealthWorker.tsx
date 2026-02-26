@@ -9,7 +9,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/com
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { useAuth } from '@/contexts/AuthContext';
-import { useToast } from '@/hooks/use-toast';
+import { toast } from '@/components/ui/sonner';
 import VerifyOTPModal from '@/components/VerifyOTPModal';
 import { normalizePhoneNumber, validatePhoneNumber } from '@/lib/utils';
 
@@ -17,7 +17,6 @@ export default function RegisterHealthWorker() {
   const navigate = useNavigate();
   const location = useLocation();
   const { register, verifyOTP } = useAuth();
-  const { toast } = useToast();
   // Determine role from navigation state, default to 'chw'
   const initialRole = location.state && (location.state.role === 'nurse' || location.state.role === 'chw') ? location.state.role : 'chw';
   const [showModal, setShowModal] = useState(false); // Modal not used when navigating from landing
@@ -25,7 +24,8 @@ export default function RegisterHealthWorker() {
   const [isLoading, setIsLoading] = useState(false);
   const [showVerify, setShowVerify] = useState(false);
   const [formData, setFormData] = useState({
-    fullName: '',
+    firstName: '',
+    lastName: '',
     phone: '',
     licenceNumber: '',
     location: '',
@@ -54,32 +54,27 @@ export default function RegisterHealthWorker() {
     setIsLoading(true);
 
     // Basic validation
-    if (!formData.fullName || !formData.phone || !formData.pin || !formData.location) {
-      toast({
-        title: "Missing Information",
-        description: "Please fill in all required fields.",
-        variant: "destructive"
+    if (!formData.firstName || !formData.lastName || !formData.phone || !formData.licenceNumber || !formData.pin || !formData.location) {
+      toast.warning('Missing information', {
+        description: 'Please fill in all required fields before creating your account.',
+      });
+      setIsLoading(false);
+      return;
+    }
+
+    if (!validatePhoneNumber(formData.phone)) {
+      toast.error('Invalid phone number', {
+        description: 'Please enter a valid Kenyan phone number (e.g. 0712345678).',
       });
       setIsLoading(false);
       return;
     }
 
     const normalizedPhone = normalizePhoneNumber(formData.phone);
-    if (!validatePhoneNumber(normalizedPhone)) {
-      toast({
-        title: "Invalid phone number",
-        description: "Please enter a valid Kenyan phone number (e.g., 0712345678)",
-        variant: "destructive"
-      });
-      setIsLoading(false);
-      return;
-    }
 
     if (formData.pin !== formData.confirmPin) {
-      toast({
-        title: "PIN Mismatch",
-        description: "PINs do not match. Please try again.",
-        variant: "destructive"
+      toast.error('PINs do not match', {
+        description: 'Make sure both PIN fields are identical before continuing.',
       });
       setIsLoading(false);
       return;
@@ -88,29 +83,27 @@ export default function RegisterHealthWorker() {
     try {
       const result = await register({
         phone_number: normalizedPhone,
-        name: formData.fullName,
+        first_name: formData.firstName.trim(),
+        last_name: formData.lastName.trim(),
         pin: formData.pin,
-        role: selectedRole
+        role: selectedRole,
+        license_number: formData.licenceNumber,
+        location: formData.location,
       });
-      
+
       if (result.success) {
-        toast({
-          title: "Registration Successful!",
-          description: "We've sent you an OTP. Please verify your phone number.",
+        toast.success('Almost there! 🎉', {
+          description: "We've sent a verification code to your phone. Please check your messages.",
         });
         setShowVerify(true);
       } else {
-        toast({
-          title: "Registration Failed",
-          description: result.error || "A user with this phone number may already exist.",
-          variant: "destructive"
+        toast.error('Registration failed', {
+          description: result.error || 'A user with this phone number may already exist. Try logging in instead.',
         });
       }
     } catch (error) {
-      toast({
-        title: "Registration Error",
-        description: "Something went wrong. Please try again.",
-        variant: "destructive"
+      toast.error('Something went wrong', {
+        description: 'We could not complete your registration. Please check your connection and try again.',
       });
     } finally {
       setIsLoading(false);
@@ -174,22 +167,27 @@ export default function RegisterHealthWorker() {
           phoneNumber={normalizePhoneNumber(formData.phone)}
           onSubmit={async (otp) => {
             try {
-              const success = await verifyOTP(normalizePhoneNumber(formData.phone), otp);
-              return success;
+              const result = await verifyOTP(
+                normalizePhoneNumber(formData.phone),
+                otp,
+                {
+                  license_number: formData.licenceNumber,
+                  location: formData.location,
+                }
+              );
+              return result.success;
             } catch (error) {
               return false;
             }
           }}
           onResend={async () => {
-            toast({
-              title: "OTP Resent",
-              description: "A new OTP has been sent to your phone.",
+            toast.info('Code resent', {
+              description: 'A new verification code has been sent to your phone.',
             });
           }}
           onVerified={() => {
-            toast({ 
-              title: 'Phone verified', 
-              description: 'Please login with your credentials.' 
+            toast.success('Phone verified! ✅', {
+              description: 'Your account is ready. Please sign in with your credentials.',
             });
             navigate(`/login/${selectedRole}`);
           }}
@@ -210,7 +208,7 @@ export default function RegisterHealthWorker() {
             </h1>
           </div>
           <p className="text-muted-foreground">
-            {selectedRole === 'chw' 
+            {selectedRole === 'chw'
               ? 'Help mothers in your community thrive'
               : 'Provide clinical oversight and guidance'
             }
@@ -226,22 +224,41 @@ export default function RegisterHealthWorker() {
           </CardHeader>
           <CardContent>
             <form onSubmit={handleSubmit} className="space-y-4">
-              {/* Full Name */}
-              <div className="space-y-2">
-                <Label htmlFor="fullName">Full Name *</Label>
-                <div className="relative">
-                  <User className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-muted-foreground" />
-                  <Input
-                    id="fullName"
-                    name="fullName"
-                    type="text"
-                    placeholder="Enter your full name"
-                    autoComplete="name"
-                    value={formData.fullName}
-                    onChange={handleInputChange}
-                    className="pl-10"
-                    required
-                  />
+              {/* Name row: First + Last side by side */}
+              <div className="grid grid-cols-2 gap-3">
+                <div className="space-y-2">
+                  <Label htmlFor="firstName">First Name *</Label>
+                  <div className="relative">
+                    <User className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+                    <Input
+                      id="firstName"
+                      name="firstName"
+                      type="text"
+                      placeholder="John"
+                      autoComplete="given-name"
+                      value={formData.firstName}
+                      onChange={handleInputChange}
+                      className="pl-10"
+                      required
+                    />
+                  </div>
+                </div>
+                <div className="space-y-2">
+                  <Label htmlFor="lastName">Last Name *</Label>
+                  <div className="relative">
+                    <User className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+                    <Input
+                      id="lastName"
+                      name="lastName"
+                      type="text"
+                      placeholder="Kamau"
+                      autoComplete="family-name"
+                      value={formData.lastName}
+                      onChange={handleInputChange}
+                      className="pl-10"
+                      required
+                    />
+                  </div>
                 </div>
               </div>
 
@@ -264,9 +281,9 @@ export default function RegisterHealthWorker() {
                 </div>
               </div>
 
-               {/* Licence number */}
-               <div className="space-y-2">
-                <Label htmlFor="password">Licence Number *</Label>
+              {/* Licence number */}
+              <div className="space-y-2">
+                <Label htmlFor="licenceNumber">Licence Number *</Label>
                 <div className="relative">
                   <Lock className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-muted-foreground" />
                   <Input
@@ -336,8 +353,8 @@ export default function RegisterHealthWorker() {
 
             <div className="mt-4 text-center text-sm">
               <span className="text-muted-foreground">Already have an account? </span>
-              <Link 
-                to={`/login/${selectedRole}`} 
+              <Link
+                to={`/login/${selectedRole}`}
                 className="text-accent hover:underline font-medium"
               >
                 Sign in here
@@ -345,8 +362,8 @@ export default function RegisterHealthWorker() {
             </div>
 
             <div className="mt-2 text-center">
-              <Button 
-                variant="ghost" 
+              <Button
+                variant="ghost"
                 size="sm"
                 onClick={() => setShowModal(true)}
                 className="text-xs text-muted-foreground hover:text-accent"
@@ -362,7 +379,7 @@ export default function RegisterHealthWorker() {
             ← Back to home
           </Link>
         </div>
-      </div>
-    </div>
+      </div >
+    </div >
   );
 }
