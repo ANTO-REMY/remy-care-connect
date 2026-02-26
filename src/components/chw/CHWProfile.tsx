@@ -5,9 +5,11 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { useAuth } from "@/contexts/AuthContext";
 import { useToast } from "@/hooks/use-toast";
 import { chwService } from "@/services/chwService";
+import { getMyPhoto, getPhotoFileUrl } from "@/services/photoService";
 
 interface CHWProfileProps {
   onBack?: () => void;
@@ -18,8 +20,10 @@ export function CHWProfile({ onBack }: CHWProfileProps) {
   const { toast } = useToast();
   const [isEditing, setIsEditing] = useState(false);
   const [loading, setLoading] = useState(false);
+  const [profilePhotoUrl, setProfilePhotoUrl] = useState<string | null>(null);
   const [formData, setFormData] = useState({
-    name: '',
+    first_name: '',
+    last_name: '',
     phone_number: '',
     location: '',
     license_number: '',
@@ -30,11 +34,22 @@ export function CHWProfile({ onBack }: CHWProfileProps) {
       try {
         const profile = await chwService.getCurrentProfile();
         setFormData({
-          name: profile.name || '',
+          first_name: profile.first_name || '',
+          last_name:  profile.last_name  || '',
           phone_number: profile.phone_number || '',
-          location: profile.location || '',
+          location:     profile.location     || '',
           license_number: profile.license_number || '',
         });
+
+        // Load profile photo
+        try {
+          const photoMeta = await getMyPhoto();
+          if (photoMeta) {
+            setProfilePhotoUrl(getPhotoFileUrl(photoMeta.file_url));
+          }
+        } catch (photoError) {
+          console.error('Failed to load profile photo:', photoError);
+        }
       } catch (error: any) {
         toast({
           title: "Error",
@@ -58,6 +73,8 @@ export function CHWProfile({ onBack }: CHWProfileProps) {
     try {
       setLoading(true);
       await chwService.updateProfile({
+        first_name: formData.first_name,
+        last_name:  formData.last_name,
         location: formData.location,
         license_number: formData.license_number
       });
@@ -92,9 +109,17 @@ export function CHWProfile({ onBack }: CHWProfileProps) {
         </Button>
       )}
       <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
-        <div>
-          <h1 className="text-2xl sm:text-3xl font-bold">My Profile</h1>
-          <p className="text-sm sm:text-base text-muted-foreground">View and manage your personal information</p>
+        <div className="flex items-center gap-4">
+          <Avatar className="h-16 w-16 border-2 border-primary">
+            <AvatarImage src={profilePhotoUrl || undefined} alt={`${formData.first_name} ${formData.last_name}`} />
+            <AvatarFallback className="bg-primary/10">
+              <User className="h-8 w-8 text-primary" />
+            </AvatarFallback>
+          </Avatar>
+          <div>
+            <h1 className="text-2xl sm:text-3xl font-bold">My Profile</h1>
+            <p className="text-sm sm:text-base text-muted-foreground">View and manage your personal information</p>
+          </div>
         </div>
         {!isEditing && (
           <Button onClick={() => setIsEditing(true)} className="w-full sm:w-auto">
@@ -112,17 +137,34 @@ export function CHWProfile({ onBack }: CHWProfileProps) {
           </CardDescription>
         </CardHeader>
         <CardContent className="space-y-4">
-          <div className="space-y-2">
-            <Label htmlFor="name">Full Name</Label>
-            <div className="relative">
-              <User className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-muted-foreground" />
-              <Input
-                id="name"
-                name="name"
-                value={formData.name}
-                disabled
-                className="pl-10 bg-muted"
-              />
+          <div className="grid grid-cols-2 gap-3">
+            <div className="space-y-2">
+              <Label htmlFor="first_name">First Name</Label>
+              <div className="relative">
+                <User className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+                <Input
+                  id="first_name"
+                  name="first_name"
+                  value={formData.first_name}
+                  onChange={handleInputChange}
+                  disabled={!isEditing}
+                  className="pl-10"
+                />
+              </div>
+            </div>
+            <div className="space-y-2">
+              <Label htmlFor="last_name">Last Name</Label>
+              <div className="relative">
+                <User className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+                <Input
+                  id="last_name"
+                  name="last_name"
+                  value={formData.last_name}
+                  onChange={handleInputChange}
+                  disabled={!isEditing}
+                  className="pl-10"
+                />
+              </div>
             </div>
           </div>
 
@@ -135,8 +177,6 @@ export function CHWProfile({ onBack }: CHWProfileProps) {
                 name="phone_number"
                 value={formData.phone_number}
                 disabled
-                className="pl-10 bg-muted"
-                disabled={!isEditing}
                 className="pl-10 bg-muted"
               />
             </div>

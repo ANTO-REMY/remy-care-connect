@@ -1,4 +1,5 @@
 import { useState, useEffect, useCallback } from "react";
+import { useNavigate } from "react-router-dom";
 import {
   Baby, MessageCircle, Phone, AlertCircle, BookOpen, CheckCircle,
   User, LogOut, Camera, Heart, Apple, Bell, Calendar, Clock,
@@ -19,8 +20,8 @@ import { Separator } from "@/components/ui/separator";
 import { Switch } from "@/components/ui/switch";
 import { useAuth } from "@/contexts/AuthContext";
 import { useToast } from "@/hooks/use-toast";
-import { MotherProfile } from "./MotherProfile";
-import { uploadPhoto, getPhotoFileUrl } from "@/services/photoService";
+import { uploadPhoto, getPhotoFileUrl, getMyPhoto } from "@/services/photoService";
+import { appointmentService, type Appointment } from "@/services/appointmentService";
 
 // Mock data for daily insights
 const dailyNutritionTips = [
@@ -181,9 +182,9 @@ interface MotherDashboardProps {
 export function EnhancedMotherDashboard({ isFirstLogin = false }: MotherDashboardProps) {
   const { user, logout } = useAuth();
   const { toast } = useToast();
+  const navigate = useNavigate();
 
   // State management
-  const [showProfile, setShowProfile] = useState(false);
   const [showNextOfKinModal, setShowNextOfKinModal] = useState(isFirstLogin);
   const [showPhotoUpload, setShowPhotoUpload] = useState(false);
   const [profileImage, setProfileImage] = useState<string | null>(null);
@@ -195,6 +196,9 @@ export function EnhancedMotherDashboard({ isFirstLogin = false }: MotherDashboar
   const [waterIntake, setWaterIntake] = useState(3);
   const [showCheckInModal, setShowCheckInModal] = useState(false);
   const [checkInResponse, setCheckInResponse] = useState<'ok' | 'not_ok' | null>(null);
+  // Appointments state
+  const [appointments, setAppointments] = useState<Appointment[]>([]);
+  const [appointmentsLoading, setAppointmentsLoading] = useState(false);
 
   // Handle photo upload
   const handlePhotoUpload = async (event: React.ChangeEvent<HTMLInputElement>) => {
@@ -277,9 +281,32 @@ export function EnhancedMotherDashboard({ isFirstLogin = false }: MotherDashboar
   const greeting = getGreeting();
   const GreetingIcon = greeting.icon;
 
-  if (showProfile) {
-    return <MotherProfile onBack={() => setShowProfile(false)} />;
-  }
+  // Load profile photo + upcoming appointments on mount
+  useEffect(() => {
+    let isMounted = true;
+    (async () => {
+      try {
+        const meta = await getMyPhoto();
+        if (meta && isMounted) setProfileImage(getPhotoFileUrl(meta.file_url));
+      } catch {
+        console.error("Failed to load profile photo");
+      }
+
+      // Load upcoming appointments (mother_id = user.id in the users table)
+      if (user?.id) {
+        try {
+          setAppointmentsLoading(true);
+          const resp = await appointmentService.getUpcomingForMother(user.id);
+          if (isMounted) setAppointments(resp.appointments);
+        } catch {
+          // Keep empty list silently — backend may not be running
+        } finally {
+          if (isMounted) setAppointmentsLoading(false);
+        }
+      }
+    })();
+    return () => { isMounted = false; };
+  }, [user?.id]);
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-pink-50 via-white to-purple-50">
@@ -496,7 +523,7 @@ export function EnhancedMotherDashboard({ isFirstLogin = false }: MotherDashboar
                     </div>
                   </DropdownMenuLabel>
                   <DropdownMenuSeparator />
-                  <DropdownMenuItem onClick={() => setShowProfile(true)}>
+                  <DropdownMenuItem onClick={() => navigate("/dashboard/mother/profile")}>
                     <User className="mr-2 h-4 w-4" />
                     My Profile
                   </DropdownMenuItem>
@@ -656,8 +683,9 @@ export function EnhancedMotherDashboard({ isFirstLogin = false }: MotherDashboar
 
         {/* Main Tabs Content */}
         <Tabs value={activeTab} onValueChange={setActiveTab} className="space-y-6">
-          <TabsList className="grid grid-cols-4 w-full">
+          <TabsList className="grid grid-cols-5 w-full">
             <TabsTrigger value="overview">Overview</TabsTrigger>
+            <TabsTrigger value="appointments">Appointments</TabsTrigger>
             <TabsTrigger value="nutrition">Nutrition</TabsTrigger>
             <TabsTrigger value="articles">Articles</TabsTrigger>
             <TabsTrigger value="reminders">Reminders</TabsTrigger>
@@ -692,16 +720,32 @@ export function EnhancedMotherDashboard({ isFirstLogin = false }: MotherDashboar
                   </div>
                 </CardHeader>
                 <CardContent>
-                  <div className="flex items-center justify-between">
-                    <div>
-                      <p className="font-medium">Prenatal Checkup</p>
-                      <p className="text-sm text-muted-foreground">Dr. Sarah Johnson</p>
-                      <p className="text-sm text-muted-foreground">Tomorrow, 10:00 AM</p>
+                  {appointments.length > 0 ? (
+                    <div className="flex items-center justify-between">
+                      <div>
+                        <p className="font-medium">
+                          {appointments[0].notes?.slice(0, 30) || "Scheduled Visit"}
+                        </p>
+                        <p className="text-sm text-muted-foreground">
+                          {new Date(appointments[0].scheduled_time).toLocaleString()}
+                        </p>
+                      </div>
+                      <Button size="sm" variant="outline" onClick={() => setActiveTab("appointments")}>
+                        View Details
+                      </Button>
                     </div>
-                    <Button size="sm" variant="outline">
-                      View Details
-                    </Button>
-                  </div>
+                  ) : (
+                    <div className="flex items-center justify-between">
+                      <div>
+                        <p className="font-medium">Prenatal Checkup</p>
+                        <p className="text-sm text-muted-foreground">Dr. Sarah Johnson</p>
+                        <p className="text-sm text-muted-foreground">Tomorrow, 10:00 AM</p>
+                      </div>
+                      <Button size="sm" variant="outline" onClick={() => setActiveTab("appointments")}>
+                        View Details
+                      </Button>
+                    </div>
+                  )}
                 </CardContent>
               </Card>
             </div>
@@ -795,6 +839,140 @@ export function EnhancedMotherDashboard({ isFirstLogin = false }: MotherDashboar
                 <ScrollBar orientation="horizontal" />
               </ScrollArea>
             </div>
+          </TabsContent>
+
+          {/* Appointments Tab */}
+          <TabsContent value="appointments" className="space-y-4">
+            <div className="flex items-center justify-between">
+              <div>
+                <h3 className="font-semibold text-lg">Your Appointments</h3>
+                <p className="text-sm text-muted-foreground">Upcoming scheduled visits with your health worker</p>
+              </div>
+            </div>
+
+            {appointmentsLoading ? (
+              <div className="flex items-center justify-center py-12">
+                <Activity className="h-6 w-6 animate-spin text-muted-foreground mr-2" />
+                <span className="text-muted-foreground">Loading appointments...</span>
+              </div>
+            ) : appointments.length === 0 ? (
+              /* Empty state — show mock demo appointment so UI never looks broken */
+              <div className="space-y-3">
+                <Card className="border-dashed border-2 border-primary/30 bg-primary/5">
+                  <CardContent className="p-4 text-center">
+                    <Calendar className="h-10 w-10 mx-auto mb-2 text-primary/50" />
+                    <p className="text-sm text-muted-foreground">
+                      No upcoming appointments scheduled yet.
+                    </p>
+                    <p className="text-xs text-muted-foreground mt-1">
+                      Your CHW or nurse will schedule visits for you.
+                    </p>
+                  </CardContent>
+                </Card>
+
+                {/* Demo appointment card */}
+                {[
+                  {
+                    id: "demo-1",
+                    title: "Prenatal Checkup",
+                    worker: "Your Nurse",
+                    time: "Tomorrow, 10:00 AM",
+                    status: "scheduled",
+                    notes: "Bring your antenatal card.",
+                    type: "checkup",
+                  },
+                  {
+                    id: "demo-2",
+                    title: "Routine Home Visit",
+                    worker: "Your CHW",
+                    time: "Friday, 2:00 PM",
+                    status: "scheduled",
+                    notes: "CHW will check vitals and answer questions.",
+                    type: "visit",
+                  },
+                ].map((appt) => (
+                  <Card key={appt.id} className="opacity-60">
+                    <CardContent className="p-4">
+                      <div className="flex items-start gap-4">
+                        <div className={`p-3 rounded-xl ${appt.type === 'checkup' ? 'bg-purple-100' : 'bg-blue-100'}`}>
+                          {appt.type === 'checkup'
+                            ? <Activity className="h-5 w-5 text-purple-600" />
+                            : <Heart className="h-5 w-5 text-blue-600" />
+                          }
+                        </div>
+                        <div className="flex-1">
+                          <div className="flex items-center justify-between">
+                            <h4 className="font-medium">{appt.title}</h4>
+                            <Badge variant="outline" className="bg-green-50 text-green-700 border-green-200 text-xs">
+                              {appt.status}
+                            </Badge>
+                          </div>
+                          <p className="text-sm text-muted-foreground mt-1">{appt.worker}</p>
+                          <div className="flex items-center gap-1 mt-1 text-sm text-muted-foreground">
+                            <Clock className="h-3 w-3" />
+                            <span>{appt.time}</span>
+                          </div>
+                          {appt.notes && (
+                            <p className="text-xs text-muted-foreground mt-2 bg-gray-50 p-2 rounded">
+                              📋 {appt.notes}
+                            </p>
+                          )}
+                        </div>
+                      </div>
+                    </CardContent>
+                  </Card>
+                ))}
+                <p className="text-center text-xs text-muted-foreground italic">
+                  Sample appointments shown above — real appointments will appear here once scheduled.
+                </p>
+              </div>
+            ) : (
+              /* Real appointments from API */
+              <div className="space-y-3">
+                {appointments.map((appt) => (
+                  <Card key={appt.id} className="hover:shadow-md transition-shadow">
+                    <CardContent className="p-4">
+                      <div className="flex items-start gap-4">
+                        <div className="bg-purple-100 p-3 rounded-xl">
+                          <Calendar className="h-5 w-5 text-purple-600" />
+                        </div>
+                        <div className="flex-1">
+                          <div className="flex items-center justify-between">
+                            <h4 className="font-medium">
+                              {appt.notes ? appt.notes.slice(0, 40) : "Scheduled Appointment"}
+                            </h4>
+                            <Badge
+                              variant="outline"
+                              className={
+                                appt.status === 'scheduled' ? 'bg-green-50 text-green-700 border-green-200' :
+                                appt.status === 'completed' ? 'bg-blue-50 text-blue-700 border-blue-200' :
+                                'bg-gray-50 text-gray-600 border-gray-200'
+                              }
+                            >
+                              {appt.status}
+                            </Badge>
+                          </div>
+                          <div className="flex items-center gap-1 mt-1 text-sm text-muted-foreground">
+                            <Clock className="h-3 w-3" />
+                            <span>{new Date(appt.scheduled_time).toLocaleString()}</span>
+                          </div>
+                          {appt.escalated && (
+                            <Badge className="mt-2 bg-red-100 text-red-700 text-xs">
+                              ⚠ Escalated
+                            </Badge>
+                          )}
+                          {appt.recurrence_rule && (
+                            <p className="text-xs text-muted-foreground mt-1">
+                              🔄 Recurring: {appt.recurrence_rule}
+                            </p>
+                          )}
+                        </div>
+                      </div>
+                    </CardContent>
+                  </Card>
+                ))}
+              </div>
+            )}
           </TabsContent>
 
           {/* Nutrition Tab */}

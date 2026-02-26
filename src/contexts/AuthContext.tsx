@@ -16,7 +16,7 @@ interface AuthContextType {
   isFirstLogin: boolean;
   login: (phone: string, pin: string) => Promise<{ success: boolean; role?: string; error?: string }>;
   register: (userData: RegisterRequest) => Promise<{ success: boolean; userId?: number; error?: string }>;
-  verifyOTP: (phone: string, otpCode: string, extras?: { license_number?: string; location?: string }) => Promise<{ success: boolean; error?: string }>;
+  verifyOTP: (phone: string, otpCode: string, extras?: { license_number?: string; ward_id?: number; dob?: string; due_date?: string }) => Promise<{ success: boolean; error?: string }>;
   logout: () => void;
   markOnboardingComplete: () => void;
   isAuthenticated: boolean;
@@ -38,10 +38,8 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       const typedUser = currentUser as User;
       setUser(typedUser);
       setIsAuthenticated(true);
-      // Check if onboarding is still pending for mothers
-      if (typedUser.role === 'mother') {
-        setIsFirstLogin(authService.isFirstLogin(typedUser.id));
-      }
+      // Restore first-login flag for ALL roles
+      setIsFirstLogin(authService.isFirstLogin(typedUser.id));
     }
     setLoading(false);
   }, []);
@@ -61,13 +59,8 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       setUser(typedUser);
       setIsAuthenticated(true);
 
-      // Set first-login flag for mothers
-      if (typedUser.role === 'mother') {
-        const firstTime = authService.isFirstLogin(typedUser.id);
-        setIsFirstLogin(firstTime);
-      } else {
-        setIsFirstLogin(false);
-      }
+      // Set first-login flag for ALL roles (each role has its own onboarding)
+      setIsFirstLogin(authService.isFirstLogin(typedUser.id));
 
       console.log('💾 User state updated successfully');
       return { success: true, role: response.user.role };
@@ -98,7 +91,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   const verifyOTP = async (
     phone: string,
     otpCode: string,
-    extras?: { license_number?: string; location?: string }
+    extras?: { license_number?: string; ward_id?: number; dob?: string; due_date?: string }
   ): Promise<{ success: boolean; error?: string }> => {
     try {
       const response = await authService.verifyOTP({
@@ -131,6 +124,8 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     setUser(null);
     setIsAuthenticated(false);
     setIsFirstLogin(false);
+    // Always send user back to the main app entry
+    window.location.href = "http://localhost:8080";
   };
 
   return (

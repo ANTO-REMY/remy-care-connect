@@ -9,10 +9,12 @@ export interface Mother {
   id: number;
   user_id: number;
   name: string;
+  first_name: string;
+  last_name: string;
   phone_number: string;
-  date_of_birth: string | null;
-  due_date: string | null;
-  location: string | null;
+  date_of_birth: string;  // no longer nullable
+  due_date: string;       // no longer nullable
+  location: string;       // no longer nullable
   status: string;
   created_at: string;
   assigned_chw?: {
@@ -30,6 +32,8 @@ export interface CompleteProfileRequest {
 
 export interface UpdateProfileRequest {
   full_name?: string;    // Changed from name to match API
+  first_name?: string;
+  last_name?: string;
   dob?: string;          // Changed from date_of_birth to match API
   due_date?: string;
   location?: string;
@@ -37,17 +41,21 @@ export interface UpdateProfileRequest {
 
 export interface NextOfKin {
   id: number;
-  mother_id: number;
+  user_id: number;
+  mother_name: string;
   name: string;
+  phone: string;
+  sex: string;
   relationship: string;
-  phone_number: string;
   created_at: string;
 }
 
 export interface CreateNextOfKinRequest {
   name: string;
+  phone?: string;
+  phone_number?: string; // kept for backward compatibility
+  sex?: string;
   relationship: string;
-  phone_number: string;
 }
 
 export interface DailyCheckIn {
@@ -64,6 +72,19 @@ export interface CreateDailyCheckInRequest {
   notes?: string;
 }
 
+// Shape returned by GET /mothers/<mother_id> in the backend
+interface MotherApiResponse {
+  mother_id: number;
+  user_id: number;
+  name: string;
+  first_name: string;
+  last_name: string;
+  dob: string;
+  due_date: string;
+  location: string | null;
+  phone: string;
+}
+
 class MotherService {
   /**
    * Complete mother profile after registration
@@ -76,7 +97,21 @@ class MotherService {
    * Get mother profile by ID
    */
   async getProfile(motherId: number): Promise<Mother> {
-    return apiClient.get<Mother>(`/mothers/${motherId}`);
+    const data = await apiClient.get<MotherApiResponse>(`/mothers/${motherId}`);
+    return {
+      id: data.mother_id,
+      user_id: data.user_id,
+      name: data.name,
+      first_name: data.first_name,
+      last_name: data.last_name,
+      phone_number: data.phone,
+      date_of_birth: data.dob,
+      due_date: data.due_date,
+      location: data.location,
+      // These fields are not provided by this endpoint; set sensible defaults
+      status: 'active',
+      created_at: '',
+    };
   }
 
   /**
@@ -112,14 +147,21 @@ class MotherService {
    * Add next of kin
    */
   async addNextOfKin(motherId: number, data: CreateNextOfKinRequest): Promise<NextOfKin> {
-    return apiClient.post<NextOfKin>(`/mothers/${motherId}/next-of-kin`, data);
+    // Backend resolves mother from JWT; motherId is ignored but kept for API compatibility
+    const payload = {
+      name: data.name,
+      phone: data.phone || data.phone_number || "",
+      sex: data.sex || "",
+      relationship: data.relationship,
+    };
+    return apiClient.post<NextOfKin>(`/nextofkin`, payload);
   }
 
   /**
    * Get next of kin for mother
    */
   async getNextOfKin(motherId: number): Promise<NextOfKin[]> {
-    return apiClient.get<NextOfKin[]>(`/mothers/${motherId}/next-of-kin`);
+    return apiClient.get<NextOfKin[]>(`/nextofkin/${motherId}`);
   }
 
   /**

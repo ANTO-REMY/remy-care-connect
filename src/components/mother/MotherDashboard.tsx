@@ -139,7 +139,6 @@ export function MotherDashboard() {
 
   const handleLogout = () => {
     logout();
-    window.location.href = '/';
   };
 
   const getInitials = (name: string) => {

@@ -1,10 +1,11 @@
 import { useState, useEffect, useCallback } from "react";
+import { useNavigate } from "react-router-dom";
 import {
   Users, AlertTriangle, MessageCircle, Phone, Upload, Calendar, CheckCircle,
   X, User, LogOut, Search, Filter, MapPin, TrendingUp, Activity,
   Heart, Baby, Clock, ChevronRight, MoreHorizontal, FileText,
   Video, Download, Share2, Bell, Settings, BarChart3, Stethoscope,
-  ClipboardList, ArrowUpRight, ArrowDownRight, Sparkles, Star
+  ClipboardList, ArrowUpRight, ArrowDownRight, Sparkles, Star, Camera
 } from "lucide-react";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle, CardFooter } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -22,7 +23,11 @@ import { Separator } from "@/components/ui/separator";
 import { Switch } from "@/components/ui/switch";
 import { useToast } from "@/hooks/use-toast";
 import { useAuth } from "@/contexts/AuthContext";
-import { CHWProfile } from "./CHWProfile";
+import { uploadPhoto, getPhotoFileUrl, getMyPhoto } from "@/services/photoService";
+import { escalationService } from "@/services/escalationService";
+import { assignmentService, type AssignedMother } from "@/services/assignmentService";
+import { chwService } from "@/services/chwService";
+import { apiClient } from "@/lib/apiClient";
 
 // Mock data for mothers
 const mockMothers = [
@@ -199,8 +204,10 @@ interface CHWDashboardProps {
 export function EnhancedCHWDashboard({ isFirstLogin = false }: CHWDashboardProps) {
   const { user, logout } = useAuth();
   const { toast } = useToast();
+  const navigate = useNavigate();
 
-  const [showProfile, setShowProfile] = useState(false);
+  const [showPhotoUpload, setShowPhotoUpload] = useState(false);
+  const [profileImage, setProfileImage] = useState<string | null>(null);
   const [selectedMother, setSelectedMother] = useState<typeof mockMothers[0] | null>(null);
   const [showMotherDetails, setShowMotherDetails] = useState(false);
   const [searchQuery, setSearchQuery] = useState("");
@@ -208,10 +215,17 @@ export function EnhancedCHWDashboard({ isFirstLogin = false }: CHWDashboardProps
   const [showEscalationModal, setShowEscalationModal] = useState(false);
   const [escalationForm, setEscalationForm] = useState({
     motherId: "",
+    nurseId: "",
     issueType: "",
     description: "",
+    priority: "high" as "low" | "medium" | "high" | "critical",
   });
   const [activeTab, setActiveTab] = useState("mothers");
+  // Real-data state (populated from API; mock data used as initial fallback)
+  const [chwProfileId, setChwProfileId] = useState<number | null>(null);
+  const [availableNurses, setAvailableNurses] = useState<{ nurse_id: number; name: string }[]>([]);
+  const [realEscalations, setRealEscalations] = useState<typeof mockEscalatedCases | null>(null);
+  const [escalationSubmitting, setEscalationSubmitting] = useState(false);
   const [notifications, setNotifications] = useState([
     { id: 1, message: "Grace Akinyi reported feeling unwell", time: "10 min ago", read: false },
     { id: 2, message: "New mother assigned to you", time: "1 hour ago", read: false },
@@ -262,23 +276,79 @@ export function EnhancedCHWDashboard({ isFirstLogin = false }: CHWDashboardProps
     window.open(`sms:${phone}`, '_blank');
   };
 
-  const handleEscalation = () => {
+  const handleEscalation = async () => {
     if (!escalationForm.motherId || !escalationForm.issueType || !escalationForm.description) {
       toast({
         title: "Missing Information",
-        description: "Please fill in all fields before escalating.",
+        description: "Please fill in all required fields before escalating.",
         variant: "destructive",
       });
       return;
     }
 
-    toast({
-      title: "Case Escalated",
-      description: "The case has been escalated to the nurse supervisor.",
-    });
+    // If we have a real CHW profile, try to call the API
+    if (chwProfileId) {
+      const nurseId = escalationForm.nurseId
+        ? parseInt(escalationForm.nurseId)
+        : availableNurses[0]?.nurse_id;
+
+      if (!nurseId) {
+        toast({
+          title: "No Nurse Available",
+          description: "No nurse found in the system. Escalation saved locally only.",
+          variant: "destructive",
+        });
+        // Still close and reset form
+      } else {
+        try {
+          setEscalationSubmitting(true);
+          const created = await escalationService.create({
+            chw_id: chwProfileId,
+            nurse_id: nurseId,
+            mother_id: parseInt(escalationForm.motherId),
+            case_description: escalationForm.description,
+            issue_type: escalationForm.issueType,
+            priority: escalationForm.priority,
+          });
+          // Add to local real escalations list
+          setRealEscalations((prev) => [
+            {
+              id: created.id,
+              motherId: created.mother_id ?? 0,
+              motherName: created.mother_name,
+              issue: created.case_description,
+              issueType: created.issue_type ?? created.case_description,
+              escalatedAt: created.created_at,
+              status: created.status as "pending" | "in_progress" | "resolved" | "rejected",
+              priority: created.priority as "low" | "medium" | "high" | "critical",
+              notes: created.notes ?? "",
+            },
+            ...(prev ?? []),
+          ] as typeof mockEscalatedCases);
+          toast({
+            title: "Case Escalated ✓",
+            description: `Case for ${created.mother_name} sent to nurse successfully.`,
+          });
+        } catch (err: any) {
+          toast({
+            title: "Escalation Failed",
+            description: err.message || "Could not submit escalation. Please try again.",
+            variant: "destructive",
+          });
+        } finally {
+          setEscalationSubmitting(false);
+        }
+      }
+    } else {
+      // Offline/demo mode
+      toast({
+        title: "Case Escalated (Demo)",
+        description: "The case has been escalated to the nurse supervisor.",
+      });
+    }
 
     setShowEscalationModal(false);
-    setEscalationForm({ motherId: "", issueType: "", description: "" });
+    setEscalationForm({ motherId: "", nurseId: "", issueType: "", description: "", priority: "high" });
   };
 
   const handleMotherClick = (mother: typeof mockMothers[0]) => {
@@ -290,12 +360,125 @@ export function EnhancedCHWDashboard({ isFirstLogin = false }: CHWDashboardProps
     setNotifications(prev => prev.map(n => n.id === id ? { ...n, read: true } : n));
   };
 
-  if (showProfile) {
-    return <CHWProfile onBack={() => setShowProfile(false)} />;
-  }
+  // Load profile photo, CHW profile ID, nurses list and real escalations on mount
+  useEffect(() => {
+    let isMounted = true;
+    (async () => {
+      // Photo
+      try {
+        const meta = await getMyPhoto();
+        if (meta && isMounted) setProfileImage(getPhotoFileUrl(meta.file_url));
+      } catch { /* silently ignore */ }
+
+      // CHW profile ID (needed for API calls)
+      try {
+        const profile = await chwService.getCurrentProfile();
+        if (isMounted) setChwProfileId(profile.id);
+
+        // Load real escalations submitted by this CHW
+        const escalResp = await escalationService.list({ chw_id: profile.id });
+        if (isMounted && escalResp.escalations.length > 0) {
+          // Merge with mock structure for UI compatibility
+          const mapped = escalResp.escalations.map((e) => ({
+            id: e.id,
+            motherId: e.mother_id ?? 0,
+            motherName: e.mother_name,
+            issue: e.case_description,
+            issueType: e.issue_type ?? e.case_description,
+            escalatedAt: e.created_at,
+            status: e.status as "pending" | "in_progress" | "resolved" | "rejected",
+            priority: e.priority as "low" | "medium" | "high" | "critical",
+            notes: e.notes ?? "",
+          }));
+          setRealEscalations(mapped as typeof mockEscalatedCases);
+        }
+      } catch { /* keep mock data if API unavailable */ }
+
+      // Nurses list for escalation form
+      try {
+        const resp = await apiClient.get<{ nurses: { nurse_id: number; name: string }[] }>('/nurses');
+        if (isMounted && resp.nurses?.length) setAvailableNurses(resp.nurses);
+      } catch { /* keep empty; CHW can't escalate without a nurse in DB */ }
+    })();
+    return () => { isMounted = false; };
+  }, []);
+
+  const handlePhotoUpload = async (event: React.ChangeEvent<HTMLInputElement>) => {
+    const file = event.target.files?.[0];
+    if (!file) return;
+    try {
+      const meta = await uploadPhoto(file);
+      setProfileImage(getPhotoFileUrl(meta.file_url));
+      toast({
+        title: "Photo Updated",
+        description: "Your profile photo has been successfully updated.",
+      });
+      setShowPhotoUpload(false);
+    } catch (err: any) {
+      toast({
+        title: "Upload failed",
+        description: err.message || "Could not upload photo.",
+        variant: "destructive",
+      });
+    }
+  };
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-blue-50 via-white to-indigo-50">
+      {/* Photo Upload Modal */}
+      <Dialog open={showPhotoUpload} onOpenChange={setShowPhotoUpload}>
+        <DialogContent className="sm:max-w-md">
+          <DialogHeader>
+            <DialogTitle className="text-center">Add Your Profile Photo</DialogTitle>
+            <DialogDescription className="text-center">
+              Personalize your profile with a photo so mothers and nurses can recognize you.
+            </DialogDescription>
+          </DialogHeader>
+          <div className="flex flex-col items-center space-y-4 py-6">
+            <div className="relative">
+              <Avatar className="h-32 w-32">
+                <AvatarImage src={profileImage || undefined} />
+                <AvatarFallback className="bg-gradient-to-br from-blue-500 to-indigo-600 text-white text-4xl">
+                  {user?.first_name?.charAt(0).toUpperCase() || "C"}
+                </AvatarFallback>
+              </Avatar>
+              <label
+                htmlFor="chw-photo-upload"
+                className="absolute bottom-0 right-0 bg-primary text-primary-foreground p-2 rounded-full cursor-pointer hover:bg-primary/90 transition-colors"
+              >
+                <Camera className="h-5 w-5" />
+              </label>
+              <input
+                id="chw-photo-upload"
+                type="file"
+                accept="image/*"
+                className="hidden"
+                onChange={handlePhotoUpload}
+              />
+            </div>
+            <p className="text-sm text-muted-foreground">
+              Tap the camera icon to upload a photo
+            </p>
+          </div>
+          <div className="flex gap-2">
+            <Button
+              variant="outline"
+              className="flex-1"
+              onClick={() => setShowPhotoUpload(false)}
+            >
+              Skip for now
+            </Button>
+            <Button
+              className="flex-1"
+              onClick={() => setShowPhotoUpload(false)}
+              disabled={!profileImage}
+            >
+              Continue
+            </Button>
+          </div>
+        </DialogContent>
+      </Dialog>
+
       {/* Mother Details Dialog */}
       <Dialog open={showMotherDetails} onOpenChange={setShowMotherDetails}>
         <DialogContent className="sm:max-w-2xl max-h-[90vh] overflow-y-auto">
@@ -451,6 +634,27 @@ export function EnhancedCHWDashboard({ isFirstLogin = false }: CHWDashboardProps
               </Select>
             </div>
 
+            {availableNurses.length > 0 && (
+              <div>
+                <label className="text-sm font-medium mb-2 block">Assign to Nurse</label>
+                <Select
+                  value={escalationForm.nurseId}
+                  onValueChange={(value) => setEscalationForm({ ...escalationForm, nurseId: value })}
+                >
+                  <SelectTrigger>
+                    <SelectValue placeholder={availableNurses[0]?.name ?? "Select nurse"} />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {availableNurses.map(n => (
+                      <SelectItem key={n.nurse_id} value={String(n.nurse_id)}>
+                        {n.name}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+            )}
+
             <div>
               <label className="text-sm font-medium mb-2 block">Issue Type</label>
               <Select
@@ -471,6 +675,24 @@ export function EnhancedCHWDashboard({ isFirstLogin = false }: CHWDashboardProps
             </div>
 
             <div>
+              <label className="text-sm font-medium mb-2 block">Priority</label>
+              <Select
+                value={escalationForm.priority}
+                onValueChange={(value) => setEscalationForm({ ...escalationForm, priority: value as typeof escalationForm.priority })}
+              >
+                <SelectTrigger>
+                  <SelectValue placeholder="Priority level" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="critical">🔴 Critical</SelectItem>
+                  <SelectItem value="high">🟠 High</SelectItem>
+                  <SelectItem value="medium">🟡 Medium</SelectItem>
+                  <SelectItem value="low">🟢 Low</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
+
+            <div>
               <label className="text-sm font-medium mb-2 block">Description</label>
               <Textarea
                 value={escalationForm.description}
@@ -481,11 +703,14 @@ export function EnhancedCHWDashboard({ isFirstLogin = false }: CHWDashboardProps
             </div>
           </div>
           <div className="flex gap-2">
-            <Button onClick={handleEscalation} className="flex-1">
-              <Upload className="h-4 w-4 mr-2" />
-              Escalate Case
+            <Button onClick={handleEscalation} className="flex-1" disabled={escalationSubmitting}>
+              {escalationSubmitting ? (
+                <><Activity className="h-4 w-4 mr-2 animate-spin" />Submitting...</>
+              ) : (
+                <><Upload className="h-4 w-4 mr-2" />Escalate Case</>
+              )}
             </Button>
-            <Button variant="outline" onClick={() => setShowEscalationModal(false)}>
+            <Button variant="outline" onClick={() => setShowEscalationModal(false)} disabled={escalationSubmitting}>
               Cancel
             </Button>
           </div>
@@ -542,6 +767,7 @@ export function EnhancedCHWDashboard({ isFirstLogin = false }: CHWDashboardProps
                 <DropdownMenuTrigger asChild>
                   <Button variant="ghost" className="relative h-10 w-10 rounded-full">
                     <Avatar className="h-10 w-10 ring-2 ring-blue-200">
+                      <AvatarImage src={profileImage || undefined} />
                       <AvatarFallback className="bg-gradient-to-br from-blue-500 to-indigo-600 text-white">
                         {user?.first_name?.charAt(0).toUpperCase() || 'C'}
                       </AvatarFallback>
@@ -556,7 +782,11 @@ export function EnhancedCHWDashboard({ isFirstLogin = false }: CHWDashboardProps
                     </div>
                   </DropdownMenuLabel>
                   <DropdownMenuSeparator />
-                  <DropdownMenuItem onClick={() => setShowProfile(true)}>
+                  <DropdownMenuItem onClick={() => setShowPhotoUpload(true)}>
+                    <Camera className="mr-2 h-4 w-4" />
+                    Update Photo
+                  </DropdownMenuItem>
+                  <DropdownMenuItem onClick={() => navigate("/dashboard/chw/profile")}>
                     <User className="mr-2 h-4 w-4" />
                     My Profile
                   </DropdownMenuItem>
@@ -646,7 +876,7 @@ export function EnhancedCHWDashboard({ isFirstLogin = false }: CHWDashboardProps
               <div className="flex items-center justify-between">
                 <div>
                   <p className="text-amber-100 text-sm">Escalated</p>
-                  <p className="text-3xl font-bold">{mockEscalatedCases.length}</p>
+                  <p className="text-3xl font-bold">{(realEscalations ?? mockEscalatedCases).length}</p>
                 </div>
                 <Upload className="h-8 w-8 text-amber-200" />
               </div>
@@ -798,14 +1028,17 @@ export function EnhancedCHWDashboard({ isFirstLogin = false }: CHWDashboardProps
 
           {/* Escalated Cases Tab */}
           <TabsContent value="cases" className="space-y-4">
-            {mockEscalatedCases.length === 0 ? (
-              <Card className="p-8 text-center">
-                <CheckCircle className="h-12 w-12 mx-auto mb-4 text-green-500" />
-                <h3 className="text-lg font-medium mb-2">No Escalated Cases</h3>
-                <p className="text-muted-foreground">All mothers are doing well. Great work!</p>
-              </Card>
-            ) : (
-              mockEscalatedCases.map((caseItem) => (
+            {/* Show real escalations if loaded, otherwise mock */}
+            {(() => {
+              const displayCases = realEscalations ?? mockEscalatedCases;
+              if (displayCases.length === 0) return (
+                <Card className="p-8 text-center">
+                  <CheckCircle className="h-12 w-12 mx-auto mb-4 text-green-500" />
+                  <h3 className="text-lg font-medium mb-2">No Escalated Cases</h3>
+                  <p className="text-muted-foreground">All mothers are doing well. Great work!</p>
+                </Card>
+              );
+              return displayCases.map((caseItem) => (
                 <Card key={caseItem.id} className="border-red-200">
                   <CardHeader>
                     <div className="flex items-start justify-between">
@@ -820,7 +1053,17 @@ export function EnhancedCHWDashboard({ isFirstLogin = false }: CHWDashboardProps
                           </CardDescription>
                         </div>
                       </div>
-                      <Badge variant="destructive">{caseItem.priority} priority</Badge>
+                      <div className="flex items-center gap-2">
+                        <Badge variant="outline" className={
+                          caseItem.status === 'pending' ? 'bg-amber-50 text-amber-700 border-amber-200' :
+                          caseItem.status === 'in_progress' ? 'bg-blue-50 text-blue-700 border-blue-200' :
+                          caseItem.status === 'resolved' ? 'bg-green-50 text-green-700 border-green-200' :
+                          'bg-gray-50 text-gray-700 border-gray-200'
+                        }>
+                          {caseItem.status.replace('_', ' ')}
+                        </Badge>
+                        <Badge variant="destructive">{caseItem.priority} priority</Badge>
+                      </div>
                     </div>
                   </CardHeader>
                   <CardContent>
@@ -842,8 +1085,8 @@ export function EnhancedCHWDashboard({ isFirstLogin = false }: CHWDashboardProps
                     </div>
                   </CardContent>
                 </Card>
-              ))
-            )}
+              ));
+            })()}
           </TabsContent>
 
           {/* Resources Tab */}

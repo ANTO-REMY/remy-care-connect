@@ -9,8 +9,11 @@ export interface Nurse {
   id: number;
   user_id: number;
   name: string;
+  first_name: string;
+  last_name: string;
   phone_number: string;
   license_number: string | null;
+  location: string | null;
   created_at: string;
 }
 
@@ -38,6 +41,15 @@ class NurseService {
    */
   async getCurrentProfile(): Promise<Nurse> {
     return apiClient.get<Nurse>('/nurses/profile');
+  }
+
+  /**
+   * Update nurse profile
+   */
+  async updateProfile(data: { first_name?: string; last_name?: string; location?: string; license_number?: string }): Promise<Nurse> {
+    // Get current profile first to get the Nurse ID
+    const profile = await this.getCurrentProfile();
+    return apiClient.put<Nurse>(`/nurses/${profile.id}`, data);
   }
 
   /**

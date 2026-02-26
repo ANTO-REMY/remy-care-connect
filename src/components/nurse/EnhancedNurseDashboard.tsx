@@ -1,11 +1,12 @@
 import { useState, useEffect, useCallback } from "react";
+import { useNavigate } from "react-router-dom";
 import {
   AlertTriangle, MessageCircle, Phone, Clock, CheckCircle, User, FileText,
   LogOut, Search, Filter, TrendingUp, Activity, Heart, Stethoscope,
   ChevronRight, MoreHorizontal, Calendar, MapPin, BadgeCheck,
   Video, Download, Share2, Bell, Settings, BarChart3, Users,
   ArrowUpRight, ArrowDownRight, Sparkles, Star, ClipboardCheck,
-  CheckCircle2, XCircle, Clock4, UserCheck, Briefcase
+  CheckCircle2, XCircle, Clock4, UserCheck, Briefcase, Camera
 } from "lucide-react";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle, CardFooter } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -23,7 +24,10 @@ import { Separator } from "@/components/ui/separator";
 import { Switch } from "@/components/ui/switch";
 import { useToast } from "@/hooks/use-toast";
 import { useAuth } from "@/contexts/AuthContext";
-import { NurseProfile } from "./NurseProfile";
+import { uploadPhoto, getPhotoFileUrl, getMyPhoto } from "@/services/photoService";
+import { escalationService, type Escalation as RealEscalation } from "@/services/escalationService";
+import { assignmentService } from "@/services/assignmentService";
+import { nurseService } from "@/services/nurseService";
 
 // Mock data for escalated cases
 const mockEscalatedCases = [
@@ -172,8 +176,10 @@ interface NurseDashboardProps {
 export function EnhancedNurseDashboard({ isFirstLogin = false }: NurseDashboardProps) {
   const { user, logout } = useAuth();
   const { toast } = useToast();
+  const navigate = useNavigate();
 
-  const [showProfile, setShowProfile] = useState(false);
+  const [showPhotoUpload, setShowPhotoUpload] = useState(false);
+  const [profileImage, setProfileImage] = useState<string | null>(null);
   const [selectedCase, setSelectedCase] = useState<typeof mockEscalatedCases[0] | null>(null);
   const [showCaseDetails, setShowCaseDetails] = useState(false);
   const [searchQuery, setSearchQuery] = useState("");
@@ -186,9 +192,14 @@ export function EnhancedNurseDashboard({ isFirstLogin = false }: NurseDashboardP
     { id: 3, message: "Weekly report available", time: "1 hour ago", read: true, type: "info" },
   ]);
   const [caseNotes, setCaseNotes] = useState("");
+  // Real-data state (populated from API; mock data used as initial fallback)
+  const [nurseProfileId, setNurseProfileId] = useState<number | null>(null);
+  const [realEscalations, setRealEscalations] = useState<typeof mockEscalatedCases | null>(null);
+  const [actionLoading, setActionLoading] = useState(false);
 
-  // Filter cases
-  const filteredCases = mockEscalatedCases.filter(caseItem => {
+  // Filter cases — use real escalations when loaded, otherwise mock
+  const allCases = realEscalations ?? mockEscalatedCases;
+  const filteredCases = allCases.filter(caseItem => {
     const matchesSearch = caseItem.motherName.toLowerCase().includes(searchQuery.toLowerCase()) ||
       caseItem.chwName.toLowerCase().includes(searchQuery.toLowerCase());
     const matchesStatus = statusFilter === "all" || caseItem.status === statusFilter;
@@ -222,33 +233,189 @@ export function EnhancedNurseDashboard({ isFirstLogin = false }: NurseDashboardP
     setShowCaseDetails(true);
   };
 
-  const handleResolveCase = () => {
-    toast({
-      title: "Case Resolved",
-      description: "The case has been marked as resolved and the CHW has been notified.",
-    });
-    setShowCaseDetails(false);
+  const handleResolveCase = async () => {
+    if (!selectedCase) return;
+    try {
+      setActionLoading(true);
+      // Try real API first
+      if (nurseProfileId) {
+        await escalationService.updateStatus(selectedCase.id, 'resolved',
+          caseNotes.trim() || undefined);
+        // Update local state
+        setRealEscalations((prev) =>
+          (prev ?? mockEscalatedCases).map((c) =>
+            c.id === selectedCase.id ? { ...c, status: 'resolved' as const } : c
+          ) as typeof mockEscalatedCases
+        );
+      }
+      toast({
+        title: "Case Resolved",
+        description: "The case has been marked as resolved and the CHW has been notified.",
+      });
+    } catch (err: any) {
+      toast({
+        title: "Update Failed",
+        description: err.message || "Could not resolve the case. Please try again.",
+        variant: "destructive",
+      });
+    } finally {
+      setActionLoading(false);
+      setShowCaseDetails(false);
+    }
   };
 
-  const handleAddNote = () => {
-    if (!caseNotes.trim()) return;
-    toast({
-      title: "Note Added",
-      description: "Your note has been added to the case.",
-    });
-    setCaseNotes("");
+  const handleAddNote = async () => {
+    if (!caseNotes.trim() || !selectedCase) return;
+    try {
+      setActionLoading(true);
+      if (nurseProfileId) {
+        await escalationService.update(selectedCase.id, { notes: caseNotes.trim() });
+        // Reflect in local state
+        setRealEscalations((prev) =>
+          (prev ?? mockEscalatedCases).map((c) =>
+            c.id === selectedCase.id ? { ...c, notes: caseNotes.trim() } : c
+          ) as typeof mockEscalatedCases
+        );
+      }
+      toast({
+        title: "Note Added",
+        description: "Your note has been saved to the case.",
+      });
+    } catch (err: any) {
+      toast({
+        title: "Save Failed",
+        description: err.message || "Could not save note.",
+        variant: "destructive",
+      });
+    } finally {
+      setActionLoading(false);
+      setCaseNotes("");
+    }
   };
 
   const markNotificationRead = (id: number) => {
     setNotifications(prev => prev.map(n => n.id === id ? { ...n, read: true } : n));
   };
 
-  if (showProfile) {
-    return <NurseProfile onBack={() => setShowProfile(false)} />;
-  }
+  // Load escalations + nurse profile on mount
+  useEffect(() => {
+    let isMounted = true;
+    (async () => {
+      // Photo
+      try {
+        const meta = await getMyPhoto();
+        if (meta && isMounted) setProfileImage(getPhotoFileUrl(meta.file_url));
+      } catch { /* ignore */ }
+
+      // Nurse profile ID
+      try {
+        const profile = await nurseService.getCurrentProfile();
+        if (!isMounted) return;
+        setNurseProfileId(profile.id);
+
+        // Load real escalations for this nurse
+        const escalResp = await escalationService.list({ nurse_id: profile.id });
+        if (isMounted && escalResp.escalations.length > 0) {
+          const mapped = escalResp.escalations.map((e) => ({
+            id: e.id,
+            motherId: e.mother_id ?? 0,
+            motherName: e.mother_name,
+            motherPhone: "",
+            motherAvatar: "",
+            chwName: e.chw_name,
+            chwPhone: "",
+            issue: e.case_description,
+            issueType: e.issue_type ?? e.case_description,
+            escalatedAt: e.created_at,
+            status: e.status as "pending" | "in_progress" | "resolved",
+            priority: e.priority as "low" | "medium" | "high" | "critical",
+            notes: e.notes ?? "",
+            weeksPregnant: 0,
+            location: "",
+            vitals: { bloodPressure: "---", heartRate: "---", temperature: "---" },
+          }));
+          setRealEscalations(mapped as typeof mockEscalatedCases);
+        }
+      } catch { /* keep mock data if API unavailable */ }
+    })();
+    return () => { isMounted = false; };
+  }, []);
+
+  const handlePhotoUpload = async (event: React.ChangeEvent<HTMLInputElement>) => {
+    const file = event.target.files?.[0];
+    if (!file) return;
+    try {
+      const meta = await uploadPhoto(file);
+      setProfileImage(getPhotoFileUrl(meta.file_url));
+      toast({
+        title: "Photo Updated",
+        description: "Your profile photo has been successfully updated.",
+      });
+      setShowPhotoUpload(false);
+    } catch (err: any) {
+      toast({
+        title: "Upload failed",
+        description: err.message || "Could not upload photo.",
+        variant: "destructive",
+      });
+    }
+  };
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-purple-50 via-white to-pink-50">
+      {/* Photo Upload Modal */}
+      <Dialog open={showPhotoUpload} onOpenChange={setShowPhotoUpload}>
+        <DialogContent className="sm:max-w-md">
+          <DialogHeader>
+            <DialogTitle className="text-center">Add Your Profile Photo</DialogTitle>
+            <DialogDescription className="text-center">
+              Personalize your profile with a photo so CHWs and mothers can recognize you.
+            </DialogDescription>
+          </DialogHeader>
+          <div className="flex flex-col items-center space-y-4 py-6">
+            <div className="relative">
+              <Avatar className="h-32 w-32">
+                <AvatarImage src={profileImage || undefined} />
+                <AvatarFallback className="bg-gradient-to-br from-purple-500 to-pink-600 text-white text-4xl">
+                  {user?.first_name?.charAt(0).toUpperCase() || "N"}
+                </AvatarFallback>
+              </Avatar>
+              <label
+                htmlFor="nurse-photo-upload"
+                className="absolute bottom-0 right-0 bg-primary text-primary-foreground p-2 rounded-full cursor-pointer hover:bg-primary/90 transition-colors"
+              >
+                <Camera className="h-5 w-5" />
+              </label>
+              <input
+                id="nurse-photo-upload"
+                type="file"
+                accept="image/*"
+                className="hidden"
+                onChange={handlePhotoUpload}
+              />
+            </div>
+            <p className="text-sm text-muted-foreground">
+              Tap the camera icon to upload a photo
+            </p>
+          </div>
+          <div className="flex gap-2">
+            <Button
+              variant="outline"
+              className="flex-1"
+              onClick={() => setShowPhotoUpload(false)}
+            >
+              Skip for now
+            </Button>
+            <Button
+              className="flex-1"
+              onClick={() => setShowPhotoUpload(false)}
+              disabled={!profileImage}
+            >
+              Continue
+            </Button>
+          </div>
+        </DialogContent>
+      </Dialog>
       {/* Case Details Dialog */}
       <Dialog open={showCaseDetails} onOpenChange={setShowCaseDetails}>
         <DialogContent className="sm:max-w-3xl max-h-[90vh] overflow-y-auto">
@@ -405,10 +572,10 @@ export function EnhancedNurseDashboard({ isFirstLogin = false }: NurseDashboardP
                     className="mt-2"
                     size="sm"
                     onClick={handleAddNote}
-                    disabled={!caseNotes.trim()}
+                    disabled={!caseNotes.trim() || actionLoading}
                   >
                     <FileText className="h-4 w-4 mr-2" />
-                    Add Note
+                    {actionLoading ? "Saving..." : "Add Note"}
                   </Button>
                 </div>
 
@@ -417,13 +584,14 @@ export function EnhancedNurseDashboard({ isFirstLogin = false }: NurseDashboardP
                   <Button
                     className="flex-1 bg-green-600 hover:bg-green-700"
                     onClick={handleResolveCase}
+                    disabled={actionLoading || selectedCase?.status === 'resolved'}
                   >
                     <CheckCircle2 className="h-4 w-4 mr-2" />
-                    Mark as Resolved
+                    {actionLoading ? "Updating..." : selectedCase?.status === 'resolved' ? "Already Resolved" : "Mark as Resolved"}
                   </Button>
                   <Button
                     variant="outline"
-                    onClick={() => openWhatsApp(selectedCase.motherPhone)}
+                    onClick={() => openWhatsApp(selectedCase!.motherPhone)}
                   >
                     <MessageCircle className="h-4 w-4 mr-2" />
                     Contact Mother
@@ -490,6 +658,7 @@ export function EnhancedNurseDashboard({ isFirstLogin = false }: NurseDashboardP
                 <DropdownMenuTrigger asChild>
                   <Button variant="ghost" className="relative h-10 w-10 rounded-full">
                     <Avatar className="h-10 w-10 ring-2 ring-purple-200">
+                      <AvatarImage src={profileImage || undefined} />
                       <AvatarFallback className="bg-gradient-to-br from-purple-500 to-pink-600 text-white">
                         {user?.first_name?.charAt(0).toUpperCase() || 'N'}
                       </AvatarFallback>
@@ -504,7 +673,11 @@ export function EnhancedNurseDashboard({ isFirstLogin = false }: NurseDashboardP
                     </div>
                   </DropdownMenuLabel>
                   <DropdownMenuSeparator />
-                  <DropdownMenuItem onClick={() => setShowProfile(true)}>
+                  <DropdownMenuItem onClick={() => setShowPhotoUpload(true)}>
+                    <Camera className="mr-2 h-4 w-4" />
+                    Update Photo
+                  </DropdownMenuItem>
+                  <DropdownMenuItem onClick={() => navigate("/dashboard/nurse/profile")}>
                     <User className="mr-2 h-4 w-4" />
                     My Profile
                   </DropdownMenuItem>
@@ -532,7 +705,9 @@ export function EnhancedNurseDashboard({ isFirstLogin = false }: NurseDashboardP
             Welcome, Nurse {user?.first_name || 'Supervisor'}! 👋
           </h2>
           <p className="text-muted-foreground">
-            You have <span className="font-semibold text-red-600">{mockEscalatedCases.filter(c => c.status !== 'resolved').length} active cases</span> requiring your attention.
+            You have <span className="font-semibold text-red-600">
+            {(realEscalations ?? mockEscalatedCases).filter(c => c.status !== 'resolved').length} active cases
+          </span> requiring your attention.
           </p>
         </div>
 

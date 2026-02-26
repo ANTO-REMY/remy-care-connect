@@ -1,8 +1,8 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { PinInput } from '@/components/PinInput';
 import { useNavigate, Link } from 'react-router-dom';
 import { normalizePhoneNumber, validatePhoneNumber } from '@/lib/utils';
-import { Calendar, MapPin, User, Phone, Lock } from 'lucide-react';
+import { Calendar, MapPin, User, Phone, Lock, Loader2, Mail } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
@@ -11,6 +11,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { useAuth } from '@/contexts/AuthContext';
 import { toast } from '@/components/ui/sonner';
 import VerifyOTPModal from '@/components/VerifyOTPModal';
+import { getSubCounties, getWards, SubCounty, Ward } from '@/services/locationService';
 
 export default function RegisterMother() {
   const navigate = useNavigate();
@@ -21,13 +22,38 @@ export default function RegisterMother() {
     firstName: '',
     lastName: '',
     phone: '',
+    email: '',
     dueDate: '',
     dobDate: '',
     weeksPregnant: '',
-    location: '',
+    wardId: null as number | null,
     pin: '',
     confirmPin: ''
   });
+
+  // Location state
+  const [subCounties, setSubCounties] = useState<SubCounty[]>([]);
+  const [wards, setWards] = useState<Ward[]>([]);
+  const [selectedSubCountyId, setSelectedSubCountyId] = useState<number | null>(null);
+  const [loadingSubCounties, setLoadingSubCounties] = useState(false);
+  const [loadingWards, setLoadingWards] = useState(false);
+
+  useEffect(() => {
+    setLoadingSubCounties(true);
+    getSubCounties()
+      .then(setSubCounties)
+      .catch(() => toast.error('Could not load sub-counties'))
+      .finally(() => setLoadingSubCounties(false));
+  }, []);
+
+  useEffect(() => {
+    if (!selectedSubCountyId) { setWards([]); setFormData(f => ({ ...f, wardId: null })); return; }
+    setLoadingWards(true);
+    getWards(selectedSubCountyId)
+      .then(setWards)
+      .catch(() => toast.error('Could not load wards'))
+      .finally(() => setLoadingWards(false));
+  }, [selectedSubCountyId]);
 
   const handlePinChange = (val: string) => {
     setFormData({ ...formData, pin: val });
@@ -42,9 +68,9 @@ export default function RegisterMother() {
     setIsLoading(true);
 
     // Basic validation
-    if (!formData.firstName || !formData.lastName || !formData.phone || !formData.pin || !formData.location) {
+    if (!formData.firstName || !formData.lastName || !formData.phone || !formData.pin || !formData.wardId || !formData.dobDate || !formData.dueDate) {
       toast.warning('Missing information', {
-        description: 'Please fill in all required fields before creating your account.',
+        description: 'Please fill in all required fields including sub-county, ward, date of birth and due date before creating your account.',
       });
       setIsLoading(false);
       return;
@@ -74,7 +100,11 @@ export default function RegisterMother() {
         first_name: formData.firstName.trim(),
         last_name: formData.lastName.trim(),
         pin: formData.pin,
-        role: 'mother'
+        role: 'mother',
+        email: formData.email.trim() || undefined,
+        dob: formData.dobDate,
+        due_date: formData.dueDate,
+        ward_id: formData.wardId
       });
 
       if (result.success) {
@@ -112,7 +142,15 @@ export default function RegisterMother() {
           phoneNumber={formData.phone}
           onSubmit={async (otp) => {
             try {
-              const result = await verifyOTP(normalizePhoneNumber(formData.phone), otp);
+              const result = await verifyOTP(
+                normalizePhoneNumber(formData.phone), 
+                otp,
+                {
+                  dob: formData.dobDate,
+                  due_date: formData.dueDate,
+                  ward_id: formData.wardId
+                }
+              );
               return result.success;
             } catch (error) {
               return false;
@@ -188,6 +226,24 @@ export default function RegisterMother() {
                 </div>
               </div>
 
+              {/* Email (optional) */}
+              <div className="space-y-2">
+                <Label htmlFor="email">Email Address <span className="text-muted-foreground text-xs">(optional)</span></Label>
+                <div className="relative">
+                  <Mail className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+                  <Input
+                    id="email"
+                    name="email"
+                    type="email"
+                    placeholder="jane@example.com"
+                    value={formData.email}
+                    onChange={handleInputChange}
+                    className="pl-10"
+                    autoComplete="email"
+                  />
+                </div>
+              </div>
+
               {/* Phone Number */}
               <div className="space-y-2">
                 <Label htmlFor="phone">Phone Number (07xxxxxxxx) *</Label>
@@ -207,26 +263,63 @@ export default function RegisterMother() {
                 </div>
               </div>
 
-              {/* Location */}
+              {/* Location: Sub-County + Ward */}
               <div className="space-y-2">
-                <Label htmlFor="location">Location *</Label>
+                <Label>Sub-County *</Label>
                 <div className="relative">
                   <MapPin className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-muted-foreground z-10" />
-                  <Select value={formData.location} onValueChange={(value) => setFormData({ ...formData, location: value })} required>
-                    <SelectTrigger className="pl-10">
-                      <SelectValue placeholder="Select your location" />
-                    </SelectTrigger>
-                    <SelectContent>
-                      <SelectItem value="Nairobi">Nairobi</SelectItem>
-                      <SelectItem value="Kisumu">Kisumu</SelectItem>
-                    </SelectContent>
-                  </Select>
+                  {loadingSubCounties ? (
+                    <div className="flex items-center gap-2 pl-10 py-2 text-sm text-muted-foreground">
+                      <Loader2 className="h-4 w-4 animate-spin" /> Loading…
+                    </div>
+                  ) : (
+                    <Select
+                      value={selectedSubCountyId?.toString() ?? ''}
+                      onValueChange={(v) => setSelectedSubCountyId(Number(v))}
+                    >
+                      <SelectTrigger className="pl-10">
+                        <SelectValue placeholder="Select sub-county" />
+                      </SelectTrigger>
+                      <SelectContent>
+                        {subCounties.map((sc) => (
+                          <SelectItem key={sc.id} value={sc.id.toString()}>{sc.name}</SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                  )}
+                </div>
+              </div>
+
+              <div className="space-y-2">
+                <Label>Ward *</Label>
+                <div className="relative">
+                  <MapPin className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-muted-foreground z-10" />
+                  {loadingWards ? (
+                    <div className="flex items-center gap-2 pl-10 py-2 text-sm text-muted-foreground">
+                      <Loader2 className="h-4 w-4 animate-spin" /> Loading…
+                    </div>
+                  ) : (
+                    <Select
+                      value={formData.wardId?.toString() ?? ''}
+                      onValueChange={(v) => setFormData({ ...formData, wardId: Number(v) })}
+                      disabled={!selectedSubCountyId}
+                    >
+                      <SelectTrigger className="pl-10">
+                        <SelectValue placeholder={selectedSubCountyId ? 'Select ward' : 'Select sub-county first'} />
+                      </SelectTrigger>
+                      <SelectContent>
+                        {wards.map((w) => (
+                          <SelectItem key={w.id} value={w.id.toString()}>{w.name}</SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                  )}
                 </div>
               </div>
 
               {/* DOB */}
               <div className="space-y-2">
-                <Label htmlFor="dueDate">Date of birth </Label>
+                <Label htmlFor="dobDate">Date of Birth *</Label>
                 <div className="relative">
                   <Calendar className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-muted-foreground" />
                   <Input
@@ -236,6 +329,7 @@ export default function RegisterMother() {
                     value={formData.dobDate}
                     onChange={handleInputChange}
                     className="pl-10"
+                    required
                   />
                 </div>
               </div>
@@ -243,7 +337,7 @@ export default function RegisterMother() {
 
               {/* Due Date */}
               <div className="space-y-2">
-                <Label htmlFor="dueDate">Due Date</Label>
+                <Label htmlFor="dueDate">Due Date *</Label>
                 <div className="relative">
                   <Calendar className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-muted-foreground" />
                   <Input
@@ -253,6 +347,7 @@ export default function RegisterMother() {
                     value={formData.dueDate}
                     onChange={handleInputChange}
                     className="pl-10"
+                    required
                   />
                 </div>
               </div>

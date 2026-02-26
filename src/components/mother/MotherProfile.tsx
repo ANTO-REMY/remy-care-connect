@@ -1,14 +1,16 @@
 import { useState, useEffect } from "react";
-import { User, Phone, MapPin, Calendar, Edit2, Save, X, ArrowLeft } from "lucide-react";
+import { User, Phone, MapPin, Calendar, Edit2, Save, X, ArrowLeft, Camera } from "lucide-react";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { useAuth } from "@/contexts/AuthContext";
 import { useToast } from "@/hooks/use-toast";
 import { motherService, type Mother } from "@/services/motherService";
 import { NextOfKinSection } from "./NextOfKinSection";
+import { getMyPhoto, getPhotoFileUrl } from "@/services/photoService";
 
 interface MotherProfileProps {
   onBack?: () => void;
@@ -18,10 +20,13 @@ interface MotherProfileProps {
 export function MotherProfile({ onBack, motherData }: MotherProfileProps) {
   const { user } = useAuth();
   const { toast } = useToast();
-  const [isEditing, setIsEditing] = useState(!motherData?.date_of_birth); // Edit mode if profile incomplete
+  const [mother, setMother] = useState<Mother | null>(motherData || null);
+  const [isEditing, setIsEditing] = useState(false);
   const [loading, setLoading] = useState(false);
+  const [profilePhotoUrl, setProfilePhotoUrl] = useState<string | null>(null);
   const [formData, setFormData] = useState({
-    name: user?.name || '',
+    first_name: user?.first_name || '',
+    last_name: user?.last_name || '',
     phone_number: user?.phone_number || '',
     location: motherData?.location || '',
     date_of_birth: motherData?.date_of_birth || '',
@@ -33,17 +38,89 @@ export function MotherProfile({ onBack, motherData }: MotherProfileProps) {
     { name: '', phone: '', sex: '', relationship: '' },
   ]);
 
+  // Load mother profile if not provided via props
   useEffect(() => {
-    if (motherData) {
-      setFormData({
-        name: motherData.name,
-        phone_number: motherData.phone_number,
-        location: motherData.location || '',
-        date_of_birth: motherData.date_of_birth || '',
-        due_date: motherData.due_date || '',
-      });
-    }
-  }, [motherData]);
+    let isMounted = true;
+    const load = async () => {
+      try {
+        setLoading(true);
+
+        let profile: Mother | null = null;
+
+        if (motherData) {
+          profile = motherData;
+        } else {
+          const storedId = localStorage.getItem('mother_profile_id');
+          const motherId = storedId ? Number(storedId) : NaN;
+          if (!motherId || isNaN(motherId)) {
+            // No profile yet - show editing mode for first-time profile completion
+            setIsEditing(true);
+            setLoading(false);
+            return;
+          }
+          profile = await motherService.getProfile(motherId);
+        }
+
+        if (!profile || !isMounted) return;
+
+        setMother(profile);
+        setFormData({
+          first_name: profile.first_name || '',
+          last_name: profile.last_name || '',
+          phone_number: profile.phone_number,
+          location: profile.location,
+          date_of_birth: profile.date_of_birth,
+          due_date: profile.due_date,
+        });
+        setIsEditing(false); // Profile is always complete now
+
+        // Load next of kin data for this mother
+        try {
+          const kinList = await motherService.getNextOfKin(profile.id);
+          if (!isMounted) return;
+          const mapped = kinList.slice(0, 2).map(k => ({
+            name: k.name,
+            phone: k.phone,
+            sex: k.sex,
+            relationship: k.relationship,
+          }));
+          while (mapped.length < 2) {
+            mapped.push({ name: '', phone: '', sex: '', relationship: '' });
+          }
+          setNextOfKin(mapped);
+        } catch (kinError) {
+          console.error('Failed to load next of kin:', kinError);
+        }
+
+        // Load profile photo
+        try {
+          const photoMeta = await getMyPhoto();
+          if (photoMeta && isMounted) {
+            setProfilePhotoUrl(getPhotoFileUrl(photoMeta.file_url));
+          }
+        } catch (photoError) {
+          console.error('Failed to load profile photo:', photoError);
+        }
+      } catch (error: any) {
+        console.error('Failed to load mother profile:', error);
+        toast({
+          title: "Error",
+          description: error.message || "Failed to load profile",
+          variant: "destructive",
+        });
+      } finally {
+        if (isMounted) {
+          setLoading(false);
+        }
+      }
+    };
+
+    load();
+
+    return () => {
+      isMounted = false;
+    };
+  }, [motherData, toast]);
 
   const handleInputChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     setFormData({
@@ -53,7 +130,8 @@ export function MotherProfile({ onBack, motherData }: MotherProfileProps) {
   };
 
   const handleSave = async () => {
-    if (!motherData) return;
+    const currentMother = mother || motherData;
+    if (!currentMother) return;
 
     // Validate required fields
     if (!formData.location || !formData.date_of_birth || !formData.due_date) {
@@ -67,32 +145,18 @@ export function MotherProfile({ onBack, motherData }: MotherProfileProps) {
 
     setLoading(true);
     try {
-      // Check if this is profile completion or update
-      if (!motherData.date_of_birth) {
-        // Complete profile
-        await motherService.completeProfile({
-          date_of_birth: formData.date_of_birth,
-          due_date: formData.due_date,
-          location: formData.location,
-        });
-        
-        toast({
-          title: "Profile Completed",
-          description: "Your profile has been successfully completed.",
-        });
-      } else {
-        // Update profile
-        await motherService.updateProfile(motherData.id, {
-          date_of_birth: formData.date_of_birth,
-          due_date: formData.due_date,
-          location: formData.location,
-        });
+      await motherService.updateProfile(currentMother.id, {
+        first_name: formData.first_name,
+        last_name: formData.last_name,
+        dob: formData.date_of_birth,
+        due_date: formData.due_date,
+        location: formData.location,
+      });
 
-        toast({
-          title: "Profile Updated",
-          description: "Your profile has been successfully updated.",
-        });
-      }
+      toast({
+        title: "Profile Updated",
+        description: "Your profile has been successfully updated.",
+      });
 
       setIsEditing(false);
       if (onBack) onBack();
@@ -109,22 +173,16 @@ export function MotherProfile({ onBack, motherData }: MotherProfileProps) {
   };
 
   const handleCancel = () => {
-    if (!motherData?.date_of_birth) {
-      // Can't cancel if profile incomplete
-      toast({
-        title: "Profile Incomplete",
-        description: "Please complete your profile before continuing.",
-        variant: "destructive",
-      });
-      return;
-    }
+    const currentMother = mother || motherData;
+    if (!currentMother) return;
 
     setFormData({
-      name: motherData.name,
-      phone_number: motherData.phone_number,
-      location: motherData.location || '',
-      date_of_birth: motherData.date_of_birth || '',
-      due_date: motherData.due_date || '',
+      first_name: currentMother.first_name || '',
+      last_name: currentMother.last_name || '',
+      phone_number: currentMother.phone_number,
+      location: currentMother.location,
+      date_of_birth: currentMother.date_of_birth,
+      due_date: currentMother.due_date,
     });
     setIsEditing(false);
   };
@@ -138,9 +196,17 @@ export function MotherProfile({ onBack, motherData }: MotherProfileProps) {
         </Button>
       )}
       <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
-        <div>
-          <h1 className="text-2xl sm:text-3xl font-bold">My Profile</h1>
-          <p className="text-sm sm:text-base text-muted-foreground">View and manage your personal information</p>
+        <div className="flex items-center gap-4">
+          <Avatar className="h-16 w-16 border-2 border-primary">
+            <AvatarImage src={profilePhotoUrl || undefined} alt={`${formData.first_name} ${formData.last_name}`} />
+            <AvatarFallback className="bg-primary/10">
+              <User className="h-8 w-8 text-primary" />
+            </AvatarFallback>
+          </Avatar>
+          <div>
+            <h1 className="text-2xl sm:text-3xl font-bold">My Profile</h1>
+            <p className="text-sm sm:text-base text-muted-foreground">View and manage your personal information</p>
+          </div>
         </div>
         {!isEditing && (
           <Button onClick={() => setIsEditing(true)} className="w-full sm:w-auto">
@@ -158,17 +224,34 @@ export function MotherProfile({ onBack, motherData }: MotherProfileProps) {
           </CardDescription>
         </CardHeader>
         <CardContent className="space-y-4">
-          <div className="space-y-2">
-            <Label htmlFor="name">Full Name</Label>
-            <div className="relative">
-              <User className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-muted-foreground" />
-              <Input
-                id="name"
-                name="name"
-                value={formData.name}
-                disabled
-                className="pl-10 bg-muted"
-              />
+          <div className="grid grid-cols-2 gap-3">
+            <div className="space-y-2">
+              <Label htmlFor="first_name">First Name</Label>
+              <div className="relative">
+                <User className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+                <Input
+                  id="first_name"
+                  name="first_name"
+                  value={formData.first_name}
+                  onChange={handleInputChange}
+                  disabled={!isEditing}
+                  className="pl-10"
+                />
+              </div>
+            </div>
+            <div className="space-y-2">
+              <Label htmlFor="last_name">Last Name</Label>
+              <div className="relative">
+                <User className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+                <Input
+                  id="last_name"
+                  name="last_name"
+                  value={formData.last_name}
+                  onChange={handleInputChange}
+                  disabled={!isEditing}
+                  className="pl-10"
+                />
+              </div>
             </div>
           </div>
 

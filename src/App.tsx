@@ -15,6 +15,9 @@ import CHWIndex from "./pages/CHWIndex";
 import NurseIndex from "./pages/NurseIndex";
 import NotFound from "./pages/NotFound";
 import { Layout } from "@/components/layout/Layout";
+import { MotherProfile } from "@/components/mother/MotherProfile";
+import { CHWProfile } from "@/components/chw/CHWProfile";
+import { NurseProfile } from "@/components/nurse/NurseProfile";
 
 const queryClient = new QueryClient();
 
@@ -39,6 +42,10 @@ const App = () => (
             <Route path="/dashboard/mother" element={<Layout><MotherIndex /></Layout>} />
             <Route path="/dashboard/chw" element={<Layout><CHWIndex /></Layout>} />
             <Route path="/dashboard/nurse" element={<Layout><NurseIndex /></Layout>} />
+            {/* Profile Routes */}
+            <Route path="/dashboard/mother/profile" element={<Layout><MotherProfile /></Layout>} />
+            <Route path="/dashboard/chw/profile" element={<Layout><CHWProfile /></Layout>} />
+            <Route path="/dashboard/nurse/profile" element={<Layout><NurseProfile /></Layout>} />
             {/* 404 Route */}
             <Route path="*" element={<Layout><NotFound /></Layout>} />
           </Routes>

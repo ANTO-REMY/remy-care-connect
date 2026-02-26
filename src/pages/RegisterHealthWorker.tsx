@@ -1,7 +1,7 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { PinInput } from '@/components/PinInput';
 import { useNavigate, useLocation, Link } from 'react-router-dom';
-import { MapPin, User, Phone, Lock, UserCheck, Stethoscope } from 'lucide-react';
+import { MapPin, User, Phone, Lock, UserCheck, Stethoscope, Loader2, Mail } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
@@ -12,6 +12,7 @@ import { useAuth } from '@/contexts/AuthContext';
 import { toast } from '@/components/ui/sonner';
 import VerifyOTPModal from '@/components/VerifyOTPModal';
 import { normalizePhoneNumber, validatePhoneNumber } from '@/lib/utils';
+import { getSubCounties, getWards, SubCounty, Ward } from '@/services/locationService';
 
 export default function RegisterHealthWorker() {
   const navigate = useNavigate();
@@ -27,11 +28,36 @@ export default function RegisterHealthWorker() {
     firstName: '',
     lastName: '',
     phone: '',
+    email: '',
     licenceNumber: '',
-    location: '',
+    wardId: null as number | null,
     pin: '',
     confirmPin: ''
   });
+
+  // Location state
+  const [subCounties, setSubCounties] = useState<SubCounty[]>([]);
+  const [wards, setWards] = useState<Ward[]>([]);
+  const [selectedSubCountyId, setSelectedSubCountyId] = useState<number | null>(null);
+  const [loadingSubCounties, setLoadingSubCounties] = useState(false);
+  const [loadingWards, setLoadingWards] = useState(false);
+
+  useEffect(() => {
+    setLoadingSubCounties(true);
+    getSubCounties()
+      .then(setSubCounties)
+      .catch(() => toast.error('Could not load sub-counties'))
+      .finally(() => setLoadingSubCounties(false));
+  }, []);
+
+  useEffect(() => {
+    if (!selectedSubCountyId) { setWards([]); setFormData(f => ({ ...f, wardId: null })); return; }
+    setLoadingWards(true);
+    getWards(selectedSubCountyId)
+      .then(setWards)
+      .catch(() => toast.error('Could not load wards'))
+      .finally(() => setLoadingWards(false));
+  }, [selectedSubCountyId]);
 
   const handleConfirmPinChange = (val: string) => {
     setFormData({ ...formData, confirmPin: val });
@@ -54,7 +80,7 @@ export default function RegisterHealthWorker() {
     setIsLoading(true);
 
     // Basic validation
-    if (!formData.firstName || !formData.lastName || !formData.phone || !formData.licenceNumber || !formData.pin || !formData.location) {
+    if (!formData.firstName || !formData.lastName || !formData.phone || !formData.licenceNumber || !formData.pin || !formData.wardId) {
       toast.warning('Missing information', {
         description: 'Please fill in all required fields before creating your account.',
       });
@@ -87,8 +113,9 @@ export default function RegisterHealthWorker() {
         last_name: formData.lastName.trim(),
         pin: formData.pin,
         role: selectedRole,
+        email: formData.email.trim() || undefined,
         license_number: formData.licenceNumber,
-        location: formData.location,
+        ward_id: formData.wardId,
       });
 
       if (result.success) {
@@ -172,7 +199,7 @@ export default function RegisterHealthWorker() {
                 otp,
                 {
                   license_number: formData.licenceNumber,
-                  location: formData.location,
+                  ward_id: formData.wardId,
                 }
               );
               return result.success;
@@ -262,6 +289,24 @@ export default function RegisterHealthWorker() {
                 </div>
               </div>
 
+              {/* Email (optional) */}
+              <div className="space-y-2">
+                <Label htmlFor="email">Email Address <span className="text-muted-foreground text-xs">(optional)</span></Label>
+                <div className="relative">
+                  <Mail className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+                  <Input
+                    id="email"
+                    name="email"
+                    type="email"
+                    placeholder="john@example.com"
+                    value={formData.email}
+                    onChange={handleInputChange}
+                    className="pl-10"
+                    autoComplete="email"
+                  />
+                </div>
+              </div>
+
               {/* Phone Number */}
               <div className="space-y-2">
                 <Label htmlFor="phone">Phone Number (07xxxxxxxx) *</Label>
@@ -299,20 +344,57 @@ export default function RegisterHealthWorker() {
                 </div>
               </div>
 
-              {/* Location */}
+              {/* Location: Sub-County + Ward */}
               <div className="space-y-2">
-                <Label htmlFor="location">Work Location *</Label>
+                <Label>Sub-County *</Label>
                 <div className="relative">
                   <MapPin className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-muted-foreground z-10" />
-                  <Select value={formData.location} onValueChange={(value) => setFormData({ ...formData, location: value })} required>
-                    <SelectTrigger className="pl-10">
-                      <SelectValue placeholder="Select work location" />
-                    </SelectTrigger>
-                    <SelectContent>
-                      <SelectItem value="Nairobi">Nairobi</SelectItem>
-                      <SelectItem value="Kisumu">Kisumu</SelectItem>
-                    </SelectContent>
-                  </Select>
+                  {loadingSubCounties ? (
+                    <div className="flex items-center gap-2 pl-10 py-2 text-sm text-muted-foreground">
+                      <Loader2 className="h-4 w-4 animate-spin" /> Loading…
+                    </div>
+                  ) : (
+                    <Select
+                      value={selectedSubCountyId?.toString() ?? ''}
+                      onValueChange={(v) => setSelectedSubCountyId(Number(v))}
+                    >
+                      <SelectTrigger className="pl-10">
+                        <SelectValue placeholder="Select sub-county" />
+                      </SelectTrigger>
+                      <SelectContent>
+                        {subCounties.map((sc) => (
+                          <SelectItem key={sc.id} value={sc.id.toString()}>{sc.name}</SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                  )}
+                </div>
+              </div>
+
+              <div className="space-y-2">
+                <Label>Ward *</Label>
+                <div className="relative">
+                  <MapPin className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-muted-foreground z-10" />
+                  {loadingWards ? (
+                    <div className="flex items-center gap-2 pl-10 py-2 text-sm text-muted-foreground">
+                      <Loader2 className="h-4 w-4 animate-spin" /> Loading…
+                    </div>
+                  ) : (
+                    <Select
+                      value={formData.wardId?.toString() ?? ''}
+                      onValueChange={(v) => setFormData({ ...formData, wardId: Number(v) })}
+                      disabled={!selectedSubCountyId}
+                    >
+                      <SelectTrigger className="pl-10">
+                        <SelectValue placeholder={selectedSubCountyId ? 'Select ward' : 'Select sub-county first'} />
+                      </SelectTrigger>
+                      <SelectContent>
+                        {wards.map((w) => (
+                          <SelectItem key={w.id} value={w.id.toString()}>{w.name}</SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                  )}
                 </div>
               </div>
 

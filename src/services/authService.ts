@@ -12,8 +12,10 @@ export interface RegisterRequest {
   email?: string;
   pin: string;
   role: 'mother' | 'chw' | 'nurse';
-  license_number?: string;
-  location?: string;
+  license_number?: string;  // for CHW/Nurse
+  ward_id?: number;         // for all roles (location derived from ward)
+  dob?: string;             // for Mother
+  due_date?: string;        // for Mother
 }
 
 export interface RegisterResponse {
@@ -30,7 +32,9 @@ export interface VerifyOTPRequest {
   phone_number: string;
   otp_code: string;
   license_number?: string; // forwarded for CHW/Nurse profile creation
-  location?: string;       // forwarded for CHW/Nurse profile creation
+  ward_id?: number;        // forwarded for all roles (location derived from ward)
+  dob?: string;            // forwarded for Mother profile creation
+  due_date?: string;       // forwarded for Mother profile creation
 }
 
 export interface VerifyOTPResponse {
@@ -101,12 +105,10 @@ class AuthService {
         // Save user data
         localStorage.setItem('user', JSON.stringify(response.user));
 
-        // Track first login for mothers so onboarding modal fires
-        if (response.user.role === 'mother') {
-          const alreadySeen = localStorage.getItem(`${FIRST_LOGIN_KEY}_${response.user.id}`);
-          if (!alreadySeen) {
-            localStorage.setItem(`${FIRST_LOGIN_KEY}_${response.user.id}`, 'pending');
-          }
+        // Track first login for ALL roles so the onboarding modal fires on first login
+        const alreadySeen = localStorage.getItem(`${FIRST_LOGIN_KEY}_${response.user.id}`);
+        if (!alreadySeen) {
+          localStorage.setItem(`${FIRST_LOGIN_KEY}_${response.user.id}`, 'pending');
         }
 
         console.log('💾 Tokens and user data saved to localStorage');

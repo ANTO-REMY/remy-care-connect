@@ -136,7 +136,6 @@ export function CHWDashboard() {
 
   const handleLogout = () => {
     logout();
-    window.location.href = '/';
   };
 
   const getInitials = (name: string) => {

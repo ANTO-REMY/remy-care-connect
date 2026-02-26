@@ -97,7 +97,6 @@ export function NurseDashboard() {
 
   const handleLogout = () => {
     logout();
-    window.location.href = '/';
   };
 
   const getInitials = (name: string) => {

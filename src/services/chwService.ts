@@ -10,8 +10,11 @@ export interface CHW {
   id: number;
   user_id: number;
   name: string;
+  first_name: string;
+  last_name: string;
   phone_number: string;
   license_number: string | null;
+  location: string | null;
   created_at: string;
 }
 
@@ -46,6 +49,15 @@ class CHWService {
    */
   async getAllCHWs(): Promise<CHW[]> {
     return apiClient.get<CHW[]>('/chws');
+  }
+
+  /**
+   * Update CHW profile
+   */
+  async updateProfile(data: { first_name?: string; last_name?: string; location?: string; license_number?: string }): Promise<CHW> {
+    // Get current profile first to get the CHW ID
+    const profile = await this.getCurrentProfile();
+    return apiClient.put<CHW>(`/chws/${profile.id}`, data);
   }
 
   /**
