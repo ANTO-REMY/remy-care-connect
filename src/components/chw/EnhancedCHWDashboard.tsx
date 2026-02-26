@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback } from "react";
+import { useState, useEffect, useCallback, useRef } from "react";
 import { useNavigate } from "react-router-dom";
 import {
   Users, AlertTriangle, MessageCircle, Phone, Upload, Calendar, CheckCircle,
@@ -6,7 +6,7 @@ import {
   Heart, Baby, Clock, ChevronRight, MoreHorizontal, FileText,
   Video, Download, Share2, Bell, Settings, BarChart3, Stethoscope,
   ClipboardList, ArrowUpRight, ArrowDownRight, Sparkles, Star, Camera,
-  PlusCircle, Plus, CalendarCheck, CalendarX
+  PlusCircle, Plus, CalendarCheck, CalendarX, Loader2, AlertCircle
 } from "lucide-react";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle, CardFooter } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -30,6 +30,8 @@ import { assignmentService, type AssignedMother } from "@/services/assignmentSer
 import { appointmentService, type Appointment } from "@/services/appointmentService";
 import { chwService } from "@/services/chwService";
 import { apiClient } from "@/lib/apiClient";
+import { checkinService, type CheckIn } from "@/services/checkinService";
+import { usePolling } from "@/hooks/usePolling";
 
 // Mock data for mothers
 const mockMothers = [
@@ -242,30 +244,50 @@ export function EnhancedCHWDashboard({ isFirstLogin = false }: CHWDashboardProps
     recurrence: "none",
   });
   const [scheduleSubmitting, setScheduleSubmitting] = useState(false);
+  // Live check-in feed
+  const [recentCheckIns, setRecentCheckIns] = useState<CheckIn[]>([]);
+  const [checkInsLoading, setCheckInsLoading] = useState(false);
+  const [checkInToEscalate, setCheckInToEscalate] = useState<CheckIn | null>(null);
+  const [showEscalateFromCheckinDialog, setShowEscalateFromCheckinDialog] = useState(false);
+  // 15-min CRUD – appointments
+  const [editApptOpen, setEditApptOpen] = useState(false);
+  const [editApptId, setEditApptId] = useState<number | null>(null);
+  const [editApptForm, setEditApptForm] = useState({ scheduledTime: '', notes: '', appointmentType: 'prenatal_checkup' });
+  const [editApptSubmitting, setEditApptSubmitting] = useState(false);
+  const [deleteApptConfirm, setDeleteApptConfirm] = useState<number | null>(null);
+  const [deleteApptSubmitting, setDeleteApptSubmitting] = useState(false);
+  // 15-min CRUD – escalations
+  const [editEscalOpen, setEditEscalOpen] = useState(false);
+  const [editEscalId, setEditEscalId] = useState<number | null>(null);
+  const [editEscalForm, setEditEscalForm] = useState({ description: '', priority: 'high', notes: '', issueType: '' });
+  const [editEscalSubmitting, setEditEscalSubmitting] = useState(false);
+  const [deleteEscalConfirm, setDeleteEscalConfirm] = useState<number | null>(null);
+  const [deleteEscalSubmitting, setDeleteEscalSubmitting] = useState(false);
   const [notifications, setNotifications] = useState([
     { id: 1, message: "Grace Akinyi reported feeling unwell", time: "10 min ago", read: false },
     { id: 2, message: "New mother assigned to you", time: "1 hour ago", read: false },
     { id: 3, message: "Weekly report ready", time: "3 hours ago", read: true },
   ]);
 
-  // Unified display list: real API data or mock fallback
-  const displayMothers = (realMothers && realMothers.length > 0)
-    ? realMothers.map(m => ({
-        id: m.mother_id,
-        user_id: m.user_id,
-        name: m.name,
-        phone_number: m.phone ?? "",
-        status: "ok" as "ok" | "not_ok" | "no_response",
-        last_check_in: m.assigned_at ? new Date(m.assigned_at).toLocaleDateString() : "—",
-        weeks_pregnant: 0,
-        location: m.location ?? "Unknown",
-        due_date: "",
-        risk_level: "low" as "low" | "medium" | "high",
-        avatar: null as string | null,
-        check_in_history: [] as { date: string; status: string }[],
-        notes: undefined as string | undefined,
-      }))
-    : mockMothers;
+  // Ref keeps the latest chwProfileId available inside the polling callback
+  const chwProfileIdRef = useRef<number | null>(null);
+
+  // Unified display list: real API data (no mock fallback)
+  const displayMothers = (realMothers ?? []).map(m => ({
+    id: m.mother_id,
+    user_id: m.user_id,
+    name: m.name,
+    phone_number: m.phone ?? "",
+    status: "ok" as "ok" | "not_ok" | "no_response",
+    last_check_in: m.assigned_at ? new Date(m.assigned_at).toLocaleDateString() : "—",
+    weeks_pregnant: 0,
+    location: m.location ?? "Unknown",
+    due_date: "",
+    risk_level: "low" as "low" | "medium" | "high",
+    avatar: null as string | null,
+    check_in_history: [] as { date: string; status: string }[],
+    notes: undefined as string | undefined,
+  }));
 
   // Filter mothers based on search and status
   const filteredMothers = displayMothers.filter(mother => {
@@ -277,8 +299,11 @@ export function EnhancedCHWDashboard({ isFirstLogin = false }: CHWDashboardProps
 
   const mothersWithIssues = displayMothers.filter(m => m.status === 'not_ok' || m.status === 'no_response');
 
-  const getStatusColor = (status: string) => {
-    switch (status) {
+  // Returns true if a timestamp is within the 15-minute edit/delete window
+  const isWithin15Min = (createdAt: string) =>
+    (new Date().getTime() - new Date(createdAt).getTime()) < 15 * 60 * 1000;
+
+  const getStatusColor = (status: string) => {    switch (status) {
       case 'ok': return 'bg-green-500 text-white';
       case 'not_ok': return 'bg-red-500 text-white';
       case 'no_response': return 'bg-amber-500 text-white';
@@ -434,7 +459,58 @@ export function EnhancedCHWDashboard({ isFirstLogin = false }: CHWDashboardProps
     setNotifications(prev => prev.map(n => n.id === id ? { ...n, read: true } : n));
   };
 
-  // Load profile photo, CHW profile ID, nurses list, real escalations, real mothers, and appointments on mount
+  /**
+   * Fetch the volatile data that should be kept fresh:
+   * check-ins, escalations, assigned mothers, and appointments.
+   * Called once on mount (inside the setup useEffect) and then
+   * every 30 s by the usePolling hook below.
+   */
+  const refreshData = useCallback(async () => {
+    const profileId = chwProfileIdRef.current;
+    if (!profileId || !user) return;
+
+    // Check-ins
+    try {
+      const ciResp = await checkinService.listForCHW(profileId);
+      setRecentCheckIns(ciResp.checkins);
+    } catch { /* ignore */ }
+
+    // Escalations
+    try {
+      const escalResp = await escalationService.list({ chw_id: profileId });
+      const mapped = escalResp.escalations.map((e) => ({
+        id: e.id,
+        motherId: e.mother_id ?? 0,
+        motherName: e.mother_name,
+        issue: e.case_description,
+        issueType: e.issue_type ?? e.case_description,
+        escalatedAt: e.created_at,
+        status: e.status as "pending" | "in_progress" | "resolved" | "rejected",
+        priority: e.priority as "low" | "medium" | "high" | "critical",
+        notes: e.notes ?? "",
+      }));
+      setRealEscalations(mapped as typeof mockEscalatedCases);
+    } catch { /* ignore */ }
+
+    // Assigned mothers
+    try {
+      const mothersResp = await assignmentService.getMothersForCHW(profileId, 'active');
+      if (mothersResp.mothers.length > 0) {
+        setRealMothers(mothersResp.mothers);
+      }
+    } catch { /* ignore */ }
+
+    // Appointments
+    try {
+      const apptResp = await appointmentService.getForHealthWorker(user.id);
+      setAppointments(apptResp.appointments);
+    } catch { /* ignore */ }
+  }, [user]);
+
+  // Poll every 30 seconds so the dashboard stays in sync with the backend
+  usePolling(refreshData, 30_000, chwProfileId !== null);
+
+  // One-time setup: photo, CHW profile, nurses list, then initial data load
   useEffect(() => {
     let isMounted = true;
     (async () => {
@@ -447,51 +523,31 @@ export function EnhancedCHWDashboard({ isFirstLogin = false }: CHWDashboardProps
       // CHW profile ID (needed for API calls)
       try {
         const profile = await chwService.getCurrentProfile();
-        if (isMounted) setChwProfileId(profile.id);
-
-        // Load real escalations submitted by this CHW
-        const escalResp = await escalationService.list({ chw_id: profile.id });
-        if (isMounted && escalResp.escalations.length > 0) {
-          const mapped = escalResp.escalations.map((e) => ({
-            id: e.id,
-            motherId: e.mother_id ?? 0,
-            motherName: e.mother_name,
-            issue: e.case_description,
-            issueType: e.issue_type ?? e.case_description,
-            escalatedAt: e.created_at,
-            status: e.status as "pending" | "in_progress" | "resolved" | "rejected",
-            priority: e.priority as "low" | "medium" | "high" | "critical",
-            notes: e.notes ?? "",
-          }));
-          setRealEscalations(mapped as typeof mockEscalatedCases);
+        if (isMounted) {
+          setChwProfileId(profile.id);
+          chwProfileIdRef.current = profile.id;
         }
-
-        // Load real assigned mothers for this CHW
-        try {
-          const mothersResp = await assignmentService.getMothersForCHW(profile.id, 'active');
-          if (isMounted && mothersResp.mothers.length > 0) {
-            setRealMothers(mothersResp.mothers);
-          }
-        } catch { /* keep mock if unavailable */ }
-      } catch { /* keep mock data if API unavailable */ }
+      } catch { /* profile unavailable */ }
 
       // Nurses list for escalation form
       try {
         const resp = await apiClient.get<{ nurses: { nurse_id: number; name: string }[] }>('/nurses');
         if (isMounted && resp.nurses?.length) setAvailableNurses(resp.nurses);
-      } catch { /* keep empty; CHW can't escalate without a nurse in DB */ }
+      } catch { /* keep empty */ }
 
-      // Appointments for this health worker
-      try {
-        if (isMounted) setAppointmentsLoading(true);
-        const apptResp = await appointmentService.getForHealthWorker(user!.id);
-        if (isMounted) setAppointments(apptResp.appointments);
-      } catch { /* appointments unavailable */ } finally {
-        if (isMounted) setAppointmentsLoading(false);
+      // Initial data load (shows loading spinners)
+      if (isMounted) {
+        setCheckInsLoading(true);
+        setAppointmentsLoading(true);
+      }
+      await refreshData();
+      if (isMounted) {
+        setCheckInsLoading(false);
+        setAppointmentsLoading(false);
       }
     })();
     return () => { isMounted = false; };
-  }, []);
+  }, [refreshData]);
 
   const handlePhotoUpload = async (event: React.ChangeEvent<HTMLInputElement>) => {
     const file = event.target.files?.[0];
@@ -715,8 +771,8 @@ export function EnhancedCHWDashboard({ isFirstLogin = false }: CHWDashboardProps
                   <SelectValue placeholder="Choose a mother" />
                 </SelectTrigger>
                 <SelectContent>
-                  {/* Use all real mothers when available; otherwise show mock mothers with issues */}
-                  {(realMothers ? displayMothers : mothersWithIssues).map(mother => (
+                  {/* Always show all assigned mothers */}
+                  {displayMothers.map(mother => (
                     <SelectItem key={mother.id} value={String(mother.id)}>
                       {mother.name}
                     </SelectItem>
@@ -915,6 +971,284 @@ export function EnhancedCHWDashboard({ isFirstLogin = false }: CHWDashboardProps
         </DialogContent>
       </Dialog>
 
+      {/* Escalate from Check-in Confirmation Dialog */}
+      <Dialog open={showEscalateFromCheckinDialog} onOpenChange={setShowEscalateFromCheckinDialog}>
+        <DialogContent className="max-w-sm">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2">
+              <AlertCircle className="h-5 w-5 text-red-500" />
+              Confirm Escalation
+            </DialogTitle>
+            <DialogDescription>
+              Are you sure you want to escalate{' '}
+              <strong>{checkInToEscalate?.mother_name ?? `Mother #${checkInToEscalate?.mother_id}`}</strong>'s
+              check-in?
+              {checkInToEscalate?.comment && (
+                <span className="block mt-1 italic text-gray-600">"{checkInToEscalate.comment}"</span>
+              )}
+            </DialogDescription>
+          </DialogHeader>
+          <div className="flex gap-3 pt-2">
+            <Button
+              variant="destructive"
+              className="flex-1"
+              onClick={() => {
+                setShowEscalateFromCheckinDialog(false);
+                if (checkInToEscalate) {
+                  // Pre-fill and open escalation modal
+                  setEscalationForm(prev => ({
+                    ...prev,
+                    motherId: String(checkInToEscalate.mother_id),
+                    description: checkInToEscalate.comment
+                      ? `Check-in concern: ${checkInToEscalate.comment}`
+                      : `Mother reported feeling ${checkInToEscalate.response === 'not_ok' ? 'unwell' : 'concern raised by CHW'} on ${new Date(checkInToEscalate.created_at).toLocaleDateString()}`,
+                    issueType: 'other',
+                    priority: checkInToEscalate.response === 'not_ok' ? 'high' : 'medium',
+                  }));
+                  setShowEscalationModal(true);
+                }
+              }}
+            >
+              <AlertTriangle className="h-4 w-4 mr-2" />
+              Yes, Escalate
+            </Button>
+            <Button
+              variant="outline"
+              className="flex-1"
+              onClick={() => setShowEscalateFromCheckinDialog(false)}
+            >
+              Cancel
+            </Button>
+          </div>
+        </DialogContent>
+      </Dialog>
+
+      {/* ── Edit Appointment Dialog (15-min window) ── */}
+      <Dialog open={editApptOpen} onOpenChange={setEditApptOpen}>
+        <DialogContent className="max-w-md">
+          <DialogHeader>
+            <DialogTitle>Edit Appointment</DialogTitle>
+            <DialogDescription>You can edit this appointment within the 15-minute window.</DialogDescription>
+          </DialogHeader>
+          <div className="space-y-3">
+            <div>
+              <label className="text-sm font-medium">Date & Time</label>
+              <Input
+                type="datetime-local"
+                value={editApptForm.scheduledTime}
+                onChange={e => setEditApptForm(p => ({ ...p, scheduledTime: e.target.value }))}
+                className="mt-1"
+              />
+            </div>
+            <div>
+              <label className="text-sm font-medium">Appointment Type</label>
+              <Select value={editApptForm.appointmentType} onValueChange={v => setEditApptForm(p => ({ ...p, appointmentType: v }))}>
+                <SelectTrigger className="mt-1"><SelectValue /></SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="prenatal_checkup">Prenatal Checkup</SelectItem>
+                  <SelectItem value="home_visit">Home Visit</SelectItem>
+                  <SelectItem value="postnatal">Postnatal</SelectItem>
+                  <SelectItem value="other">Other</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
+            <div>
+              <label className="text-sm font-medium">Notes</label>
+              <Textarea
+                value={editApptForm.notes}
+                onChange={e => setEditApptForm(p => ({ ...p, notes: e.target.value }))}
+                rows={3}
+                className="mt-1 resize-none"
+              />
+            </div>
+          </div>
+          <div className="flex gap-3 pt-2">
+            <Button
+              className="flex-1"
+              disabled={editApptSubmitting}
+              onClick={async () => {
+                if (!editApptId) return;
+                setEditApptSubmitting(true);
+                try {
+                  const updated = await appointmentService.update(editApptId, {
+                    scheduled_time: editApptForm.scheduledTime ? new Date(editApptForm.scheduledTime).toISOString() : undefined,
+                    notes: editApptForm.notes || undefined,
+                    appointment_type: editApptForm.appointmentType || undefined,
+                  });
+                  setAppointments(prev => prev.map(a => a.id === editApptId ? updated : a));
+                  setEditApptOpen(false);
+                  toast({ title: "Appointment Updated", description: "Changes saved successfully." });
+                } catch (err: any) {
+                  toast({ title: "Error", description: err.message, variant: "destructive" });
+                } finally {
+                  setEditApptSubmitting(false);
+                }
+              }}
+            >
+              {editApptSubmitting ? <><Loader2 className="h-4 w-4 mr-2 animate-spin" />Saving...</> : "Save Changes"}
+            </Button>
+            <Button variant="outline" className="flex-1" onClick={() => setEditApptOpen(false)} disabled={editApptSubmitting}>Cancel</Button>
+          </div>
+        </DialogContent>
+      </Dialog>
+
+      {/* ── Delete Appointment Confirmation ── */}
+      <Dialog open={deleteApptConfirm !== null} onOpenChange={(o) => { if (!o) setDeleteApptConfirm(null); }}>
+        <DialogContent className="max-w-sm">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2 text-red-600">
+              <AlertCircle className="h-5 w-5" />Delete Appointment?
+            </DialogTitle>
+            <DialogDescription>This cannot be undone.</DialogDescription>
+          </DialogHeader>
+          <div className="flex gap-3 pt-2">
+            <Button
+              variant="destructive"
+              className="flex-1"
+              disabled={deleteApptSubmitting}
+              onClick={async () => {
+                if (!deleteApptConfirm) return;
+                setDeleteApptSubmitting(true);
+                try {
+                  await appointmentService.delete(deleteApptConfirm);
+                  setAppointments(prev => prev.filter(a => a.id !== deleteApptConfirm));
+                  setDeleteApptConfirm(null);
+                  toast({ title: "Appointment Deleted" });
+                } catch (err: any) {
+                  toast({ title: "Error", description: err.message, variant: "destructive" });
+                } finally {
+                  setDeleteApptSubmitting(false);
+                }
+              }}
+            >
+              {deleteApptSubmitting ? <><Loader2 className="h-4 w-4 mr-2 animate-spin" />Deleting...</> : "Yes, Delete"}
+            </Button>
+            <Button variant="outline" className="flex-1" onClick={() => setDeleteApptConfirm(null)} disabled={deleteApptSubmitting}>Cancel</Button>
+          </div>
+        </DialogContent>
+      </Dialog>
+
+      {/* ── Edit Escalation Dialog (15-min window) ── */}
+      <Dialog open={editEscalOpen} onOpenChange={setEditEscalOpen}>
+        <DialogContent className="max-w-md">
+          <DialogHeader>
+            <DialogTitle>Edit Escalation</DialogTitle>
+            <DialogDescription>You can edit this escalation within the 15-minute window.</DialogDescription>
+          </DialogHeader>
+          <div className="space-y-3">
+            <div>
+              <label className="text-sm font-medium">Issue Type</label>
+              <Input
+                value={editEscalForm.issueType}
+                onChange={e => setEditEscalForm(p => ({ ...p, issueType: e.target.value }))}
+                className="mt-1"
+                placeholder="e.g. bleeding, high blood pressure"
+              />
+            </div>
+            <div>
+              <label className="text-sm font-medium">Priority</label>
+              <Select value={editEscalForm.priority} onValueChange={v => setEditEscalForm(p => ({ ...p, priority: v }))}>
+                <SelectTrigger className="mt-1"><SelectValue /></SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="low">Low</SelectItem>
+                  <SelectItem value="medium">Medium</SelectItem>
+                  <SelectItem value="high">High</SelectItem>
+                  <SelectItem value="critical">Critical</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
+            <div>
+              <label className="text-sm font-medium">Description</label>
+              <Textarea
+                value={editEscalForm.description}
+                onChange={e => setEditEscalForm(p => ({ ...p, description: e.target.value }))}
+                rows={3}
+                className="mt-1 resize-none"
+              />
+            </div>
+            <div>
+              <label className="text-sm font-medium">Additional Notes</label>
+              <Textarea
+                value={editEscalForm.notes}
+                onChange={e => setEditEscalForm(p => ({ ...p, notes: e.target.value }))}
+                rows={2}
+                className="mt-1 resize-none"
+              />
+            </div>
+          </div>
+          <div className="flex gap-3 pt-2">
+            <Button
+              className="flex-1"
+              disabled={editEscalSubmitting}
+              onClick={async () => {
+                if (!editEscalId) return;
+                setEditEscalSubmitting(true);
+                try {
+                  const updated = await escalationService.update(editEscalId, {
+                    issue_type: editEscalForm.issueType || undefined,
+                    priority: editEscalForm.priority as 'low' | 'medium' | 'high' | 'critical',
+                    case_description: editEscalForm.description || undefined,
+                    notes: editEscalForm.notes || undefined,
+                  });
+                  setRealEscalations(prev => prev ? prev.map(e => e.id === editEscalId ? {
+                    ...e,
+                    issueType: updated.issue_type ?? e.issueType,
+                    priority: updated.priority as typeof e.priority,
+                    issue: updated.case_description ?? e.issue,
+                    notes: updated.notes ?? '',
+                  } : e) : prev);
+                  setEditEscalOpen(false);
+                  toast({ title: "Escalation Updated", description: "Changes saved successfully." });
+                } catch (err: any) {
+                  toast({ title: "Error", description: err.message, variant: "destructive" });
+                } finally {
+                  setEditEscalSubmitting(false);
+                }
+              }}
+            >
+              {editEscalSubmitting ? <><Loader2 className="h-4 w-4 mr-2 animate-spin" />Saving...</> : "Save Changes"}
+            </Button>
+            <Button variant="outline" className="flex-1" onClick={() => setEditEscalOpen(false)} disabled={editEscalSubmitting}>Cancel</Button>
+          </div>
+        </DialogContent>
+      </Dialog>
+
+      {/* ── Delete Escalation Confirmation ── */}
+      <Dialog open={deleteEscalConfirm !== null} onOpenChange={(o) => { if (!o) setDeleteEscalConfirm(null); }}>
+        <DialogContent className="max-w-sm">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2 text-red-600">
+              <AlertCircle className="h-5 w-5" />Delete Escalation?
+            </DialogTitle>
+            <DialogDescription>This will permanently remove the escalation and cannot be undone.</DialogDescription>
+          </DialogHeader>
+          <div className="flex gap-3 pt-2">
+            <Button
+              variant="destructive"
+              className="flex-1"
+              disabled={deleteEscalSubmitting}
+              onClick={async () => {
+                if (!deleteEscalConfirm) return;
+                setDeleteEscalSubmitting(true);
+                try {
+                  await escalationService.delete(deleteEscalConfirm);
+                  setRealEscalations(prev => prev ? prev.filter(e => e.id !== deleteEscalConfirm) : prev);
+                  setDeleteEscalConfirm(null);
+                  toast({ title: "Escalation Deleted" });
+                } catch (err: any) {
+                  toast({ title: "Error", description: err.message, variant: "destructive" });
+                } finally {
+                  setDeleteEscalSubmitting(false);
+                }
+              }}
+            >
+              {deleteEscalSubmitting ? <><Loader2 className="h-4 w-4 mr-2 animate-spin" />Deleting...</> : "Yes, Delete"}
+            </Button>
+            <Button variant="outline" className="flex-1" onClick={() => setDeleteEscalConfirm(null)} disabled={deleteEscalSubmitting}>Cancel</Button>
+          </div>
+        </DialogContent>
+      </Dialog>
+
       {/* Header */}
       <header className="sticky top-0 z-50 bg-white/80 backdrop-blur-md border-b">
         <div className="max-w-7xl mx-auto px-4 sm:px-6">
@@ -1074,7 +1408,7 @@ export function EnhancedCHWDashboard({ isFirstLogin = false }: CHWDashboardProps
               <div className="flex items-center justify-between">
                 <div>
                   <p className="text-amber-100 text-sm">Escalated</p>
-                  <p className="text-3xl font-bold">{(realEscalations ?? mockEscalatedCases).length}</p>
+                  <p className="text-3xl font-bold">{(realEscalations ?? []).length}</p>
                 </div>
                 <Upload className="h-8 w-8 text-amber-200" />
               </div>
@@ -1122,7 +1456,6 @@ export function EnhancedCHWDashboard({ isFirstLogin = false }: CHWDashboardProps
               <Button
                 variant="destructive"
                 onClick={() => setShowEscalationModal(true)}
-                disabled={mothersWithIssues.length === 0}
               >
                 <Upload className="h-4 w-4 mr-2" />
                 Escalate Case
@@ -1223,6 +1556,82 @@ export function EnhancedCHWDashboard({ isFirstLogin = false }: CHWDashboardProps
                 <p className="text-muted-foreground">Try adjusting your search or filter criteria</p>
               </Card>
             )}
+
+            {/* Live Check-in Feed */}
+            <div className="mt-6">
+              <div className="flex items-center gap-2 mb-4">
+                <div className="h-2 w-2 rounded-full bg-green-500 animate-pulse" />
+                <h3 className="font-semibold text-lg">Live Check-in Feed</h3>
+                {checkInsLoading && <Loader2 className="h-4 w-4 animate-spin text-muted-foreground" />}
+                {recentCheckIns.length > 0 && (
+                  <Badge variant="outline" className="ml-auto">{recentCheckIns.length} recent</Badge>
+                )}
+              </div>
+              {checkInsLoading ? (
+                <div className="flex items-center justify-center py-8">
+                  <Loader2 className="h-6 w-6 animate-spin text-muted-foreground mr-2" />
+                  <span className="text-muted-foreground">Loading check-ins...</span>
+                </div>
+              ) : recentCheckIns.length === 0 ? (
+                <Card className="border-dashed border-2 border-gray-200 bg-gray-50/50">
+                  <CardContent className="p-6 text-center">
+                    <Heart className="h-10 w-10 mx-auto mb-3 text-gray-300" />
+                    <p className="text-muted-foreground text-sm">No check-ins yet from assigned mothers.</p>
+                  </CardContent>
+                </Card>
+              ) : (
+                <div className="space-y-3">
+                  {recentCheckIns.map((ci) => (
+                    <Card key={ci.id} className={`border-l-4 ${
+                      ci.response === 'ok' ? 'border-l-green-500 bg-green-50/30' : 'border-l-red-500 bg-red-50/30'
+                    }`}>
+                      <CardContent className="p-4">
+                        <div className="flex items-start gap-3">
+                          <Avatar className="h-10 w-10">
+                            <AvatarFallback className={`text-white text-sm font-semibold ${
+                              ci.response === 'ok' ? 'bg-green-500' : 'bg-red-500'
+                            }`}>
+                              {(ci.mother_name ?? 'M').charAt(0).toUpperCase()}
+                            </AvatarFallback>
+                          </Avatar>
+                          <div className="flex-1 min-w-0">
+                            <div className="flex items-center gap-2 flex-wrap">
+                              <p className="font-medium text-sm">{ci.mother_name ?? `Mother #${ci.mother_id}`}</p>
+                              <Badge className={ci.response === 'ok'
+                                ? 'bg-green-500 text-white text-xs'
+                                : 'bg-red-500 text-white text-xs'
+                              }>
+                                {ci.response === 'ok' ? 'Feeling Good' : 'Not Well'}
+                              </Badge>
+                              <span className="text-xs text-muted-foreground ml-auto">
+                                {new Date(ci.created_at).toLocaleString()}
+                              </span>
+                            </div>
+                            {ci.comment && (
+                              <p className="text-sm text-gray-600 mt-1 italic">"{ci.comment}"</p>
+                            )}
+                          </div>
+                        </div>
+                        <div className="flex justify-end mt-3">
+                          <Button
+                            size="sm"
+                            variant="destructive"
+                            className="text-xs"
+                            onClick={() => {
+                              setCheckInToEscalate(ci);
+                              setShowEscalateFromCheckinDialog(true);
+                            }}
+                          >
+                            <AlertTriangle className="h-3 w-3 mr-1" />
+                            Escalate
+                          </Button>
+                        </div>
+                      </CardContent>
+                    </Card>
+                  ))}
+                </div>
+              )}
+            </div>
           </TabsContent>
 
           {/* Appointments Tab */}
@@ -1349,6 +1758,34 @@ export function EnhancedCHWDashboard({ isFirstLogin = false }: CHWDashboardProps
                                   <CalendarX className="h-3 w-3 mr-1" />
                                   Cancel
                                 </Button>
+                                {isWithin15Min(appt.created_at) && (
+                                  <>
+                                    <Button
+                                      size="sm"
+                                      variant="outline"
+                                      className="text-xs border-blue-200 text-blue-700 hover:bg-blue-50"
+                                      onClick={() => {
+                                        setEditApptId(appt.id);
+                                        setEditApptForm({
+                                          scheduledTime: appt.scheduled_time?.slice(0, 16) || '',
+                                          notes: appt.notes || '',
+                                          appointmentType: appt.appointment_type || 'prenatal_checkup',
+                                        });
+                                        setEditApptOpen(true);
+                                      }}
+                                    >
+                                      Edit
+                                    </Button>
+                                    <Button
+                                      size="sm"
+                                      variant="outline"
+                                      className="text-xs border-red-300 text-red-700 hover:bg-red-50"
+                                      onClick={() => setDeleteApptConfirm(appt.id)}
+                                    >
+                                      Delete
+                                    </Button>
+                                  </>
+                                )}
                               </div>
                             )}
                           </div>
@@ -1363,9 +1800,9 @@ export function EnhancedCHWDashboard({ isFirstLogin = false }: CHWDashboardProps
 
           {/* Escalated Cases Tab */}
           <TabsContent value="cases" className="space-y-4">
-            {/* Show real escalations if loaded, otherwise mock */}
+            {/* Show real escalations only */}
             {(() => {
-              const displayCases = realEscalations ?? mockEscalatedCases;
+              const displayCases = realEscalations ?? [];
               if (displayCases.length === 0) return (
                 <Card className="p-8 text-center">
                   <CheckCircle className="h-12 w-12 mx-auto mb-4 text-green-500" />
@@ -1407,7 +1844,7 @@ export function EnhancedCHWDashboard({ isFirstLogin = false }: CHWDashboardProps
                         <p className="font-medium text-red-800 mb-1">Issue: {caseItem.issueType}</p>
                         <p className="text-sm text-red-700">{caseItem.notes}</p>
                       </div>
-                      <div className="flex gap-2">
+                      <div className="flex gap-2 flex-wrap">
                         <Button className="flex-1">
                           <Stethoscope className="h-4 w-4 mr-2" />
                           View Full Case
@@ -1416,6 +1853,35 @@ export function EnhancedCHWDashboard({ isFirstLogin = false }: CHWDashboardProps
                           <MessageCircle className="h-4 w-4 mr-2" />
                           Contact Nurse
                         </Button>
+                        {isWithin15Min(caseItem.escalatedAt) && (
+                          <>
+                            <Button
+                              size="sm"
+                              variant="outline"
+                              className="text-xs border-blue-200 text-blue-700 hover:bg-blue-50"
+                              onClick={() => {
+                                setEditEscalId(caseItem.id);
+                                setEditEscalForm({
+                                  description: caseItem.issue,
+                                  priority: caseItem.priority,
+                                  notes: caseItem.notes || '',
+                                  issueType: caseItem.issueType,
+                                });
+                                setEditEscalOpen(true);
+                              }}
+                            >
+                              Edit
+                            </Button>
+                            <Button
+                              size="sm"
+                              variant="outline"
+                              className="text-xs border-red-300 text-red-700 hover:bg-red-50"
+                              onClick={() => setDeleteEscalConfirm(caseItem.id)}
+                            >
+                              Delete
+                            </Button>
+                          </>
+                        )}
                       </div>
                     </div>
                   </CardContent>

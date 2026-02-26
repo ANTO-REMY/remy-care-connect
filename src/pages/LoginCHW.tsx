@@ -42,7 +42,16 @@ export default function LoginCHW() {
                 toast.success('Welcome back! 🏥', {
                     description: "You've signed in successfully. Loading your CHW dashboard…",
                 });
-                navigate('/dashboard/chw');
+                // Navigate based on the actual role returned by the backend
+                if (result.role === 'chw') {
+                    navigate('/dashboard/chw');
+                } else if (result.role === 'mother') {
+                    navigate('/dashboard/mother');
+                } else if (result.role === 'nurse') {
+                    navigate('/dashboard/nurse');
+                } else {
+                    navigate('/dashboard/chw');
+                }
             } else {
                 toast.error('Sign in failed', {
                     description: result.error || 'Incorrect phone number or PIN. Please double-check and try again.',

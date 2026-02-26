@@ -51,7 +51,16 @@ export default function LoginNurse() {
                 toast.success('Welcome back! 🩺', {
                     description: "You've signed in successfully. Loading your nurse dashboard…",
                 });
-                navigate('/dashboard/nurse');
+                // Navigate based on the actual role returned by the backend
+                if (result.role === 'nurse') {
+                    navigate('/dashboard/nurse');
+                } else if (result.role === 'mother') {
+                    navigate('/dashboard/mother');
+                } else if (result.role === 'chw') {
+                    navigate('/dashboard/chw');
+                } else {
+                    navigate('/dashboard/nurse');
+                }
             } else {
                 toast.error('Sign in failed', {
                     description: result.error || 'Incorrect phone number or PIN. Please double-check and try again.',

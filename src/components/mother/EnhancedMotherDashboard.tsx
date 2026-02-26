@@ -22,6 +22,9 @@ import { useAuth } from "@/contexts/AuthContext";
 import { useToast } from "@/hooks/use-toast";
 import { uploadPhoto, getPhotoFileUrl, getMyPhoto } from "@/services/photoService";
 import { appointmentService, type Appointment } from "@/services/appointmentService";
+import { motherService } from "@/services/motherService";
+import { checkinService } from "@/services/checkinService";
+import { Textarea } from "@/components/ui/textarea";
 
 // Mock data for daily insights
 const dailyNutritionTips = [
@@ -196,6 +199,10 @@ export function EnhancedMotherDashboard({ isFirstLogin = false }: MotherDashboar
   const [waterIntake, setWaterIntake] = useState(3);
   const [showCheckInModal, setShowCheckInModal] = useState(false);
   const [checkInResponse, setCheckInResponse] = useState<'ok' | 'not_ok' | null>(null);
+  const [motherProfileId, setMotherProfileId] = useState<number | null>(null);
+  const [checkInSelected, setCheckInSelected] = useState<'ok' | 'not_ok' | null>(null);
+  const [checkInComment, setCheckInComment] = useState('');
+  const [checkInSubmitting, setCheckInSubmitting] = useState(false);
   // Appointments state
   const [appointments, setAppointments] = useState<Appointment[]>([]);
   const [appointmentsLoading, setAppointmentsLoading] = useState(false);
@@ -243,15 +250,38 @@ export function EnhancedMotherDashboard({ isFirstLogin = false }: MotherDashboar
   };
 
   // Handle check-in
-  const handleCheckIn = (response: 'ok' | 'not_ok') => {
-    setCheckInResponse(response);
-    setShowCheckInModal(false);
-    toast({
-      title: "Check-in Recorded",
-      description: response === 'ok'
-        ? "Great! Keep taking care of yourself. 💚"
-        : "Your CHW will be notified and will contact you soon.",
-    });
+  const handleCheckIn = async () => {
+    if (!checkInSelected) return;
+    if (!motherProfileId) {
+      toast({ title: "Profile not found", description: "Please complete your profile first.", variant: "destructive" });
+      return;
+    }
+    setCheckInSubmitting(true);
+    try {
+      await checkinService.create(motherProfileId, {
+        response: checkInSelected,
+        comment: checkInComment.trim() || undefined,
+        channel: 'app',
+      });
+      setCheckInResponse(checkInSelected);
+      setShowCheckInModal(false);
+      setCheckInSelected(null);
+      setCheckInComment('');
+      toast({
+        title: checkInSelected === 'ok' ? "Check-in recorded ✓" : "Check-in Recorded",
+        description: checkInSelected === 'ok'
+          ? "Great! Keep taking care of yourself."
+          : "Your CHW has been notified and will contact you soon.",
+      });
+    } catch (err: any) {
+      toast({
+        title: "Submission Failed",
+        description: err.message || "Could not submit check-in. Please try again.",
+        variant: "destructive",
+      });
+    } finally {
+      setCheckInSubmitting(false);
+    }
   };
 
   // Add water intake
@@ -290,6 +320,14 @@ export function EnhancedMotherDashboard({ isFirstLogin = false }: MotherDashboar
         if (meta && isMounted) setProfileImage(getPhotoFileUrl(meta.file_url));
       } catch {
         console.error("Failed to load profile photo");
+      }
+
+      // Load mother profile ID for check-in submissions
+      try {
+        const profile = await motherService.getMyProfile();
+        if (isMounted && profile?.id) setMotherProfileId(profile.id);
+      } catch {
+        // ignore — profile may not yet be complete
       }
 
       // Load upcoming appointments (mother_id = user.id in the users table)
@@ -442,36 +480,84 @@ export function EnhancedMotherDashboard({ isFirstLogin = false }: MotherDashboar
       </Dialog>
 
       {/* Check-in Modal */}
-      <Dialog open={showCheckInModal} onOpenChange={setShowCheckInModal}>
-        <DialogContent>
+      <Dialog open={showCheckInModal} onOpenChange={(open) => { setShowCheckInModal(open); if (!open) { setCheckInSelected(null); setCheckInComment(''); } }}>
+        <DialogContent className="max-w-md">
           <DialogHeader>
             <DialogTitle className="text-center text-2xl">How are you feeling today?</DialogTitle>
             <DialogDescription className="text-center">
               Your response helps us monitor your health and provide better care
             </DialogDescription>
           </DialogHeader>
-          <div className="grid grid-cols-2 gap-4 py-6">
+
+          {/* Step 1 — choose response */}
+          <div className="grid grid-cols-2 gap-4 pt-4">
             <button
-              onClick={() => handleCheckIn('ok')}
-              className="flex flex-col items-center p-6 rounded-xl bg-green-50 hover:bg-green-100 border-2 border-green-200 hover:border-green-300 transition-all group"
+              onClick={() => setCheckInSelected('ok')}
+              className={`flex flex-col items-center p-6 rounded-xl border-2 transition-all ${
+                checkInSelected === 'ok'
+                  ? 'bg-green-100 border-green-500 ring-2 ring-green-400'
+                  : 'bg-green-50 border-green-200 hover:bg-green-100 hover:border-green-300'
+              }`}
             >
-              <div className="w-16 h-16 rounded-full bg-green-100 group-hover:bg-green-200 flex items-center justify-center mb-3 transition-colors">
+              <div className={`w-16 h-16 rounded-full flex items-center justify-center mb-3 transition-colors ${
+                checkInSelected === 'ok' ? 'bg-green-200' : 'bg-green-100'
+              }`}>
                 <Sparkles className="h-8 w-8 text-green-600" />
               </div>
               <span className="font-semibold text-green-700">I'm feeling great!</span>
               <span className="text-sm text-green-600 mt-1">No concerns</span>
+              {checkInSelected === 'ok' && (
+                <CheckCircle className="h-5 w-5 text-green-500 mt-2" />
+              )}
             </button>
             <button
-              onClick={() => handleCheckIn('not_ok')}
-              className="flex flex-col items-center p-6 rounded-xl bg-red-50 hover:bg-red-100 border-2 border-red-200 hover:border-red-300 transition-all group"
+              onClick={() => setCheckInSelected('not_ok')}
+              className={`flex flex-col items-center p-6 rounded-xl border-2 transition-all ${
+                checkInSelected === 'not_ok'
+                  ? 'bg-red-100 border-red-500 ring-2 ring-red-400'
+                  : 'bg-red-50 border-red-200 hover:bg-red-100 hover:border-red-300'
+              }`}
             >
-              <div className="w-16 h-16 rounded-full bg-red-100 group-hover:bg-red-200 flex items-center justify-center mb-3 transition-colors">
+              <div className={`w-16 h-16 rounded-full flex items-center justify-center mb-3 transition-colors ${
+                checkInSelected === 'not_ok' ? 'bg-red-200' : 'bg-red-100'
+              }`}>
                 <Heart className="h-8 w-8 text-red-600" />
               </div>
               <span className="font-semibold text-red-700">Not feeling well</span>
               <span className="text-sm text-red-600 mt-1">Need support</span>
+              {checkInSelected === 'not_ok' && (
+                <CheckCircle className="h-5 w-5 text-red-500 mt-2" />
+              )}
             </button>
           </div>
+
+          {/* Step 2 — optional comment + submit */}
+          {checkInSelected && (
+            <div className="space-y-3 pt-2">
+              <Textarea
+                placeholder="Add a note (optional) — describe how you feel..."
+                value={checkInComment}
+                onChange={(e) => setCheckInComment(e.target.value)}
+                rows={3}
+                className="resize-none"
+              />
+              <Button
+                onClick={handleCheckIn}
+                disabled={checkInSubmitting}
+                className={`w-full ${
+                  checkInSelected === 'ok'
+                    ? 'bg-green-600 hover:bg-green-700'
+                    : 'bg-red-600 hover:bg-red-700'
+                } text-white`}
+              >
+                {checkInSubmitting ? (
+                  <><Loader2 className="h-4 w-4 mr-2 animate-spin" />Submitting...</>
+                ) : (
+                  <><CheckCircle className="h-4 w-4 mr-2" />Submit Check-in</>
+                )}
+              </Button>
+            </div>
+          )}
         </DialogContent>
       </Dialog>
 

@@ -50,7 +50,16 @@ export default function LoginMother() {
                 toast.success('Welcome back! 💚', {
                     description: "You've signed in successfully. Loading your dashboard…",
                 });
-                navigate('/dashboard/mother');
+                // Navigate based on the actual role returned by the backend
+                if (result.role === 'mother') {
+                    navigate('/dashboard/mother');
+                } else if (result.role === 'chw') {
+                    navigate('/dashboard/chw');
+                } else if (result.role === 'nurse') {
+                    navigate('/dashboard/nurse');
+                } else {
+                    navigate('/dashboard/mother');
+                }
             } else {
                 toast.error('Sign in failed', {
                     description: result.error || 'Incorrect phone number or PIN. Please double-check and try again.',

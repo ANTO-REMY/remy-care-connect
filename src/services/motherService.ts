@@ -61,15 +61,17 @@ export interface CreateNextOfKinRequest {
 export interface DailyCheckIn {
   id: number;
   mother_id: number;
-  check_in_date: string;
-  feeling: string;
-  notes: string | null;
+  mother_name: string | null;
+  response: 'ok' | 'not_ok';
+  comment: string | null;
+  channel: 'app' | 'whatsapp' | 'sms';
   created_at: string;
 }
 
 export interface CreateDailyCheckInRequest {
-  feeling: 'excellent' | 'good' | 'fair' | 'poor';
-  notes?: string;
+  response: 'ok' | 'not_ok';
+  comment?: string;
+  channel?: 'app' | 'whatsapp' | 'sms';
 }
 
 // Shape returned by GET /mothers/<mother_id> in the backend
@@ -109,6 +111,26 @@ class MotherService {
       due_date: data.due_date,
       location: data.location,
       // These fields are not provided by this endpoint; set sensible defaults
+      status: 'active',
+      created_at: '',
+    };
+  }
+
+  /**
+   * Get current mother's profile (from /mothers/me)
+   */
+  async getMyProfile(): Promise<Mother> {
+    const data = await apiClient.get<MotherApiResponse>('/mothers/me');
+    return {
+      id: data.mother_id,
+      user_id: data.user_id,
+      name: data.name,
+      first_name: data.first_name,
+      last_name: data.last_name,
+      phone_number: data.phone,
+      date_of_birth: data.dob,
+      due_date: data.due_date,
+      location: data.location,
       status: 'active',
       created_at: '',
     };
@@ -165,17 +187,18 @@ class MotherService {
   }
 
   /**
-   * Create daily check-in
+   * Create daily check-in (uses new /mothers/<id>/checkins endpoint)
    */
   async createDailyCheckIn(motherId: number, data: CreateDailyCheckInRequest): Promise<DailyCheckIn> {
-    return apiClient.post<DailyCheckIn>(`/mothers/${motherId}/daily-checkin`, data);
+    return apiClient.post<DailyCheckIn>(`/mothers/${motherId}/checkins`, { channel: 'app', ...data });
   }
 
   /**
    * Get daily check-ins for mother
    */
   async getDailyCheckIns(motherId: number): Promise<DailyCheckIn[]> {
-    return apiClient.get<DailyCheckIn[]>(`/mothers/${motherId}/daily-checkin`);
+    const resp = await apiClient.get<{ checkins: DailyCheckIn[]; total: number }>(`/mothers/${motherId}/checkins`);
+    return resp.checkins;
   }
 }
 

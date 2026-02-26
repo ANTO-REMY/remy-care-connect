@@ -7,7 +7,7 @@ import {
   Video, Download, Share2, Bell, Settings, BarChart3, Users,
   ArrowUpRight, ArrowDownRight, Sparkles, Star, ClipboardCheck,
   CheckCircle2, XCircle, Clock4, UserCheck, Briefcase, Camera,
-  PlusCircle, CalendarCheck, CalendarX
+  PlusCircle, CalendarCheck, CalendarX, Loader2, AlertCircle
 } from "lucide-react";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle, CardFooter } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -212,8 +212,26 @@ export function EnhancedNurseDashboard({ isFirstLogin = false }: NurseDashboardP
     recurrence: "none",
   });
   const [nurseScheduleSubmitting, setNurseScheduleSubmitting] = useState(false);
+  // 15-min CRUD – escalations
+  const [editEscalOpen, setEditEscalOpen] = useState(false);
+  const [editEscalId, setEditEscalId] = useState<number | null>(null);
+  const [editEscalForm, setEditEscalForm] = useState({ description: '', priority: 'high', notes: '', issueType: '' });
+  const [editEscalSubmitting, setEditEscalSubmitting] = useState(false);
+  const [deleteEscalConfirm, setDeleteEscalConfirm] = useState<number | null>(null);
+  const [deleteEscalSubmitting, setDeleteEscalSubmitting] = useState(false);
+  // 15-min CRUD – appointments
+  const [editApptOpen, setEditApptOpen] = useState(false);
+  const [editApptId, setEditApptId] = useState<number | null>(null);
+  const [editApptForm, setEditApptForm] = useState({ scheduledTime: '', notes: '', appointmentType: 'prenatal_checkup' });
+  const [editApptSubmitting, setEditApptSubmitting] = useState(false);
+  const [deleteApptConfirm, setDeleteApptConfirm] = useState<number | null>(null);
+  const [deleteApptSubmitting, setDeleteApptSubmitting] = useState(false);
 
-  // Derive CHW list from real assignments (grouped by chw_id) or fall back to mock
+  // Returns true if a timestamp is within the 15-minute edit/delete window
+  const isWithin15Min = (createdAt: string) =>
+    (new Date().getTime() - new Date(createdAt).getTime()) < 15 * 60 * 1000;
+
+  // Derive CHW list from real assignments (grouped by chw_id) or empty
   const displayCHWs: typeof mockCHWs = (realCHWAssignments && realCHWAssignments.length > 0)
     ? Object.values(
         realCHWAssignments.reduce((acc, a) => {
@@ -234,10 +252,10 @@ export function EnhancedNurseDashboard({ isFirstLogin = false }: NurseDashboardP
           return acc;
         }, {} as Record<number, (typeof mockCHWs)[0]>)
       )
-    : mockCHWs;
+    : [];
 
-  // Filter cases — use real escalations when loaded, otherwise mock
-  const allCases = realEscalations ?? mockEscalatedCases;
+  // Filter cases — use real escalations when loaded, otherwise empty
+  const allCases = realEscalations ?? [];
   const filteredCases = allCases.filter(caseItem => {
     const matchesSearch = caseItem.motherName.toLowerCase().includes(searchQuery.toLowerCase()) ||
       caseItem.chwName.toLowerCase().includes(searchQuery.toLowerCase());
@@ -282,7 +300,7 @@ export function EnhancedNurseDashboard({ isFirstLogin = false }: NurseDashboardP
           caseNotes.trim() || undefined);
         // Update local state
         setRealEscalations((prev) =>
-          (prev ?? mockEscalatedCases).map((c) =>
+          (prev ?? []).map((c) =>
             c.id === selectedCase.id ? { ...c, status: 'resolved' as const } : c
           ) as typeof mockEscalatedCases
         );
@@ -311,7 +329,7 @@ export function EnhancedNurseDashboard({ isFirstLogin = false }: NurseDashboardP
         await escalationService.update(selectedCase.id, { notes: caseNotes.trim() });
         // Reflect in local state
         setRealEscalations((prev) =>
-          (prev ?? mockEscalatedCases).map((c) =>
+          (prev ?? []).map((c) =>
             c.id === selectedCase.id ? { ...c, notes: caseNotes.trim() } : c
           ) as typeof mockEscalatedCases
         );
@@ -340,7 +358,7 @@ export function EnhancedNurseDashboard({ isFirstLogin = false }: NurseDashboardP
         await escalationService.updateStatus(selectedCase.id, 'in_progress',
           caseNotes.trim() || undefined);
         setRealEscalations((prev) =>
-          (prev ?? mockEscalatedCases).map((c) =>
+          (prev ?? []).map((c) =>
             c.id === selectedCase.id ? { ...c, status: 'in_progress' as const } : c
           ) as typeof mockEscalatedCases
         );
@@ -799,6 +817,233 @@ export function EnhancedNurseDashboard({ isFirstLogin = false }: NurseDashboardP
         </DialogContent>
       </Dialog>
 
+      {/* ── Edit Escalation Dialog (15-min window) ── */}
+      <Dialog open={editEscalOpen} onOpenChange={setEditEscalOpen}>
+        <DialogContent className="max-w-md">
+          <DialogHeader>
+            <DialogTitle>Edit Escalation</DialogTitle>
+            <DialogDescription>You can edit this escalation within the 15-minute window.</DialogDescription>
+          </DialogHeader>
+          <div className="space-y-3">
+            <div>
+              <label className="text-sm font-medium">Issue Type</label>
+              <Input
+                value={editEscalForm.issueType}
+                onChange={e => setEditEscalForm(p => ({ ...p, issueType: e.target.value }))}
+                className="mt-1"
+                placeholder="e.g. bleeding, high blood pressure"
+              />
+            </div>
+            <div>
+              <label className="text-sm font-medium">Priority</label>
+              <Select value={editEscalForm.priority} onValueChange={v => setEditEscalForm(p => ({ ...p, priority: v }))}>
+                <SelectTrigger className="mt-1"><SelectValue /></SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="low">Low</SelectItem>
+                  <SelectItem value="medium">Medium</SelectItem>
+                  <SelectItem value="high">High</SelectItem>
+                  <SelectItem value="critical">Critical</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
+            <div>
+              <label className="text-sm font-medium">Description</label>
+              <Textarea
+                value={editEscalForm.description}
+                onChange={e => setEditEscalForm(p => ({ ...p, description: e.target.value }))}
+                rows={3}
+                className="mt-1 resize-none"
+              />
+            </div>
+            <div>
+              <label className="text-sm font-medium">Additional Notes</label>
+              <Textarea
+                value={editEscalForm.notes}
+                onChange={e => setEditEscalForm(p => ({ ...p, notes: e.target.value }))}
+                rows={2}
+                className="mt-1 resize-none"
+              />
+            </div>
+          </div>
+          <div className="flex gap-3 pt-2">
+            <Button
+              className="flex-1"
+              disabled={editEscalSubmitting}
+              onClick={async () => {
+                if (!editEscalId) return;
+                setEditEscalSubmitting(true);
+                try {
+                  const updated = await escalationService.update(editEscalId, {
+                    issue_type: editEscalForm.issueType || undefined,
+                    priority: editEscalForm.priority as 'low' | 'medium' | 'high' | 'critical',
+                    case_description: editEscalForm.description || undefined,
+                    notes: editEscalForm.notes || undefined,
+                  });
+                  setRealEscalations(prev => prev ? prev.map(e => e.id === editEscalId ? {
+                    ...e,
+                    issueType: updated.issue_type ?? e.issueType,
+                    priority: updated.priority as typeof e.priority,
+                    issue: updated.case_description ?? e.issue,
+                    notes: updated.notes ?? '',
+                  } : e) : prev);
+                  setEditEscalOpen(false);
+                  toast({ title: "Escalation Updated", description: "Changes saved successfully." });
+                } catch (err: any) {
+                  toast({ title: "Error", description: err.message, variant: "destructive" });
+                } finally {
+                  setEditEscalSubmitting(false);
+                }
+              }}
+            >
+              {editEscalSubmitting ? <><Loader2 className="h-4 w-4 mr-2 animate-spin" />Saving...</> : "Save Changes"}
+            </Button>
+            <Button variant="outline" className="flex-1" onClick={() => setEditEscalOpen(false)} disabled={editEscalSubmitting}>Cancel</Button>
+          </div>
+        </DialogContent>
+      </Dialog>
+
+      {/* ── Delete Escalation Confirmation ── */}
+      <Dialog open={deleteEscalConfirm !== null} onOpenChange={(o) => { if (!o) setDeleteEscalConfirm(null); }}>
+        <DialogContent className="max-w-sm">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2 text-red-600">
+              <AlertCircle className="h-5 w-5" />Delete Escalation?
+            </DialogTitle>
+            <DialogDescription>This will permanently remove the escalation and cannot be undone.</DialogDescription>
+          </DialogHeader>
+          <div className="flex gap-3 pt-2">
+            <Button
+              variant="destructive"
+              className="flex-1"
+              disabled={deleteEscalSubmitting}
+              onClick={async () => {
+                if (!deleteEscalConfirm) return;
+                setDeleteEscalSubmitting(true);
+                try {
+                  await escalationService.delete(deleteEscalConfirm);
+                  setRealEscalations(prev => prev ? prev.filter(e => e.id !== deleteEscalConfirm) : prev);
+                  setDeleteEscalConfirm(null);
+                  toast({ title: "Escalation Deleted" });
+                } catch (err: any) {
+                  toast({ title: "Error", description: err.message, variant: "destructive" });
+                } finally {
+                  setDeleteEscalSubmitting(false);
+                }
+              }}
+            >
+              {deleteEscalSubmitting ? <><Loader2 className="h-4 w-4 mr-2 animate-spin" />Deleting...</> : "Yes, Delete"}
+            </Button>
+            <Button variant="outline" className="flex-1" onClick={() => setDeleteEscalConfirm(null)} disabled={deleteEscalSubmitting}>Cancel</Button>
+          </div>
+        </DialogContent>
+      </Dialog>
+
+      {/* ── Edit Appointment Dialog (15-min window) ── */}
+      <Dialog open={editApptOpen} onOpenChange={setEditApptOpen}>
+        <DialogContent className="max-w-md">
+          <DialogHeader>
+            <DialogTitle>Edit Appointment</DialogTitle>
+            <DialogDescription>You can edit this appointment within the 15-minute window.</DialogDescription>
+          </DialogHeader>
+          <div className="space-y-3">
+            <div>
+              <label className="text-sm font-medium">Date & Time</label>
+              <Input
+                type="datetime-local"
+                value={editApptForm.scheduledTime}
+                onChange={e => setEditApptForm(p => ({ ...p, scheduledTime: e.target.value }))}
+                className="mt-1"
+              />
+            </div>
+            <div>
+              <label className="text-sm font-medium">Appointment Type</label>
+              <Select value={editApptForm.appointmentType} onValueChange={v => setEditApptForm(p => ({ ...p, appointmentType: v }))}>
+                <SelectTrigger className="mt-1"><SelectValue /></SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="prenatal_checkup">Prenatal Checkup</SelectItem>
+                  <SelectItem value="postnatal_visit">Postnatal Visit</SelectItem>
+                  <SelectItem value="emergency_visit">Emergency Visit</SelectItem>
+                  <SelectItem value="routine_home_visit">Routine Home Visit</SelectItem>
+                  <SelectItem value="follow_up">Follow-Up</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
+            <div>
+              <label className="text-sm font-medium">Notes</label>
+              <Textarea
+                value={editApptForm.notes}
+                onChange={e => setEditApptForm(p => ({ ...p, notes: e.target.value }))}
+                rows={3}
+                className="mt-1 resize-none"
+              />
+            </div>
+          </div>
+          <div className="flex gap-3 pt-2">
+            <Button
+              className="flex-1"
+              disabled={editApptSubmitting}
+              onClick={async () => {
+                if (!editApptId) return;
+                setEditApptSubmitting(true);
+                try {
+                  const updated = await appointmentService.update(editApptId, {
+                    scheduled_time: editApptForm.scheduledTime ? new Date(editApptForm.scheduledTime).toISOString() : undefined,
+                    notes: editApptForm.notes || undefined,
+                    appointment_type: editApptForm.appointmentType || undefined,
+                  });
+                  setNurseAppointments(prev => prev.map(a => a.id === editApptId ? updated : a));
+                  setEditApptOpen(false);
+                  toast({ title: "Appointment Updated", description: "Changes saved successfully." });
+                } catch (err: any) {
+                  toast({ title: "Error", description: err.message, variant: "destructive" });
+                } finally {
+                  setEditApptSubmitting(false);
+                }
+              }}
+            >
+              {editApptSubmitting ? <><Loader2 className="h-4 w-4 mr-2 animate-spin" />Saving...</> : "Save Changes"}
+            </Button>
+            <Button variant="outline" className="flex-1" onClick={() => setEditApptOpen(false)} disabled={editApptSubmitting}>Cancel</Button>
+          </div>
+        </DialogContent>
+      </Dialog>
+
+      {/* ── Delete Appointment Confirmation ── */}
+      <Dialog open={deleteApptConfirm !== null} onOpenChange={(o) => { if (!o) setDeleteApptConfirm(null); }}>
+        <DialogContent className="max-w-sm">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2 text-red-600">
+              <AlertCircle className="h-5 w-5" />Delete Appointment?
+            </DialogTitle>
+            <DialogDescription>This cannot be undone.</DialogDescription>
+          </DialogHeader>
+          <div className="flex gap-3 pt-2">
+            <Button
+              variant="destructive"
+              className="flex-1"
+              disabled={deleteApptSubmitting}
+              onClick={async () => {
+                if (!deleteApptConfirm) return;
+                setDeleteApptSubmitting(true);
+                try {
+                  await appointmentService.delete(deleteApptConfirm);
+                  setNurseAppointments(prev => prev.filter(a => a.id !== deleteApptConfirm));
+                  setDeleteApptConfirm(null);
+                  toast({ title: "Appointment Deleted" });
+                } catch (err: any) {
+                  toast({ title: "Error", description: err.message, variant: "destructive" });
+                } finally {
+                  setDeleteApptSubmitting(false);
+                }
+              }}
+            >
+              {deleteApptSubmitting ? <><Loader2 className="h-4 w-4 mr-2 animate-spin" />Deleting...</> : "Yes, Delete"}
+            </Button>
+            <Button variant="outline" className="flex-1" onClick={() => setDeleteApptConfirm(null)} disabled={deleteApptSubmitting}>Cancel</Button>
+          </div>
+        </DialogContent>
+      </Dialog>
+
       {/* Header */}
       <header className="sticky top-0 z-50 bg-white/80 backdrop-blur-md border-b">
         <div className="max-w-7xl mx-auto px-4 sm:px-6">
@@ -902,7 +1147,7 @@ export function EnhancedNurseDashboard({ isFirstLogin = false }: NurseDashboardP
           </h2>
           <p className="text-muted-foreground">
             You have <span className="font-semibold text-red-600">
-            {(realEscalations ?? mockEscalatedCases).filter(c => c.status !== 'resolved').length} active cases
+            {(realEscalations ?? []).filter(c => c.status !== 'resolved').length} active cases
           </span> requiring your attention.
           </p>
         </div>
@@ -914,14 +1159,9 @@ export function EnhancedNurseDashboard({ isFirstLogin = false }: NurseDashboardP
               <div className="flex items-center justify-between">
                 <div>
                   <p className="text-purple-100 text-sm">Total Cases</p>
-                  <p className="text-3xl font-bold">{weeklyStats.totalCases}</p>
+                  <p className="text-3xl font-bold">{allCases.length}</p>
                 </div>
                 <ClipboardCheck className="h-8 w-8 text-purple-200" />
-              </div>
-              <div className="flex items-center gap-1 mt-2 text-sm">
-                <ArrowUpRight className="h-4 w-4 text-green-300" />
-                <span className="text-green-300">+{weeklyStats.casesChange}</span>
-                <span className="text-purple-200">this week</span>
               </div>
             </CardContent>
           </Card>
@@ -931,14 +1171,9 @@ export function EnhancedNurseDashboard({ isFirstLogin = false }: NurseDashboardP
               <div className="flex items-center justify-between">
                 <div>
                   <p className="text-green-100 text-sm">Resolved</p>
-                  <p className="text-3xl font-bold">{weeklyStats.resolvedCases}</p>
+                  <p className="text-3xl font-bold">{allCases.filter(c => c.status === 'resolved').length}</p>
                 </div>
                 <CheckCircle2 className="h-8 w-8 text-green-200" />
-              </div>
-              <div className="flex items-center gap-1 mt-2 text-sm">
-                <ArrowUpRight className="h-4 w-4 text-green-300" />
-                <span className="text-green-300">+{weeklyStats.resolvedChange}</span>
-                <span className="text-green-200">this week</span>
               </div>
             </CardContent>
           </Card>
@@ -948,14 +1183,9 @@ export function EnhancedNurseDashboard({ isFirstLogin = false }: NurseDashboardP
               <div className="flex items-center justify-between">
                 <div>
                   <p className="text-amber-100 text-sm">Pending</p>
-                  <p className="text-3xl font-bold">{weeklyStats.pendingCases}</p>
+                  <p className="text-3xl font-bold">{allCases.filter(c => c.status === 'pending').length}</p>
                 </div>
                 <Clock4 className="h-8 w-8 text-amber-200" />
-              </div>
-              <div className="flex items-center gap-1 mt-2 text-sm">
-                <ArrowDownRight className="h-4 w-4 text-green-300" />
-                <span className="text-green-300">{weeklyStats.pendingChange}</span>
-                <span className="text-amber-200">from last week</span>
               </div>
             </CardContent>
           </Card>
@@ -965,14 +1195,9 @@ export function EnhancedNurseDashboard({ isFirstLogin = false }: NurseDashboardP
               <div className="flex items-center justify-between">
                 <div>
                   <p className="text-red-100 text-sm">Critical</p>
-                  <p className="text-3xl font-bold">{weeklyStats.criticalCases}</p>
+                  <p className="text-3xl font-bold">{allCases.filter(c => c.priority === 'critical').length}</p>
                 </div>
                 <AlertTriangle className="h-8 w-8 text-red-200" />
-              </div>
-              <div className="flex items-center gap-1 mt-2 text-sm">
-                <ArrowUpRight className="h-4 w-4 text-amber-300" />
-                <span className="text-amber-300">+{weeklyStats.criticalChange}</span>
-                <span className="text-red-200">needs attention</span>
               </div>
             </CardContent>
           </Card>
@@ -1064,7 +1289,7 @@ export function EnhancedNurseDashboard({ isFirstLogin = false }: NurseDashboardP
                           </p>
                         </div>
 
-                        <div className="flex items-center justify-between mt-3">
+                        <div className="flex items-center justify-between mt-3 flex-wrap gap-2">
                           <div className="flex items-center gap-4 text-sm text-muted-foreground">
                             <span className="flex items-center gap-1">
                               <UserCheck className="h-4 w-4" />
@@ -1075,10 +1300,45 @@ export function EnhancedNurseDashboard({ isFirstLogin = false }: NurseDashboardP
                               {new Date(caseItem.escalatedAt).toLocaleString()}
                             </span>
                           </div>
-                          <Button size="sm" variant="outline">
-                            View Details
-                            <ChevronRight className="h-4 w-4 ml-1" />
-                          </Button>
+                          <div className="flex gap-2">
+                            <Button size="sm" variant="outline">
+                              View Details
+                              <ChevronRight className="h-4 w-4 ml-1" />
+                            </Button>
+                            {isWithin15Min(caseItem.escalatedAt) && (
+                              <>
+                                <Button
+                                  size="sm"
+                                  variant="outline"
+                                  className="text-xs border-blue-200 text-blue-700 hover:bg-blue-50"
+                                  onClick={(e) => {
+                                    e.stopPropagation();
+                                    setEditEscalId(caseItem.id);
+                                    setEditEscalForm({
+                                      description: caseItem.issue,
+                                      priority: caseItem.priority,
+                                      notes: caseItem.notes || '',
+                                      issueType: caseItem.issueType,
+                                    });
+                                    setEditEscalOpen(true);
+                                  }}
+                                >
+                                  Edit
+                                </Button>
+                                <Button
+                                  size="sm"
+                                  variant="outline"
+                                  className="text-xs border-red-300 text-red-700 hover:bg-red-50"
+                                  onClick={(e) => {
+                                    e.stopPropagation();
+                                    setDeleteEscalConfirm(caseItem.id);
+                                  }}
+                                >
+                                  Delete
+                                </Button>
+                              </>
+                            )}
+                          </div>
                         </div>
                       </div>
                     </div>
@@ -1169,7 +1429,7 @@ export function EnhancedNurseDashboard({ isFirstLogin = false }: NurseDashboardP
                               </Badge>
                             </div>
                             {isScheduled && (
-                              <div className="flex gap-2 mt-3">
+                              <div className="flex gap-2 mt-3 flex-wrap">
                                 <Button
                                   size="sm"
                                   variant="outline"
@@ -1192,6 +1452,34 @@ export function EnhancedNurseDashboard({ isFirstLogin = false }: NurseDashboardP
                                 >
                                   <CalendarX className="h-3 w-3 mr-1" /> Cancel
                                 </Button>
+                                {isWithin15Min(appt.created_at) && (
+                                  <>
+                                    <Button
+                                      size="sm"
+                                      variant="outline"
+                                      className="text-xs border-blue-200 text-blue-700 hover:bg-blue-50"
+                                      onClick={() => {
+                                        setEditApptId(appt.id);
+                                        setEditApptForm({
+                                          scheduledTime: appt.scheduled_time?.slice(0, 16) || '',
+                                          notes: appt.notes || '',
+                                          appointmentType: appt.appointment_type || 'prenatal_checkup',
+                                        });
+                                        setEditApptOpen(true);
+                                      }}
+                                    >
+                                      Edit
+                                    </Button>
+                                    <Button
+                                      size="sm"
+                                      variant="outline"
+                                      className="text-xs border-red-300 text-red-700 hover:bg-red-50"
+                                      onClick={() => setDeleteApptConfirm(appt.id)}
+                                    >
+                                      Delete
+                                    </Button>
+                                  </>
+                                )}
                               </div>
                             )}
                           </div>

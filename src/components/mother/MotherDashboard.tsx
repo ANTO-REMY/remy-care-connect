@@ -1,13 +1,15 @@
 import { useState, useEffect } from "react";
-import { Baby, MessageCircle, Phone, AlertCircle, BookOpen, CheckCircle, X, User, LogOut } from "lucide-react";
+import { Baby, MessageCircle, Phone, AlertCircle, BookOpen, CheckCircle, X, User, LogOut, Loader2 } from "lucide-react";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
+import { Textarea } from "@/components/ui/textarea";
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuLabel, DropdownMenuSeparator, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
 import { useAuth } from "@/contexts/AuthContext";
 import { motherService, type Mother } from "@/services/motherService";
+import { checkinService, type CheckInResponse } from "@/services/checkinService";
 import { useToast } from "@/hooks/use-toast";
 import { MotherProfile } from "./MotherProfile";
 import { NextOfKinModal } from "./NextOfKinModal";
@@ -16,10 +18,14 @@ export function MotherDashboard() {
   const { user, logout } = useAuth();
   const { toast } = useToast();
   const [showCheckInModal, setShowCheckInModal] = useState(false);
-  const [checkInResponse, setCheckInResponse] = useState<'ok' | 'not_ok' | null>(null);
+  const [checkInStep, setCheckInStep] = useState<'select' | 'comment'>('select');
+  const [checkInResponse, setCheckInResponse] = useState<CheckInResponse | null>(null);
+  const [checkInComment, setCheckInComment] = useState('');
+  const [checkInSubmitting, setCheckInSubmitting] = useState(false);
   const [showProfile, setShowProfile] = useState(false);
   const [showNextOfKinModal, setShowNextOfKinModal] = useState(false);
   const [motherProfile, setMotherProfile] = useState<Mother | null>(null);
+  const [motherProfileId, setMotherProfileId] = useState<number | null>(null);
   const [loading, setLoading] = useState(true);
   const [hasNextOfKin, setHasNextOfKin] = useState(false);
 
@@ -31,9 +37,10 @@ export function MotherDashboard() {
     try {
       setLoading(true);
       
-      // Fetch mother profile
-      const profile = await motherService.getCurrentProfile();
+      // Fetch mother profile via /mothers/me
+      const profile = await motherService.getMyProfile();
       setMotherProfile(profile);
+      setMotherProfileId(profile.id);
       
       // Check if next of kin exists
       const nextOfKin = await motherService.getNextOfKin(profile.id);
@@ -41,10 +48,8 @@ export function MotherDashboard() {
       
       // Show next of kin modal if profile incomplete
       if (!profile.date_of_birth || !profile.due_date || !profile.location) {
-        // Profile incomplete - redirect to complete profile
         setShowProfile(true);
       } else if (nextOfKin.length === 0) {
-        // Show next of kin modal if none exists
         setShowNextOfKinModal(true);
       }
     } catch (error: any) {
@@ -59,28 +64,50 @@ export function MotherDashboard() {
     }
   };
 
-  const handleCheckIn = async (response: 'ok' | 'not_ok') => {
-    if (!motherProfile) return;
+  /** Reset the check-in modal to initial state */
+  const resetCheckInModal = () => {
+    setCheckInStep('select');
+    setCheckInResponse(null);
+    setCheckInComment('');
+    setCheckInSubmitting(false);
+  };
+
+  /** Step 1: user selects ok / not_ok, advance to comment step */
+  const handleSelectResponse = (response: CheckInResponse) => {
+    setCheckInResponse(response);
+    setCheckInStep('comment');
+  };
+
+  /** Step 2: submit the check-in via checkinService */
+  const handleCheckInSubmit = async () => {
+    if (!motherProfileId || !checkInResponse) return;
     
+    setCheckInSubmitting(true);
     try {
-      setCheckInResponse(response);
-      
-      await motherService.createDailyCheckIn(motherProfile.id, {
-        feeling: response === 'ok' ? 'good' : 'poor',
-        notes: response === 'not_ok' ? 'User indicated not feeling well' : undefined
+      await checkinService.create(motherProfileId, {
+        response: checkInResponse,
+        comment: checkInComment.trim() || undefined,
+        channel: 'app',
       });
       
       toast({
         title: "Check-in recorded",
-        description: response === 'ok' ? "Great! Keep taking care of yourself." : "Your CHW will be notified.",
+        description: checkInResponse === 'ok'
+          ? "Great! Keep taking care of yourself."
+          : "Your CHW will be notified and will reach out to you.",
       });
-    } catch (error) {
+
+      setShowCheckInModal(false);
+      // Keep checkInResponse visible for the success banner below the button
+    } catch (error: any) {
       console.error('Check-in error:', error);
       toast({
-        title: "Error",
-        description: "Failed to record check-in",
-        variant: "destructive"
+        title: "Check-in failed",
+        description: error.message || "Failed to record check-in. Please try again.",
+        variant: "destructive",
       });
+    } finally {
+      setCheckInSubmitting(false);
     }
   };
 
@@ -225,40 +252,82 @@ export function MotherDashboard() {
                   </p>
                 </div>
                 
-                <Dialog open={showCheckInModal} onOpenChange={setShowCheckInModal}>
+                <Dialog open={showCheckInModal} onOpenChange={(open) => {
+                  setShowCheckInModal(open);
+                  if (!open) resetCheckInModal();
+                }}>
                   <DialogTrigger asChild>
                     <Button className="w-full text-sm sm:text-base">Quick Check-In</Button>
                   </DialogTrigger>
                   <DialogContent>
                     <DialogHeader>
-                      <DialogTitle>How are you feeling today?</DialogTitle>
+                      <DialogTitle>
+                        {checkInStep === 'select' ? 'How are you feeling today?' : 'Add a comment (optional)'}
+                      </DialogTitle>
                       <DialogDescription>
-                        Your response helps us monitor your health and provide better care.
+                        {checkInStep === 'select'
+                          ? 'Your response helps us monitor your health and provide better care.'
+                          : `You selected: ${checkInResponse === 'ok' ? "I'm feeling OK" : "I'm NOT feeling OK"}. Add any details below.`}
                       </DialogDescription>
                     </DialogHeader>
-                    <div className="space-y-3">
-                      <Button 
-                        onClick={() => {
-                          handleCheckIn('ok');
-                          setShowCheckInModal(false);
-                        }}
-                        className="w-full bg-success hover:bg-success/90"
-                      >
-                        <CheckCircle className="h-4 w-4 mr-2" />
-                        I'm feeling OK (Reply: 1)
-                      </Button>
-                      <Button 
-                        onClick={() => {
-                          handleCheckIn('not_ok');
-                          setShowCheckInModal(false);
-                        }}
-                        variant="destructive"
-                        className="w-full"
-                      >
-                        <AlertCircle className="h-4 w-4 mr-2" />
-                        I'm NOT feeling OK (Reply: 2)
-                      </Button>
-                    </div>
+
+                    {checkInStep === 'select' ? (
+                      <div className="space-y-3">
+                        <Button 
+                          onClick={() => handleSelectResponse('ok')}
+                          className="w-full bg-green-600 hover:bg-green-700"
+                        >
+                          <CheckCircle className="h-4 w-4 mr-2" />
+                          I'm feeling OK (Reply: 1)
+                        </Button>
+                        <Button 
+                          onClick={() => handleSelectResponse('not_ok')}
+                          variant="destructive"
+                          className="w-full"
+                        >
+                          <AlertCircle className="h-4 w-4 mr-2" />
+                          I'm NOT feeling OK (Reply: 2)
+                        </Button>
+                      </div>
+                    ) : (
+                      <div className="space-y-4">
+                        <Textarea
+                          placeholder={
+                            checkInResponse === 'not_ok'
+                              ? 'Please describe how you are feeling (e.g., headache, nausea, bleeding)...'
+                              : 'Anything else you want to share? (optional)'
+                          }
+                          value={checkInComment}
+                          onChange={(e) => setCheckInComment(e.target.value)}
+                          rows={4}
+                        />
+                        <div className="flex gap-2">
+                          <Button
+                            variant="outline"
+                            className="flex-1"
+                            onClick={() => {
+                              setCheckInStep('select');
+                              setCheckInResponse(null);
+                              setCheckInComment('');
+                            }}
+                            disabled={checkInSubmitting}
+                          >
+                            Back
+                          </Button>
+                          <Button
+                            className="flex-1"
+                            onClick={handleCheckInSubmit}
+                            disabled={checkInSubmitting}
+                          >
+                            {checkInSubmitting ? (
+                              <><Loader2 className="h-4 w-4 mr-2 animate-spin" />Submitting...</>
+                            ) : (
+                              <><CheckCircle className="h-4 w-4 mr-2" />Submit Check-In</>
+                            )}
+                          </Button>
+                        </div>
+                      </div>
+                    )}
                   </DialogContent>
                 </Dialog>
 

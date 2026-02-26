@@ -15,6 +15,7 @@ import CHWIndex from "./pages/CHWIndex";
 import NurseIndex from "./pages/NurseIndex";
 import NotFound from "./pages/NotFound";
 import { Layout } from "@/components/layout/Layout";
+import { ProtectedRoute } from "@/components/ProtectedRoute";
 import { MotherProfile } from "@/components/mother/MotherProfile";
 import { CHWProfile } from "@/components/chw/CHWProfile";
 import { NurseProfile } from "@/components/nurse/NurseProfile";
@@ -38,14 +39,14 @@ const App = () => (
             <Route path="/login/mother" element={<Layout><LoginMother /></Layout>} />
             <Route path="/login/chw" element={<Layout><LoginCHW /></Layout>} />
             <Route path="/login/nurse" element={<Layout><LoginNurse /></Layout>} />
-            {/* Dashboard Routes - Now directly accessible */}
-            <Route path="/dashboard/mother" element={<Layout><MotherIndex /></Layout>} />
-            <Route path="/dashboard/chw" element={<Layout><CHWIndex /></Layout>} />
-            <Route path="/dashboard/nurse" element={<Layout><NurseIndex /></Layout>} />
-            {/* Profile Routes */}
-            <Route path="/dashboard/mother/profile" element={<Layout><MotherProfile /></Layout>} />
-            <Route path="/dashboard/chw/profile" element={<Layout><CHWProfile /></Layout>} />
-            <Route path="/dashboard/nurse/profile" element={<Layout><NurseProfile /></Layout>} />
+            {/* Dashboard Routes - Protected by role */}
+            <Route path="/dashboard/mother" element={<Layout><ProtectedRoute requiredRole="mother"><MotherIndex /></ProtectedRoute></Layout>} />
+            <Route path="/dashboard/chw" element={<Layout><ProtectedRoute requiredRole="chw"><CHWIndex /></ProtectedRoute></Layout>} />
+            <Route path="/dashboard/nurse" element={<Layout><ProtectedRoute requiredRole="nurse"><NurseIndex /></ProtectedRoute></Layout>} />
+            {/* Profile Routes - Protected by role */}
+            <Route path="/dashboard/mother/profile" element={<Layout><ProtectedRoute requiredRole="mother"><MotherProfile /></ProtectedRoute></Layout>} />
+            <Route path="/dashboard/chw/profile" element={<Layout><ProtectedRoute requiredRole="chw"><CHWProfile /></ProtectedRoute></Layout>} />
+            <Route path="/dashboard/nurse/profile" element={<Layout><ProtectedRoute requiredRole="nurse"><NurseProfile /></ProtectedRoute></Layout>} />
             {/* 404 Route */}
             <Route path="*" element={<Layout><NotFound /></Layout>} />
           </Routes>
