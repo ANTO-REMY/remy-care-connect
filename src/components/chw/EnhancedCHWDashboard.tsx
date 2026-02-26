@@ -5,7 +5,8 @@ import {
   X, User, LogOut, Search, Filter, MapPin, TrendingUp, Activity,
   Heart, Baby, Clock, ChevronRight, MoreHorizontal, FileText,
   Video, Download, Share2, Bell, Settings, BarChart3, Stethoscope,
-  ClipboardList, ArrowUpRight, ArrowDownRight, Sparkles, Star, Camera
+  ClipboardList, ArrowUpRight, ArrowDownRight, Sparkles, Star, Camera,
+  PlusCircle, Plus, CalendarCheck, CalendarX
 } from "lucide-react";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle, CardFooter } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -26,6 +27,7 @@ import { useAuth } from "@/contexts/AuthContext";
 import { uploadPhoto, getPhotoFileUrl, getMyPhoto } from "@/services/photoService";
 import { escalationService } from "@/services/escalationService";
 import { assignmentService, type AssignedMother } from "@/services/assignmentService";
+import { appointmentService, type Appointment } from "@/services/appointmentService";
 import { chwService } from "@/services/chwService";
 import { apiClient } from "@/lib/apiClient";
 
@@ -226,21 +228,54 @@ export function EnhancedCHWDashboard({ isFirstLogin = false }: CHWDashboardProps
   const [availableNurses, setAvailableNurses] = useState<{ nurse_id: number; name: string }[]>([]);
   const [realEscalations, setRealEscalations] = useState<typeof mockEscalatedCases | null>(null);
   const [escalationSubmitting, setEscalationSubmitting] = useState(false);
+  // Real assigned mothers from API
+  const [realMothers, setRealMothers] = useState<AssignedMother[] | null>(null);
+  // Appointments
+  const [appointments, setAppointments] = useState<Appointment[]>([]);
+  const [appointmentsLoading, setAppointmentsLoading] = useState(false);
+  const [showScheduleModal, setShowScheduleModal] = useState(false);
+  const [scheduleForm, setScheduleForm] = useState({
+    motherId: "",
+    scheduledTime: "",
+    appointmentType: "prenatal_checkup",
+    notes: "",
+    recurrence: "none",
+  });
+  const [scheduleSubmitting, setScheduleSubmitting] = useState(false);
   const [notifications, setNotifications] = useState([
     { id: 1, message: "Grace Akinyi reported feeling unwell", time: "10 min ago", read: false },
     { id: 2, message: "New mother assigned to you", time: "1 hour ago", read: false },
     { id: 3, message: "Weekly report ready", time: "3 hours ago", read: true },
   ]);
 
+  // Unified display list: real API data or mock fallback
+  const displayMothers = (realMothers && realMothers.length > 0)
+    ? realMothers.map(m => ({
+        id: m.mother_id,
+        user_id: m.user_id,
+        name: m.name,
+        phone_number: m.phone ?? "",
+        status: "ok" as "ok" | "not_ok" | "no_response",
+        last_check_in: m.assigned_at ? new Date(m.assigned_at).toLocaleDateString() : "—",
+        weeks_pregnant: 0,
+        location: m.location ?? "Unknown",
+        due_date: "",
+        risk_level: "low" as "low" | "medium" | "high",
+        avatar: null as string | null,
+        check_in_history: [] as { date: string; status: string }[],
+        notes: undefined as string | undefined,
+      }))
+    : mockMothers;
+
   // Filter mothers based on search and status
-  const filteredMothers = mockMothers.filter(mother => {
+  const filteredMothers = displayMothers.filter(mother => {
     const matchesSearch = mother.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
       mother.phone_number.includes(searchQuery);
     const matchesStatus = statusFilter === "all" || mother.status === statusFilter;
     return matchesSearch && matchesStatus;
   });
 
-  const mothersWithIssues = mockMothers.filter(m => m.status === 'not_ok' || m.status === 'no_response');
+  const mothersWithIssues = displayMothers.filter(m => m.status === 'not_ok' || m.status === 'no_response');
 
   const getStatusColor = (status: string) => {
     switch (status) {
@@ -351,16 +386,55 @@ export function EnhancedCHWDashboard({ isFirstLogin = false }: CHWDashboardProps
     setEscalationForm({ motherId: "", nurseId: "", issueType: "", description: "", priority: "high" });
   };
 
-  const handleMotherClick = (mother: typeof mockMothers[0]) => {
-    setSelectedMother(mother);
+  const handleMotherClick = (mother: typeof displayMothers[0]) => {
+    setSelectedMother(mother as typeof mockMothers[0]);
     setShowMotherDetails(true);
+  };
+
+  const handleScheduleAppointment = async () => {
+    if (!scheduleForm.motherId || !scheduleForm.scheduledTime) {
+      toast({
+        title: "Missing Information",
+        description: "Please select a mother and pick a date & time.",
+        variant: "destructive",
+      });
+      return;
+    }
+    setScheduleSubmitting(true);
+    try {
+      const motherEntry = displayMothers.find(m => String(m.id) === scheduleForm.motherId);
+      const motherUserId = (motherEntry as any)?.user_id ?? parseInt(scheduleForm.motherId);
+      const appt = await appointmentService.create({
+        mother_id: motherUserId,
+        health_worker_id: user!.id,
+        scheduled_time: new Date(scheduleForm.scheduledTime).toISOString(),
+        appointment_type: scheduleForm.appointmentType,
+        notes: scheduleForm.notes.trim() || undefined,
+        recurrence_rule: scheduleForm.recurrence !== "none" ? scheduleForm.recurrence : undefined,
+      });
+      setAppointments(prev => [appt, ...prev]);
+      toast({
+        title: "Appointment Scheduled \u2713",
+        description: `Visit for ${motherEntry?.name ?? "mother"} on ${new Date(appt.scheduled_time).toLocaleString()}.`,
+      });
+      setShowScheduleModal(false);
+      setScheduleForm({ motherId: "", scheduledTime: "", appointmentType: "prenatal_checkup", notes: "", recurrence: "none" });
+    } catch (err: any) {
+      toast({
+        title: "Scheduling Failed",
+        description: err.message || "Could not schedule appointment. Please try again.",
+        variant: "destructive",
+      });
+    } finally {
+      setScheduleSubmitting(false);
+    }
   };
 
   const markNotificationRead = (id: number) => {
     setNotifications(prev => prev.map(n => n.id === id ? { ...n, read: true } : n));
   };
 
-  // Load profile photo, CHW profile ID, nurses list and real escalations on mount
+  // Load profile photo, CHW profile ID, nurses list, real escalations, real mothers, and appointments on mount
   useEffect(() => {
     let isMounted = true;
     (async () => {
@@ -378,7 +452,6 @@ export function EnhancedCHWDashboard({ isFirstLogin = false }: CHWDashboardProps
         // Load real escalations submitted by this CHW
         const escalResp = await escalationService.list({ chw_id: profile.id });
         if (isMounted && escalResp.escalations.length > 0) {
-          // Merge with mock structure for UI compatibility
           const mapped = escalResp.escalations.map((e) => ({
             id: e.id,
             motherId: e.mother_id ?? 0,
@@ -392,6 +465,14 @@ export function EnhancedCHWDashboard({ isFirstLogin = false }: CHWDashboardProps
           }));
           setRealEscalations(mapped as typeof mockEscalatedCases);
         }
+
+        // Load real assigned mothers for this CHW
+        try {
+          const mothersResp = await assignmentService.getMothersForCHW(profile.id, 'active');
+          if (isMounted && mothersResp.mothers.length > 0) {
+            setRealMothers(mothersResp.mothers);
+          }
+        } catch { /* keep mock if unavailable */ }
       } catch { /* keep mock data if API unavailable */ }
 
       // Nurses list for escalation form
@@ -399,6 +480,15 @@ export function EnhancedCHWDashboard({ isFirstLogin = false }: CHWDashboardProps
         const resp = await apiClient.get<{ nurses: { nurse_id: number; name: string }[] }>('/nurses');
         if (isMounted && resp.nurses?.length) setAvailableNurses(resp.nurses);
       } catch { /* keep empty; CHW can't escalate without a nurse in DB */ }
+
+      // Appointments for this health worker
+      try {
+        if (isMounted) setAppointmentsLoading(true);
+        const apptResp = await appointmentService.getForHealthWorker(user!.id);
+        if (isMounted) setAppointments(apptResp.appointments);
+      } catch { /* appointments unavailable */ } finally {
+        if (isMounted) setAppointmentsLoading(false);
+      }
     })();
     return () => { isMounted = false; };
   }, []);
@@ -625,7 +715,8 @@ export function EnhancedCHWDashboard({ isFirstLogin = false }: CHWDashboardProps
                   <SelectValue placeholder="Choose a mother" />
                 </SelectTrigger>
                 <SelectContent>
-                  {mothersWithIssues.map(mother => (
+                  {/* Use all real mothers when available; otherwise show mock mothers with issues */}
+                  {(realMothers ? displayMothers : mothersWithIssues).map(mother => (
                     <SelectItem key={mother.id} value={String(mother.id)}>
                       {mother.name}
                     </SelectItem>
@@ -711,6 +802,113 @@ export function EnhancedCHWDashboard({ isFirstLogin = false }: CHWDashboardProps
               )}
             </Button>
             <Button variant="outline" onClick={() => setShowEscalationModal(false)} disabled={escalationSubmitting}>
+              Cancel
+            </Button>
+          </div>
+        </DialogContent>
+      </Dialog>
+
+      {/* Schedule Appointment Modal */}
+      <Dialog open={showScheduleModal} onOpenChange={setShowScheduleModal}>
+        <DialogContent className="sm:max-w-lg">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2">
+              <CalendarCheck className="h-5 w-5 text-blue-600" />
+              Schedule a Home Visit
+            </DialogTitle>
+            <DialogDescription>
+              Book an appointment or home visit for one of your assigned mothers.
+            </DialogDescription>
+          </DialogHeader>
+          <div className="space-y-4 py-2">
+            <div>
+              <label className="text-sm font-medium mb-2 block">Mother <span className="text-red-500">*</span></label>
+              <Select
+                value={scheduleForm.motherId}
+                onValueChange={(v) => setScheduleForm({ ...scheduleForm, motherId: v })}
+              >
+                <SelectTrigger>
+                  <SelectValue placeholder="Select mother" />
+                </SelectTrigger>
+                <SelectContent>
+                  {displayMothers.map(m => (
+                    <SelectItem key={m.id} value={String(m.id)}>{m.name}</SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+
+            <div>
+              <label className="text-sm font-medium mb-2 block">Date & Time <span className="text-red-500">*</span></label>
+              <Input
+                type="datetime-local"
+                value={scheduleForm.scheduledTime}
+                onChange={(e) => setScheduleForm({ ...scheduleForm, scheduledTime: e.target.value })}
+                min={new Date().toISOString().slice(0, 16)}
+              />
+            </div>
+
+            <div>
+              <label className="text-sm font-medium mb-2 block">Visit Type</label>
+              <Select
+                value={scheduleForm.appointmentType}
+                onValueChange={(v) => setScheduleForm({ ...scheduleForm, appointmentType: v })}
+              >
+                <SelectTrigger>
+                  <SelectValue placeholder="Visit type" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="prenatal_checkup">Prenatal Checkup</SelectItem>
+                  <SelectItem value="home_visit">Home Visit</SelectItem>
+                  <SelectItem value="postnatal_checkup">Postnatal Checkup</SelectItem>
+                  <SelectItem value="follow_up">Follow-up Visit</SelectItem>
+                  <SelectItem value="emergency">Emergency Visit</SelectItem>
+                  <SelectItem value="other">Other</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
+
+            <div>
+              <label className="text-sm font-medium mb-2 block">Recurrence</label>
+              <Select
+                value={scheduleForm.recurrence}
+                onValueChange={(v) => setScheduleForm({ ...scheduleForm, recurrence: v })}
+              >
+                <SelectTrigger>
+                  <SelectValue placeholder="Recurrence" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="none">No Recurrence</SelectItem>
+                  <SelectItem value="weekly">Weekly</SelectItem>
+                  <SelectItem value="biweekly">Bi-weekly</SelectItem>
+                  <SelectItem value="monthly">Monthly</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
+
+            <div>
+              <label className="text-sm font-medium mb-2 block">Notes</label>
+              <Textarea
+                value={scheduleForm.notes}
+                onChange={(e) => setScheduleForm({ ...scheduleForm, notes: e.target.value })}
+                placeholder="Any notes for this visit (e.g., bring antenatal card)..."
+                rows={3}
+              />
+            </div>
+          </div>
+          <div className="flex gap-2 pt-2">
+            <Button
+              onClick={handleScheduleAppointment}
+              className="flex-1 bg-blue-600 hover:bg-blue-700"
+              disabled={scheduleSubmitting}
+            >
+              {scheduleSubmitting ? (
+                <><Activity className="h-4 w-4 mr-2 animate-spin" />Scheduling...</>
+              ) : (
+                <><CalendarCheck className="h-4 w-4 mr-2" />Schedule Visit</>
+              )}
+            </Button>
+            <Button variant="outline" onClick={() => setShowScheduleModal(false)} disabled={scheduleSubmitting}>
               Cancel
             </Button>
           </div>
@@ -825,7 +1023,7 @@ export function EnhancedCHWDashboard({ isFirstLogin = false }: CHWDashboardProps
               <div className="flex items-center justify-between">
                 <div>
                   <p className="text-blue-100 text-sm">Total Mothers</p>
-                  <p className="text-3xl font-bold">{mockMothers.length}</p>
+                  <p className="text-3xl font-bold">{displayMothers.length}</p>
                 </div>
                 <Users className="h-8 w-8 text-blue-200" />
               </div>
@@ -842,7 +1040,7 @@ export function EnhancedCHWDashboard({ isFirstLogin = false }: CHWDashboardProps
               <div className="flex items-center justify-between">
                 <div>
                   <p className="text-green-100 text-sm">Doing Well</p>
-                  <p className="text-3xl font-bold">{mockMothers.filter(m => m.status === 'ok').length}</p>
+                  <p className="text-3xl font-bold">{displayMothers.filter(m => m.status === 'ok').length}</p>
                 </div>
                 <CheckCircle className="h-8 w-8 text-green-200" />
               </div>
@@ -889,8 +1087,9 @@ export function EnhancedCHWDashboard({ isFirstLogin = false }: CHWDashboardProps
 
         {/* Main Tabs */}
         <Tabs value={activeTab} onValueChange={setActiveTab} className="space-y-6">
-          <TabsList className="grid grid-cols-3 w-full">
+          <TabsList className="grid grid-cols-4 w-full">
             <TabsTrigger value="mothers">My Mothers</TabsTrigger>
+            <TabsTrigger value="appointments">Appointments</TabsTrigger>
             <TabsTrigger value="cases">Escalated Cases</TabsTrigger>
             <TabsTrigger value="resources">Resources</TabsTrigger>
           </TabsList>
@@ -1023,6 +1222,142 @@ export function EnhancedCHWDashboard({ isFirstLogin = false }: CHWDashboardProps
                 <h3 className="text-lg font-medium mb-2">No mothers found</h3>
                 <p className="text-muted-foreground">Try adjusting your search or filter criteria</p>
               </Card>
+            )}
+          </TabsContent>
+
+          {/* Appointments Tab */}
+          <TabsContent value="appointments" className="space-y-4">
+            <div className="flex items-center justify-between">
+              <div>
+                <h3 className="font-semibold text-lg">Scheduled Visits</h3>
+                <p className="text-sm text-muted-foreground">
+                  {appointments.length > 0
+                    ? `${appointments.filter(a => a.status === 'scheduled').length} upcoming visit(s)`
+                    : "No visits scheduled yet"}
+                </p>
+              </div>
+              <Button
+                className="bg-blue-600 hover:bg-blue-700"
+                onClick={() => setShowScheduleModal(true)}
+              >
+                <PlusCircle className="h-4 w-4 mr-2" />
+                Schedule Visit
+              </Button>
+            </div>
+
+            {appointmentsLoading ? (
+              <div className="flex items-center justify-center py-12">
+                <Activity className="h-6 w-6 animate-spin text-muted-foreground mr-2" />
+                <span className="text-muted-foreground">Loading appointments...</span>
+              </div>
+            ) : appointments.length === 0 ? (
+              <Card className="border-dashed border-2 border-blue-200 bg-blue-50/50">
+                <CardContent className="p-8 text-center">
+                  <CalendarCheck className="h-12 w-12 mx-auto mb-4 text-blue-400" />
+                  <h3 className="text-lg font-medium mb-2">No Visits Scheduled</h3>
+                  <p className="text-muted-foreground mb-4">
+                    Schedule your first home visit or checkup for an assigned mother.
+                  </p>
+                  <Button
+                    className="bg-blue-600 hover:bg-blue-700"
+                    onClick={() => setShowScheduleModal(true)}
+                  >
+                    <PlusCircle className="h-4 w-4 mr-2" />
+                    Schedule First Visit
+                  </Button>
+                </CardContent>
+              </Card>
+            ) : (
+              <div className="space-y-3">
+                {appointments.map((appt) => {
+                  const isUpcoming = appt.status === 'scheduled';
+                  const isPast = appt.status === 'completed';
+                  const isCancelled = appt.status === 'canceled' || appt.status === 'cancelled';
+                  return (
+                    <Card
+                      key={appt.id}
+                      className={`transition-all ${isUpcoming ? 'border-blue-200 bg-blue-50/30' : isPast ? 'border-green-200 bg-green-50/20' : 'border-gray-200 opacity-70'}`}
+                    >
+                      <CardContent className="p-4">
+                        <div className="flex items-start gap-4">
+                          <div className={`p-3 rounded-xl flex-shrink-0 ${isUpcoming ? 'bg-blue-100' : isPast ? 'bg-green-100' : 'bg-gray-100'}`}>
+                            {isUpcoming ? (
+                              <Calendar className={`h-5 w-5 text-blue-600`} />
+                            ) : isPast ? (
+                              <CheckCircle className="h-5 w-5 text-green-600" />
+                            ) : (
+                              <CalendarX className="h-5 w-5 text-gray-500" />
+                            )}
+                          </div>
+                          <div className="flex-1 min-w-0">
+                            <div className="flex items-start justify-between gap-2">
+                              <div>
+                                <p className="font-medium text-base">
+                                  {appt.notes?.slice(0, 50) || "Scheduled Visit"}
+                                </p>
+                                <p className="text-sm text-muted-foreground mt-0.5">
+                                  <Clock className="h-3 w-3 inline mr-1" />
+                                  {new Date(appt.scheduled_time).toLocaleString('en-KE', {
+                                    weekday: 'short', month: 'short', day: 'numeric',
+                                    hour: '2-digit', minute: '2-digit'
+                                  })}
+                                </p>
+                              </div>
+                              <Badge
+                                variant="outline"
+                                className={
+                                  isUpcoming ? 'bg-blue-50 text-blue-700 border-blue-200' :
+                                  isPast ? 'bg-green-50 text-green-700 border-green-200' :
+                                  'bg-gray-50 text-gray-600 border-gray-200'
+                                }
+                              >
+                                {appt.status}
+                              </Badge>
+                            </div>
+                            {appt.recurrence_rule && appt.recurrence_rule !== 'none' && (
+                              <p className="text-xs text-muted-foreground mt-1">
+                                🔁 Repeats {appt.recurrence_rule}
+                              </p>
+                            )}
+                            {isUpcoming && (
+                              <div className="flex gap-2 mt-3">
+                                <Button
+                                  size="sm"
+                                  variant="outline"
+                                  className="text-xs border-green-200 text-green-700 hover:bg-green-50"
+                                  onClick={() => {
+                                    appointmentService.updateStatus(appt.id, 'completed').then(updated => {
+                                      setAppointments(prev => prev.map(a => a.id === appt.id ? updated : a));
+                                      toast({ title: "Visit Completed", description: "Appointment marked as completed." });
+                                    }).catch(() => toast({ title: "Error", description: "Could not update status.", variant: "destructive" }));
+                                  }}
+                                >
+                                  <CheckCircle className="h-3 w-3 mr-1" />
+                                  Mark Completed
+                                </Button>
+                                <Button
+                                  size="sm"
+                                  variant="outline"
+                                  className="text-xs border-red-200 text-red-600 hover:bg-red-50"
+                                  onClick={() => {
+                                    appointmentService.updateStatus(appt.id, 'cancelled').then(updated => {
+                                      setAppointments(prev => prev.map(a => a.id === appt.id ? updated : a));
+                                      toast({ title: "Visit Cancelled", description: "Appointment has been cancelled." });
+                                    }).catch(() => toast({ title: "Error", description: "Could not update status.", variant: "destructive" }));
+                                  }}
+                                >
+                                  <CalendarX className="h-3 w-3 mr-1" />
+                                  Cancel
+                                </Button>
+                              </div>
+                            )}
+                          </div>
+                        </div>
+                      </CardContent>
+                    </Card>
+                  );
+                })}
+              </div>
             )}
           </TabsContent>
 

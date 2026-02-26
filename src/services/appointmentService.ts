@@ -5,13 +5,14 @@
 
 import { apiClient } from '@/lib/apiClient';
 
-export type AppointmentStatus = 'scheduled' | 'completed' | 'canceled';
+export type AppointmentStatus = 'scheduled' | 'completed' | 'canceled' | 'cancelled' | 'rescheduled';
 
 export interface Appointment {
   id: number;
   mother_id: number;
   health_worker_id: number;
   scheduled_time: string;      // ISO 8601
+  appointment_type: string | null;
   recurrence_rule: string | null;
   recurrence_end: string | null;
   status: AppointmentStatus;
@@ -26,6 +27,7 @@ export interface CreateAppointmentRequest {
   mother_id: number;
   health_worker_id: number;
   scheduled_time: string;      // ISO 8601
+  appointment_type?: string;
   status?: AppointmentStatus;
   recurrence_rule?: string;
   recurrence_end?: string;

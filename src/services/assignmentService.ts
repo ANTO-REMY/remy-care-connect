@@ -19,7 +19,8 @@ export interface Assignment {
 
 export interface AssignedMother {
   assignment_id: number;
-  mother_id: number;
+  mother_id: number;       // Mother profile ID (mothers table)
+  user_id: number;         // User ID (users table) — used for appointment creation
   name: string;
   phone: string | null;
   location: string | null;

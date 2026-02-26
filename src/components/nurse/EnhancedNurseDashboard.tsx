@@ -6,7 +6,8 @@ import {
   ChevronRight, MoreHorizontal, Calendar, MapPin, BadgeCheck,
   Video, Download, Share2, Bell, Settings, BarChart3, Users,
   ArrowUpRight, ArrowDownRight, Sparkles, Star, ClipboardCheck,
-  CheckCircle2, XCircle, Clock4, UserCheck, Briefcase, Camera
+  CheckCircle2, XCircle, Clock4, UserCheck, Briefcase, Camera,
+  PlusCircle, CalendarCheck, CalendarX
 } from "lucide-react";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle, CardFooter } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -26,7 +27,8 @@ import { useToast } from "@/hooks/use-toast";
 import { useAuth } from "@/contexts/AuthContext";
 import { uploadPhoto, getPhotoFileUrl, getMyPhoto } from "@/services/photoService";
 import { escalationService, type Escalation as RealEscalation } from "@/services/escalationService";
-import { assignmentService } from "@/services/assignmentService";
+import { assignmentService, type Assignment } from "@/services/assignmentService";
+import { appointmentService, type Appointment } from "@/services/appointmentService";
 import { nurseService } from "@/services/nurseService";
 
 // Mock data for escalated cases
@@ -196,6 +198,43 @@ export function EnhancedNurseDashboard({ isFirstLogin = false }: NurseDashboardP
   const [nurseProfileId, setNurseProfileId] = useState<number | null>(null);
   const [realEscalations, setRealEscalations] = useState<typeof mockEscalatedCases | null>(null);
   const [actionLoading, setActionLoading] = useState(false);
+  // Real CHW assignments for the CHW Team tab
+  const [realCHWAssignments, setRealCHWAssignments] = useState<Assignment[] | null>(null);
+  // Appointments for the nurse
+  const [nurseAppointments, setNurseAppointments] = useState<Appointment[]>([]);
+  const [nurseAppointmentsLoading, setNurseAppointmentsLoading] = useState(false);
+  const [showNurseScheduleModal, setShowNurseScheduleModal] = useState(false);
+  const [nurseScheduleForm, setNurseScheduleForm] = useState({
+    motherUserId: "",
+    scheduledTime: "",
+    appointmentType: "prenatal_checkup",
+    notes: "",
+    recurrence: "none",
+  });
+  const [nurseScheduleSubmitting, setNurseScheduleSubmitting] = useState(false);
+
+  // Derive CHW list from real assignments (grouped by chw_id) or fall back to mock
+  const displayCHWs: typeof mockCHWs = (realCHWAssignments && realCHWAssignments.length > 0)
+    ? Object.values(
+        realCHWAssignments.reduce((acc, a) => {
+          if (!acc[a.chw_id]) {
+            acc[a.chw_id] = {
+              id: a.chw_id,
+              name: a.chw_name,
+              phone: "",
+              assignedMothers: 0,
+              activeCases: 0,
+              lastActive: "Recently",
+              avatar: `https://api.dicebear.com/7.x/initials/svg?seed=${encodeURIComponent(a.chw_name)}`,
+              location: "",
+              performance: 0,
+            };
+          }
+          acc[a.chw_id].assignedMothers += 1;
+          return acc;
+        }, {} as Record<number, (typeof mockCHWs)[0]>)
+      )
+    : mockCHWs;
 
   // Filter cases — use real escalations when loaded, otherwise mock
   const allCases = realEscalations ?? mockEscalatedCases;
@@ -293,6 +332,54 @@ export function EnhancedNurseDashboard({ isFirstLogin = false }: NurseDashboardP
     }
   };
 
+  const handleMarkInProgress = async () => {
+    if (!selectedCase) return;
+    try {
+      setActionLoading(true);
+      if (nurseProfileId) {
+        await escalationService.updateStatus(selectedCase.id, 'in_progress',
+          caseNotes.trim() || undefined);
+        setRealEscalations((prev) =>
+          (prev ?? mockEscalatedCases).map((c) =>
+            c.id === selectedCase.id ? { ...c, status: 'in_progress' as const } : c
+          ) as typeof mockEscalatedCases
+        );
+      }
+      toast({ title: "Case Updated", description: "Case marked as in progress." });
+    } catch (err: any) {
+      toast({ title: "Update Failed", description: err.message || "Could not update status.", variant: "destructive" });
+    } finally {
+      setActionLoading(false);
+      setShowCaseDetails(false);
+    }
+  };
+
+  const handleScheduleNurseAppointment = async () => {
+    if (!nurseScheduleForm.motherUserId || !nurseScheduleForm.scheduledTime) {
+      toast({ title: "Missing Information", description: "Please select a mother and pick a date & time.", variant: "destructive" });
+      return;
+    }
+    setNurseScheduleSubmitting(true);
+    try {
+      const appt = await appointmentService.create({
+        mother_id: parseInt(nurseScheduleForm.motherUserId),
+        health_worker_id: user!.id,
+        scheduled_time: new Date(nurseScheduleForm.scheduledTime).toISOString(),
+        appointment_type: nurseScheduleForm.appointmentType,
+        notes: nurseScheduleForm.notes.trim() || undefined,
+        recurrence_rule: nurseScheduleForm.recurrence !== "none" ? nurseScheduleForm.recurrence : undefined,
+      });
+      setNurseAppointments(prev => [appt, ...prev]);
+      toast({ title: "Appointment Scheduled \u2713", description: `Visit on ${new Date(appt.scheduled_time).toLocaleString()}.` });
+      setShowNurseScheduleModal(false);
+      setNurseScheduleForm({ motherUserId: "", scheduledTime: "", appointmentType: "prenatal_checkup", notes: "", recurrence: "none" });
+    } catch (err: any) {
+      toast({ title: "Scheduling Failed", description: err.message || "Could not schedule appointment.", variant: "destructive" });
+    } finally {
+      setNurseScheduleSubmitting(false);
+    }
+  };
+
   const markNotificationRead = (id: number) => {
     setNotifications(prev => prev.map(n => n.id === id ? { ...n, read: true } : n));
   };
@@ -336,7 +423,24 @@ export function EnhancedNurseDashboard({ isFirstLogin = false }: NurseDashboardP
           }));
           setRealEscalations(mapped as typeof mockEscalatedCases);
         }
+
+        // Load CHW assignments visible to this nurse (same ward)
+        try {
+          const assignResp = await assignmentService.getAssignmentsForNurse(profile.id, 'active');
+          if (isMounted && assignResp.assignments.length > 0) {
+            setRealCHWAssignments(assignResp.assignments);
+          }
+        } catch { /* keep mock if unavailable */ }
       } catch { /* keep mock data if API unavailable */ }
+
+      // Load appointments for this nurse (health worker)
+      try {
+        if (isMounted) setNurseAppointmentsLoading(true);
+        const apptResp = await appointmentService.getForHealthWorker(user!.id);
+        if (isMounted) setNurseAppointments(apptResp.appointments);
+      } catch { /* ignore */ } finally {
+        if (isMounted) setNurseAppointmentsLoading(false);
+      }
     })();
     return () => { isMounted = false; };
   }, []);
@@ -580,7 +684,24 @@ export function EnhancedNurseDashboard({ isFirstLogin = false }: NurseDashboardP
                 </div>
 
                 {/* Actions */}
-                <div className="flex gap-2">
+                <div className="flex flex-wrap gap-2">
+                  <Button
+                    variant="outline"
+                    className="border-blue-200 text-blue-700 hover:bg-blue-50"
+                    onClick={handleMarkInProgress}
+                    disabled={
+                      actionLoading ||
+                      selectedCase?.status === 'in_progress' ||
+                      selectedCase?.status === 'resolved'
+                    }
+                  >
+                    <Clock4 className="h-4 w-4 mr-2" />
+                    {selectedCase?.status === 'in_progress'
+                      ? "In Progress"
+                      : actionLoading
+                      ? "Updating..."
+                      : "Mark In Progress"}
+                  </Button>
                   <Button
                     className="flex-1 bg-green-600 hover:bg-green-700"
                     onClick={handleResolveCase}
@@ -600,6 +721,81 @@ export function EnhancedNurseDashboard({ isFirstLogin = false }: NurseDashboardP
               </div>
             </>
           )}
+        </DialogContent>
+      </Dialog>
+
+      {/* Schedule Appointment Modal */}
+      <Dialog open={showNurseScheduleModal} onOpenChange={setShowNurseScheduleModal}>
+        <DialogContent className="sm:max-w-md">
+          <DialogHeader>
+            <DialogTitle>Schedule Appointment</DialogTitle>
+            <DialogDescription>Book a visit for a mother in your care</DialogDescription>
+          </DialogHeader>
+          <div className="space-y-4 pt-2">
+            <div className="space-y-1">
+              <label className="text-sm font-medium">Mother (User ID)</label>
+              <Input
+                placeholder="Enter mother's user ID"
+                type="number"
+                value={nurseScheduleForm.motherUserId}
+                onChange={e => setNurseScheduleForm(f => ({ ...f, motherUserId: e.target.value }))}
+              />
+            </div>
+            <div className="space-y-1">
+              <label className="text-sm font-medium">Date & Time</label>
+              <Input
+                type="datetime-local"
+                value={nurseScheduleForm.scheduledTime}
+                onChange={e => setNurseScheduleForm(f => ({ ...f, scheduledTime: e.target.value }))}
+              />
+            </div>
+            <div className="space-y-1">
+              <label className="text-sm font-medium">Visit Type</label>
+              <Select value={nurseScheduleForm.appointmentType} onValueChange={v => setNurseScheduleForm(f => ({ ...f, appointmentType: v }))}>
+                <SelectTrigger><SelectValue /></SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="prenatal_checkup">Prenatal Checkup</SelectItem>
+                  <SelectItem value="postnatal_visit">Postnatal Visit</SelectItem>
+                  <SelectItem value="emergency_visit">Emergency Visit</SelectItem>
+                  <SelectItem value="routine_home_visit">Routine Home Visit</SelectItem>
+                  <SelectItem value="follow_up">Follow-Up</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
+            <div className="space-y-1">
+              <label className="text-sm font-medium">Recurrence</label>
+              <Select value={nurseScheduleForm.recurrence} onValueChange={v => setNurseScheduleForm(f => ({ ...f, recurrence: v }))}>
+                <SelectTrigger><SelectValue /></SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="none">No Recurrence</SelectItem>
+                  <SelectItem value="weekly">Weekly</SelectItem>
+                  <SelectItem value="biweekly">Bi-weekly</SelectItem>
+                  <SelectItem value="monthly">Monthly</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
+            <div className="space-y-1">
+              <label className="text-sm font-medium">Notes</label>
+              <Textarea
+                placeholder="Any notes for this appointment..."
+                value={nurseScheduleForm.notes}
+                onChange={e => setNurseScheduleForm(f => ({ ...f, notes: e.target.value }))}
+                rows={3}
+              />
+            </div>
+            <div className="flex gap-3 pt-2">
+              <Button variant="outline" className="flex-1" onClick={() => setShowNurseScheduleModal(false)}>
+                Cancel
+              </Button>
+              <Button
+                className="flex-1 bg-purple-600 hover:bg-purple-700"
+                onClick={handleScheduleNurseAppointment}
+                disabled={nurseScheduleSubmitting || !nurseScheduleForm.motherUserId || !nurseScheduleForm.scheduledTime}
+              >
+                {nurseScheduleSubmitting ? "Scheduling..." : "Schedule"}
+              </Button>
+            </div>
+          </div>
         </DialogContent>
       </Dialog>
 
@@ -784,8 +980,9 @@ export function EnhancedNurseDashboard({ isFirstLogin = false }: NurseDashboardP
 
         {/* Main Tabs */}
         <Tabs value={activeTab} onValueChange={setActiveTab} className="space-y-6">
-          <TabsList className="grid grid-cols-3 w-full">
+          <TabsList className="grid grid-cols-4 w-full">
             <TabsTrigger value="cases">Escalated Cases</TabsTrigger>
+            <TabsTrigger value="appointments">Appointments</TabsTrigger>
             <TabsTrigger value="chws">CHW Team</TabsTrigger>
             <TabsTrigger value="resources">Resources</TabsTrigger>
           </TabsList>
@@ -899,10 +1096,118 @@ export function EnhancedNurseDashboard({ isFirstLogin = false }: NurseDashboardP
             )}
           </TabsContent>
 
+          {/* Appointments Tab */}
+          <TabsContent value="appointments" className="space-y-4">
+            <div className="flex items-center justify-between">
+              <div>
+                <h3 className="font-semibold text-lg">Scheduled Appointments</h3>
+                <p className="text-sm text-muted-foreground">{nurseAppointments.length} appointment{nurseAppointments.length !== 1 ? 's' : ''}</p>
+              </div>
+              <Button
+                className="bg-purple-600 hover:bg-purple-700"
+                onClick={() => setShowNurseScheduleModal(true)}
+              >
+                <PlusCircle className="h-4 w-4 mr-2" />
+                Schedule Appointment
+              </Button>
+            </div>
+
+            {nurseAppointmentsLoading ? (
+              <Card className="p-8 text-center">
+                <div className="animate-spin h-8 w-8 border-4 border-purple-500 border-t-transparent rounded-full mx-auto mb-4" />
+                <p className="text-muted-foreground">Loading appointments...</p>
+              </Card>
+            ) : nurseAppointments.length === 0 ? (
+              <Card className="p-8 text-center">
+                <Calendar className="h-12 w-12 mx-auto mb-4 text-purple-300" />
+                <h3 className="text-lg font-medium mb-2">No Appointments Yet</h3>
+                <p className="text-muted-foreground mb-4">Schedule your first appointment for a mother.</p>
+                <Button onClick={() => setShowNurseScheduleModal(true)} className="bg-purple-600 hover:bg-purple-700">
+                  <PlusCircle className="h-4 w-4 mr-2" />
+                  Schedule First Appointment
+                </Button>
+              </Card>
+            ) : (
+              <div className="space-y-3">
+                {nurseAppointments.map(appt => {
+                  const isScheduled = appt.status === 'scheduled';
+                  const isCompleted = appt.status === 'completed';
+                  const isCancelled = appt.status === 'canceled' || appt.status === 'cancelled';
+                  return (
+                    <Card key={appt.id} className={`transition-all hover:shadow-md ${ isCancelled ? 'opacity-60' : '' }`}>
+                      <CardContent className="p-4">
+                        <div className="flex items-start gap-4">
+                          <div className={`p-2 rounded-full ${ isScheduled ? 'bg-purple-100' : isCompleted ? 'bg-green-100' : 'bg-gray-100' }`}>
+                            {isCompleted ? (
+                              <CalendarCheck className={`h-5 w-5 text-green-600`} />
+                            ) : isCancelled ? (
+                              <CalendarX className={`h-5 w-5 text-gray-400`} />
+                            ) : (
+                              <Calendar className={`h-5 w-5 text-purple-600`} />
+                            )}
+                          </div>
+                          <div className="flex-1">
+                            <div className="flex items-start justify-between">
+                              <div>
+                                <p className="font-medium capitalize">{appt.appointment_type?.replace(/_/g, ' ')}</p>
+                                <p className="text-sm text-muted-foreground">
+                                  {new Date(appt.scheduled_time).toLocaleString('en-KE', { dateStyle: 'medium', timeStyle: 'short' })}
+                                </p>
+                                {appt.recurrence_rule && appt.recurrence_rule !== 'none' && (
+                                  <p className="text-xs text-purple-600 mt-0.5">↻ {appt.recurrence_rule}</p>
+                                )}
+                                {appt.notes && (
+                                  <p className="text-xs text-muted-foreground mt-1 line-clamp-2">{appt.notes}</p>
+                                )}
+                              </div>
+                              <Badge variant="outline" className={`text-xs ${
+                                isScheduled ? 'bg-purple-50 text-purple-700 border-purple-200' :
+                                isCompleted ? 'bg-green-50 text-green-700 border-green-200' :
+                                'bg-gray-50 text-gray-500 border-gray-200'
+                              }`}>
+                                {appt.status}
+                              </Badge>
+                            </div>
+                            {isScheduled && (
+                              <div className="flex gap-2 mt-3">
+                                <Button
+                                  size="sm"
+                                  variant="outline"
+                                  className="text-green-700 border-green-200 hover:bg-green-50"
+                                  onClick={async () => {
+                                    await appointmentService.updateStatus(appt.id, 'completed');
+                                    setNurseAppointments(prev => prev.map(a => a.id === appt.id ? { ...a, status: 'completed' } : a));
+                                  }}
+                                >
+                                  <CalendarCheck className="h-3 w-3 mr-1" /> Mark Completed
+                                </Button>
+                                <Button
+                                  size="sm"
+                                  variant="outline"
+                                  className="text-red-600 border-red-200 hover:bg-red-50"
+                                  onClick={async () => {
+                                    await appointmentService.updateStatus(appt.id, 'cancelled');
+                                    setNurseAppointments(prev => prev.map(a => a.id === appt.id ? { ...a, status: 'cancelled' } : a));
+                                  }}
+                                >
+                                  <CalendarX className="h-3 w-3 mr-1" /> Cancel
+                                </Button>
+                              </div>
+                            )}
+                          </div>
+                        </div>
+                      </CardContent>
+                    </Card>
+                  );
+                })}
+              </div>
+            )}
+          </TabsContent>
+
           {/* CHWs Tab */}
           <TabsContent value="chws" className="space-y-4">
             <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-4">
-              {mockCHWs.map((chw) => (
+              {displayCHWs.map((chw) => (
                 <Card key={chw.id} className="hover:shadow-lg transition-shadow">
                   <CardContent className="p-4">
                     <div className="flex items-start gap-3">

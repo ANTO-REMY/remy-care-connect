@@ -929,48 +929,77 @@ export function EnhancedMotherDashboard({ isFirstLogin = false }: MotherDashboar
             ) : (
               /* Real appointments from API */
               <div className="space-y-3">
-                {appointments.map((appt) => (
-                  <Card key={appt.id} className="hover:shadow-md transition-shadow">
-                    <CardContent className="p-4">
-                      <div className="flex items-start gap-4">
-                        <div className="bg-purple-100 p-3 rounded-xl">
-                          <Calendar className="h-5 w-5 text-purple-600" />
-                        </div>
-                        <div className="flex-1">
-                          <div className="flex items-center justify-between">
-                            <h4 className="font-medium">
-                              {appt.notes ? appt.notes.slice(0, 40) : "Scheduled Appointment"}
-                            </h4>
-                            <Badge
-                              variant="outline"
-                              className={
-                                appt.status === 'scheduled' ? 'bg-green-50 text-green-700 border-green-200' :
-                                appt.status === 'completed' ? 'bg-blue-50 text-blue-700 border-blue-200' :
-                                'bg-gray-50 text-gray-600 border-gray-200'
-                              }
-                            >
-                              {appt.status}
-                            </Badge>
+                {appointments.map((appt) => {
+                  const isScheduled = appt.status === 'scheduled';
+                  const isCompleted = appt.status === 'completed';
+                  const isCancelled = appt.status === 'canceled' || appt.status === 'cancelled';
+                  return (
+                    <Card key={appt.id} className={`hover:shadow-md transition-shadow ${isCancelled ? 'opacity-60' : ''}`}>
+                      <CardContent className="p-4">
+                        <div className="flex items-start gap-4">
+                          <div className={`p-3 rounded-xl ${
+                            isCompleted ? 'bg-green-100' :
+                            isCancelled ? 'bg-gray-100' :
+                            'bg-purple-100'
+                          }`}>
+                            <Calendar className={`h-5 w-5 ${
+                              isCompleted ? 'text-green-600' :
+                              isCancelled ? 'text-gray-400' :
+                              'text-purple-600'
+                            }`} />
                           </div>
-                          <div className="flex items-center gap-1 mt-1 text-sm text-muted-foreground">
-                            <Clock className="h-3 w-3" />
-                            <span>{new Date(appt.scheduled_time).toLocaleString()}</span>
+                          <div className="flex-1">
+                            <div className="flex items-start justify-between gap-2">
+                              <div>
+                                <h4 className="font-medium capitalize">
+                                  {appt.appointment_type
+                                    ? appt.appointment_type.replace(/_/g, ' ')
+                                    : 'Scheduled Appointment'}
+                                </h4>
+                                <div className="flex items-center gap-1 mt-1 text-sm text-muted-foreground">
+                                  <Clock className="h-3 w-3" />
+                                  <span>
+                                    {new Date(appt.scheduled_time).toLocaleString('en-KE', {
+                                      weekday: 'short',
+                                      year: 'numeric',
+                                      month: 'short',
+                                      day: 'numeric',
+                                      hour: '2-digit',
+                                      minute: '2-digit',
+                                    })}
+                                  </span>
+                                </div>
+                              </div>
+                              <Badge
+                                variant="outline"
+                                className={`text-xs whitespace-nowrap ${
+                                  isScheduled ? 'bg-green-50 text-green-700 border-green-200' :
+                                  isCompleted ? 'bg-blue-50 text-blue-700 border-blue-200' :
+                                  'bg-gray-50 text-gray-600 border-gray-200'
+                                }`}
+                              >
+                                {appt.status}
+                              </Badge>
+                            </div>
+                            {appt.notes && (
+                              <p className="text-xs text-muted-foreground mt-2 bg-gray-50 p-2 rounded-md">
+                                📋 {appt.notes}
+                              </p>
+                            )}
+                            <div className="flex flex-wrap items-center gap-2 mt-2">
+                              {appt.escalated && (
+                                <Badge className="bg-red-100 text-red-700 text-xs">⚠ Escalated</Badge>
+                              )}
+                              {appt.recurrence_rule && appt.recurrence_rule !== 'none' && (
+                                <span className="text-xs text-purple-600">↺ {appt.recurrence_rule}</span>
+                              )}
+                            </div>
                           </div>
-                          {appt.escalated && (
-                            <Badge className="mt-2 bg-red-100 text-red-700 text-xs">
-                              ⚠ Escalated
-                            </Badge>
-                          )}
-                          {appt.recurrence_rule && (
-                            <p className="text-xs text-muted-foreground mt-1">
-                              🔄 Recurring: {appt.recurrence_rule}
-                            </p>
-                          )}
                         </div>
-                      </div>
-                    </CardContent>
-                  </Card>
-                ))}
+                      </CardContent>
+                    </Card>
+                  );
+                })}
               </div>
             )}
           </TabsContent>
