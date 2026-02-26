@@ -12,12 +12,12 @@ import { useEffect, useRef, useCallback } from "react";
  * - Cleans up on unmount
  *
  * @param callback  Async or sync function to invoke on each tick
- * @param intervalMs  Polling period in milliseconds (default 30 000)
+ * @param intervalMs  Polling period in milliseconds (default 15 000)
  * @param enabled  Set to `false` to temporarily pause polling
  */
 export function usePolling(
   callback: () => void | Promise<void>,
-  intervalMs = 30_000,
+  intervalMs = 15_000,
   enabled = true,
 ) {
   const savedCallback = useRef(callback);

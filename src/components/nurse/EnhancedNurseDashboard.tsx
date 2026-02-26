@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback } from "react";
+import { useState, useEffect, useCallback, useRef } from "react";
 import { useNavigate } from "react-router-dom";
 import {
   AlertTriangle, MessageCircle, Phone, Clock, CheckCircle, User, FileText,
@@ -30,6 +30,7 @@ import { escalationService, type Escalation as RealEscalation } from "@/services
 import { assignmentService, type Assignment } from "@/services/assignmentService";
 import { appointmentService, type Appointment } from "@/services/appointmentService";
 import { nurseService } from "@/services/nurseService";
+import { usePolling } from "@/hooks/usePolling";
 
 // Mock data for escalated cases
 const mockEscalatedCases = [
@@ -227,6 +228,9 @@ export function EnhancedNurseDashboard({ isFirstLogin = false }: NurseDashboardP
   const [deleteApptConfirm, setDeleteApptConfirm] = useState<number | null>(null);
   const [deleteApptSubmitting, setDeleteApptSubmitting] = useState(false);
 
+  // Ref keeps the latest nurseProfileId available inside the polling callback
+  const nurseProfileIdRef = useRef<number | null>(null);
+
   // Returns true if a timestamp is within the 15-minute edit/delete window
   const isWithin15Min = (createdAt: string) =>
     (new Date().getTime() - new Date(createdAt).getTime()) < 15 * 60 * 1000;
@@ -402,7 +406,58 @@ export function EnhancedNurseDashboard({ isFirstLogin = false }: NurseDashboardP
     setNotifications(prev => prev.map(n => n.id === id ? { ...n, read: true } : n));
   };
 
-  // Load escalations + nurse profile on mount
+  /**
+   * Fetch volatile data that should be kept fresh:
+   * escalations, CHW assignments, and appointments.
+   * Called once on mount and then every 30 s via usePolling.
+   */
+  const refreshData = useCallback(async () => {
+    const profileId = nurseProfileIdRef.current;
+    if (!profileId || !user) return;
+
+    // Escalations
+    try {
+      const escalResp = await escalationService.list({ nurse_id: profileId });
+      const mapped = escalResp.escalations.map((e) => ({
+        id: e.id,
+        motherId: e.mother_id ?? 0,
+        motherName: e.mother_name,
+        motherPhone: "",
+        motherAvatar: "",
+        chwName: e.chw_name,
+        chwPhone: "",
+        issue: e.case_description,
+        issueType: e.issue_type ?? e.case_description,
+        escalatedAt: e.created_at,
+        status: e.status as "pending" | "in_progress" | "resolved",
+        priority: e.priority as "low" | "medium" | "high" | "critical",
+        notes: e.notes ?? "",
+        weeksPregnant: 0,
+        location: "",
+        vitals: { bloodPressure: "---", heartRate: "---", temperature: "---" },
+      }));
+      setRealEscalations(mapped as typeof mockEscalatedCases);
+    } catch { /* ignore */ }
+
+    // CHW assignments
+    try {
+      const assignResp = await assignmentService.getAssignmentsForNurse(profileId, 'active');
+      if (assignResp.assignments.length > 0) {
+        setRealCHWAssignments(assignResp.assignments);
+      }
+    } catch { /* ignore */ }
+
+    // Appointments
+    try {
+      const apptResp = await appointmentService.getForHealthWorker(user.id);
+      setNurseAppointments(apptResp.appointments);
+    } catch { /* ignore */ }
+  }, [user]);
+
+  // Poll every 15 seconds so the dashboard stays in sync with the backend
+  usePolling(refreshData, 15_000, nurseProfileId !== null);
+
+  // One-time setup: photo, nurse profile, then initial data load
   useEffect(() => {
     let isMounted = true;
     (async () => {
@@ -417,51 +472,16 @@ export function EnhancedNurseDashboard({ isFirstLogin = false }: NurseDashboardP
         const profile = await nurseService.getCurrentProfile();
         if (!isMounted) return;
         setNurseProfileId(profile.id);
+        nurseProfileIdRef.current = profile.id;
+      } catch { /* profile unavailable */ }
 
-        // Load real escalations for this nurse
-        const escalResp = await escalationService.list({ nurse_id: profile.id });
-        if (isMounted && escalResp.escalations.length > 0) {
-          const mapped = escalResp.escalations.map((e) => ({
-            id: e.id,
-            motherId: e.mother_id ?? 0,
-            motherName: e.mother_name,
-            motherPhone: "",
-            motherAvatar: "",
-            chwName: e.chw_name,
-            chwPhone: "",
-            issue: e.case_description,
-            issueType: e.issue_type ?? e.case_description,
-            escalatedAt: e.created_at,
-            status: e.status as "pending" | "in_progress" | "resolved",
-            priority: e.priority as "low" | "medium" | "high" | "critical",
-            notes: e.notes ?? "",
-            weeksPregnant: 0,
-            location: "",
-            vitals: { bloodPressure: "---", heartRate: "---", temperature: "---" },
-          }));
-          setRealEscalations(mapped as typeof mockEscalatedCases);
-        }
-
-        // Load CHW assignments visible to this nurse (same ward)
-        try {
-          const assignResp = await assignmentService.getAssignmentsForNurse(profile.id, 'active');
-          if (isMounted && assignResp.assignments.length > 0) {
-            setRealCHWAssignments(assignResp.assignments);
-          }
-        } catch { /* keep mock if unavailable */ }
-      } catch { /* keep mock data if API unavailable */ }
-
-      // Load appointments for this nurse (health worker)
-      try {
-        if (isMounted) setNurseAppointmentsLoading(true);
-        const apptResp = await appointmentService.getForHealthWorker(user!.id);
-        if (isMounted) setNurseAppointments(apptResp.appointments);
-      } catch { /* ignore */ } finally {
-        if (isMounted) setNurseAppointmentsLoading(false);
-      }
+      // Initial data load (shows loading spinner)
+      if (isMounted) setNurseAppointmentsLoading(true);
+      await refreshData();
+      if (isMounted) setNurseAppointmentsLoading(false);
     })();
     return () => { isMounted = false; };
-  }, []);
+  }, [refreshData]);
 
   const handlePhotoUpload = async (event: React.ChangeEvent<HTMLInputElement>) => {
     const file = event.target.files?.[0];

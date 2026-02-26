@@ -507,8 +507,8 @@ export function EnhancedCHWDashboard({ isFirstLogin = false }: CHWDashboardProps
     } catch { /* ignore */ }
   }, [user]);
 
-  // Poll every 30 seconds so the dashboard stays in sync with the backend
-  usePolling(refreshData, 30_000, chwProfileId !== null);
+  // Poll every 15 seconds so the dashboard stays in sync with the backend
+  usePolling(refreshData, 15_000, chwProfileId !== null);
 
   // One-time setup: photo, CHW profile, nurses list, then initial data load
   useEffect(() => {

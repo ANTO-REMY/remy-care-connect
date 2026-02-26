@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useCallback, useRef } from "react";
 import { Baby, MessageCircle, Phone, AlertCircle, BookOpen, CheckCircle, X, User, LogOut, Loader2 } from "lucide-react";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -11,6 +11,7 @@ import { useAuth } from "@/contexts/AuthContext";
 import { motherService, type Mother } from "@/services/motherService";
 import { checkinService, type CheckInResponse } from "@/services/checkinService";
 import { useToast } from "@/hooks/use-toast";
+import { usePolling } from "@/hooks/usePolling";
 import { MotherProfile } from "./MotherProfile";
 import { NextOfKinModal } from "./NextOfKinModal";
 
@@ -28,6 +29,25 @@ export function MotherDashboard() {
   const [motherProfileId, setMotherProfileId] = useState<number | null>(null);
   const [loading, setLoading] = useState(true);
   const [hasNextOfKin, setHasNextOfKin] = useState(false);
+  const motherProfileIdRef = useRef<number | null>(null);
+
+  /**
+   * Silently refresh profile data (called every 30 s by usePolling).
+   * Does NOT trigger modal popups — those only fire on the initial load.
+   */
+  const refreshData = useCallback(async () => {
+    const profileId = motherProfileIdRef.current;
+    if (!profileId) return;
+    try {
+      const profile = await motherService.getMyProfile();
+      setMotherProfile(profile);
+      const nextOfKin = await motherService.getNextOfKin(profile.id);
+      setHasNextOfKin(nextOfKin.length > 0);
+    } catch { /* ignore – stale data is fine until next tick */ }
+  }, []);
+
+  // Poll every 15 seconds so CHW-assignment changes appear automatically
+  usePolling(refreshData, 15_000, motherProfileId !== null);
 
   useEffect(() => {
     loadMotherData();
@@ -41,6 +61,7 @@ export function MotherDashboard() {
       const profile = await motherService.getMyProfile();
       setMotherProfile(profile);
       setMotherProfileId(profile.id);
+      motherProfileIdRef.current = profile.id;
       
       // Check if next of kin exists
       const nextOfKin = await motherService.getNextOfKin(profile.id);
