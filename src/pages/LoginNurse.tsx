@@ -134,11 +134,6 @@ export default function LoginNurse() {
                     </CardContent>
                 </Card>
 
-                <div className="mt-4 text-center">
-                    <Link to="/" className="text-sm text-muted-foreground hover:text-accent transition-colors">
-                        ← Back to home
-                    </Link>
-                </div>
             </div>
         </div>
     );
