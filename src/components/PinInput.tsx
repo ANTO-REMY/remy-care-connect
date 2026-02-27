@@ -1,4 +1,5 @@
-import { useRef } from 'react';
+import { useRef, useEffect } from 'react';
+import { cn } from '@/lib/utils';
 
 interface PinInputProps {
   value: string;
@@ -10,27 +11,30 @@ interface PinInputProps {
 }
 
 export function PinInput({ value, onChange, name, label, required, visuallyHiddenLabel }: PinInputProps) {
-  const inputsRef = useRef<Array<HTMLInputElement | null>>([]);
+  const inputsRef = useRef<(HTMLInputElement | null)[]>([]);
 
   // Split value into array of 4 digits
   const values = [0, 1, 2, 3].map((i) => value[i] || '');
 
   const handleChange = (e: React.ChangeEvent<HTMLInputElement>, idx: number) => {
     let val = e.target.value.replace(/\D/g, '');
+
     if (val.length > 1) {
-      // Handle paste
-      const chars = val.split('').slice(0, 4);
-      onChange(chars.join(''));
-      setTimeout(() => {
-        if (inputsRef.current[chars.length - 1]) {
-          inputsRef.current[chars.length - 1]?.focus();
+        // Paste or multiple chars
+        const chars = val.split('').slice(0, 4);
+        onChange(chars.join(''));
+
+        // Focus last input
+        if (inputsRef.current[3]) {
+             inputsRef.current[3]?.focus();
         }
-      }, 0);
-      return;
+        return;
     }
+
     const newValues = [...values];
     newValues[idx] = val;
     onChange(newValues.join(''));
+
     if (val && idx < 3) {
       inputsRef.current[idx + 1]?.focus();
     }
@@ -43,21 +47,19 @@ export function PinInput({ value, onChange, name, label, required, visuallyHidde
   };
 
   const handlePaste = (e: React.ClipboardEvent<HTMLInputElement>) => {
+    e.preventDefault();
     const paste = e.clipboardData.getData('Text').replace(/\D/g, '').slice(0, 4);
     if (paste.length > 0) {
       onChange(paste);
-      setTimeout(() => {
-        if (inputsRef.current[paste.length - 1]) {
-          inputsRef.current[paste.length - 1]?.focus();
-        }
-      }, 0);
+      if (inputsRef.current[3]) {
+          inputsRef.current[3]?.focus();
+      }
     }
-    e.preventDefault();
   };
 
   return (
     <div>
-      <label htmlFor={`${name}-0`} className={visuallyHiddenLabel ? 'sr-only' : ''}>
+      <label htmlFor={`${name}-0`} className={cn("text-sm font-medium leading-none peer-disabled:cursor-not-allowed peer-disabled:opacity-70", visuallyHiddenLabel ? 'sr-only' : '')}>
         {label}
       </label>
       <div className="flex space-x-2 justify-center">
@@ -73,7 +75,7 @@ export function PinInput({ value, onChange, name, label, required, visuallyHidde
             maxLength={1}
             autoComplete="off"
             aria-label={`${label} digit ${i + 1}`}
-            className="rounded-md border bg-background h-12 w-12 text-center text-lg focus:ring-2 focus:ring-primary focus:outline-none"
+            className="flex h-12 w-12 rounded-md border border-input bg-background px-3 py-2 text-center text-lg ring-offset-background file:border-0 file:bg-transparent file:text-sm file:font-medium placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50"
             value={values[i]}
             onChange={(e) => handleChange(e, i)}
             onKeyDown={(e) => handleKeyDown(e, i)}

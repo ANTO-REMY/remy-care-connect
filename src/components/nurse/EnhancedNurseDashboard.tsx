@@ -17,6 +17,7 @@ import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, Di
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Textarea } from "@/components/ui/textarea";
 import { Input } from "@/components/ui/input";
+import { DateTimePicker } from "@/components/ui/datetime-picker";
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuLabel, DropdownMenuSeparator, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { ScrollArea, ScrollBar } from "@/components/ui/scroll-area";
@@ -207,7 +208,7 @@ export function EnhancedNurseDashboard({ isFirstLogin = false }: NurseDashboardP
   const [showNurseScheduleModal, setShowNurseScheduleModal] = useState(false);
   const [nurseScheduleForm, setNurseScheduleForm] = useState({
     motherUserId: "",
-    scheduledTime: "",
+    scheduledTime: undefined as Date | undefined,
     appointmentType: "prenatal_checkup",
     notes: "",
     recurrence: "none",
@@ -223,7 +224,7 @@ export function EnhancedNurseDashboard({ isFirstLogin = false }: NurseDashboardP
   // 15-min CRUD – appointments
   const [editApptOpen, setEditApptOpen] = useState(false);
   const [editApptId, setEditApptId] = useState<number | null>(null);
-  const [editApptForm, setEditApptForm] = useState({ scheduledTime: '', notes: '', appointmentType: 'prenatal_checkup' });
+  const [editApptForm, setEditApptForm] = useState({ scheduledTime: undefined as Date | undefined, notes: '', appointmentType: 'prenatal_checkup' });
   const [editApptSubmitting, setEditApptSubmitting] = useState(false);
   const [deleteApptConfirm, setDeleteApptConfirm] = useState<number | null>(null);
   const [deleteApptSubmitting, setDeleteApptSubmitting] = useState(false);
@@ -386,7 +387,7 @@ export function EnhancedNurseDashboard({ isFirstLogin = false }: NurseDashboardP
       const appt = await appointmentService.create({
         mother_id: parseInt(nurseScheduleForm.motherUserId),
         health_worker_id: user!.id,
-        scheduled_time: new Date(nurseScheduleForm.scheduledTime).toISOString(),
+        scheduled_time: nurseScheduleForm.scheduledTime.toISOString(),
         appointment_type: nurseScheduleForm.appointmentType,
         notes: nurseScheduleForm.notes.trim() || undefined,
         recurrence_rule: nurseScheduleForm.recurrence !== "none" ? nurseScheduleForm.recurrence : undefined,
@@ -394,7 +395,7 @@ export function EnhancedNurseDashboard({ isFirstLogin = false }: NurseDashboardP
       setNurseAppointments(prev => [appt, ...prev]);
       toast({ title: "Appointment Scheduled \u2713", description: `Visit on ${new Date(appt.scheduled_time).toLocaleString()}.` });
       setShowNurseScheduleModal(false);
-      setNurseScheduleForm({ motherUserId: "", scheduledTime: "", appointmentType: "prenatal_checkup", notes: "", recurrence: "none" });
+      setNurseScheduleForm({ motherUserId: "", scheduledTime: undefined, appointmentType: "prenatal_checkup", notes: "", recurrence: "none" });
     } catch (err: any) {
       toast({ title: "Scheduling Failed", description: err.message || "Could not schedule appointment.", variant: "destructive" });
     } finally {
@@ -779,10 +780,9 @@ export function EnhancedNurseDashboard({ isFirstLogin = false }: NurseDashboardP
             </div>
             <div className="space-y-1">
               <label className="text-sm font-medium">Date & Time</label>
-              <Input
-                type="datetime-local"
-                value={nurseScheduleForm.scheduledTime}
-                onChange={e => setNurseScheduleForm(f => ({ ...f, scheduledTime: e.target.value }))}
+              <DateTimePicker
+                date={nurseScheduleForm.scheduledTime}
+                setDate={(date) => setNurseScheduleForm(f => ({ ...f, scheduledTime: date }))}
               />
             </div>
             <div className="space-y-1">
@@ -966,11 +966,9 @@ export function EnhancedNurseDashboard({ isFirstLogin = false }: NurseDashboardP
           <div className="space-y-3">
             <div>
               <label className="text-sm font-medium">Date & Time</label>
-              <Input
-                type="datetime-local"
-                value={editApptForm.scheduledTime}
-                onChange={e => setEditApptForm(p => ({ ...p, scheduledTime: e.target.value }))}
-                className="mt-1"
+              <DateTimePicker
+                date={editApptForm.scheduledTime}
+                setDate={(date) => setEditApptForm(p => ({ ...p, scheduledTime: date }))}
               />
             </div>
             <div>
@@ -1005,7 +1003,7 @@ export function EnhancedNurseDashboard({ isFirstLogin = false }: NurseDashboardP
                 setEditApptSubmitting(true);
                 try {
                   const updated = await appointmentService.update(editApptId, {
-                    scheduled_time: editApptForm.scheduledTime ? new Date(editApptForm.scheduledTime).toISOString() : undefined,
+                    scheduled_time: editApptForm.scheduledTime ? editApptForm.scheduledTime.toISOString() : undefined,
                     notes: editApptForm.notes || undefined,
                     appointment_type: editApptForm.appointmentType || undefined,
                   });
@@ -1479,7 +1477,7 @@ export function EnhancedNurseDashboard({ isFirstLogin = false }: NurseDashboardP
                                       onClick={() => {
                                         setEditApptId(appt.id);
                                         setEditApptForm({
-                                          scheduledTime: appt.scheduled_time?.slice(0, 16) || '',
+                                          scheduledTime: appt.scheduled_time ? new Date(appt.scheduled_time) : undefined,
                                           notes: appt.notes || '',
                                           appointmentType: appt.appointment_type || 'prenatal_checkup',
                                         });

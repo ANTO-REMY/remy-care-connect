@@ -26,6 +26,7 @@ import { motherService } from "@/services/motherService";
 import { checkinService } from "@/services/checkinService";
 import { Textarea } from "@/components/ui/textarea";
 import { Input } from "@/components/ui/input";
+import { DateTimePicker } from "@/components/ui/datetime-picker";
 import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { usePolling } from "@/hooks/usePolling";
@@ -213,7 +214,7 @@ export function EnhancedMotherDashboard({ isFirstLogin = false }: MotherDashboar
   // Mother appointment scheduling
   const [showMotherScheduleModal, setShowMotherScheduleModal] = useState(false);
   const [motherScheduleForm, setMotherScheduleForm] = useState({
-    scheduledTime: '',
+    scheduledTime: undefined as Date | undefined,
     appointmentType: 'prenatal_checkup',
     notes: '',
   });
@@ -248,14 +249,14 @@ export function EnhancedMotherDashboard({ isFirstLogin = false }: MotherDashboar
       const appt = await appointmentService.create({
         mother_id: user!.id,
         health_worker_id: user!.id, // backend links to assigned CHW/nurse
-        scheduled_time: new Date(motherScheduleForm.scheduledTime).toISOString(),
+        scheduled_time: motherScheduleForm.scheduledTime.toISOString(),
         appointment_type: motherScheduleForm.appointmentType,
         notes: motherScheduleForm.notes.trim() || undefined,
       });
       setAppointments(prev => [appt, ...prev]);
       toast({ title: "Appointment Requested ✓", description: `Visit on ${new Date(appt.scheduled_time).toLocaleString()}.` });
       setShowMotherScheduleModal(false);
-      setMotherScheduleForm({ scheduledTime: '', appointmentType: 'prenatal_checkup', notes: '' });
+      setMotherScheduleForm({ scheduledTime: undefined, appointmentType: 'prenatal_checkup', notes: '' });
     } catch (err: any) {
       toast({ title: "Scheduling Failed", description: err.message || "Could not schedule appointment.", variant: "destructive" });
     } finally {
@@ -998,10 +999,9 @@ export function EnhancedMotherDashboard({ isFirstLogin = false }: MotherDashboar
                   <div className="space-y-4 py-2">
                     <div className="space-y-2">
                       <Label>Date & Time *</Label>
-                      <Input
-                        type="datetime-local"
-                        value={motherScheduleForm.scheduledTime}
-                        onChange={e => setMotherScheduleForm(f => ({ ...f, scheduledTime: e.target.value }))}
+                      <DateTimePicker
+                        date={motherScheduleForm.scheduledTime}
+                        setDate={(date) => setMotherScheduleForm(f => ({ ...f, scheduledTime: date }))}
                       />
                     </div>
                     <div className="space-y-2">

@@ -2,8 +2,9 @@ import { useState, useEffect } from 'react';
 import { PinInput } from '@/components/PinInput';
 import { useNavigate, Link } from 'react-router-dom';
 import { normalizePhoneNumber, validatePhoneNumber } from '@/lib/utils';
-import { Calendar, MapPin, User, Phone, Lock, Loader2, Mail } from 'lucide-react';
+import { MapPin, User, Phone, Lock, Loader2, Mail } from 'lucide-react';
 import { Button } from '@/components/ui/button';
+import { DatePicker } from '@/components/ui/date-picker';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
@@ -23,8 +24,8 @@ export default function RegisterMother() {
     lastName: '',
     phone: '',
     email: '',
-    dueDate: '',
-    dobDate: '',
+    dueDate: undefined as Date | undefined,
+    dobDate: undefined as Date | undefined,
     weeksPregnant: '',
     wardId: null as number | null,
     pin: '',
@@ -102,8 +103,8 @@ export default function RegisterMother() {
         pin: formData.pin,
         role: 'mother',
         email: formData.email.trim() || undefined,
-        dob: formData.dobDate,
-        due_date: formData.dueDate,
+        dob: formData.dobDate ? formData.dobDate.toISOString().split('T')[0] : '',
+        due_date: formData.dueDate ? formData.dueDate.toISOString().split('T')[0] : '',
         ward_id: formData.wardId
       });
 
@@ -146,8 +147,8 @@ export default function RegisterMother() {
                 normalizePhoneNumber(formData.phone), 
                 otp,
                 {
-                  dob: formData.dobDate,
-                  due_date: formData.dueDate,
+                  dob: formData.dobDate ? formData.dobDate.toISOString().split('T')[0] : '',
+                  due_date: formData.dueDate ? formData.dueDate.toISOString().split('T')[0] : '',
                   ward_id: formData.wardId
                 }
               );
@@ -320,36 +321,21 @@ export default function RegisterMother() {
               {/* DOB */}
               <div className="space-y-2">
                 <Label htmlFor="dobDate">Date of Birth *</Label>
-                <div className="relative">
-                  <Calendar className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-muted-foreground" />
-                  <Input
-                    id="dobDate"
-                    name="dobDate"
-                    type="date"
-                    value={formData.dobDate}
-                    onChange={handleInputChange}
-                    className="pl-10"
-                    required
-                  />
-                </div>
+                <DatePicker
+                  date={formData.dobDate}
+                  setDate={(date) => setFormData({ ...formData, dobDate: date })}
+                  placeholder="Select date of birth"
+                />
               </div>
-
 
               {/* Due Date */}
               <div className="space-y-2">
                 <Label htmlFor="dueDate">Due Date *</Label>
-                <div className="relative">
-                  <Calendar className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-muted-foreground" />
-                  <Input
-                    id="dueDate"
-                    name="dueDate"
-                    type="date"
-                    value={formData.dueDate}
-                    onChange={handleInputChange}
-                    className="pl-10"
-                    required
-                  />
-                </div>
+                <DatePicker
+                  date={formData.dueDate}
+                  setDate={(date) => setFormData({ ...formData, dueDate: date })}
+                  placeholder="Select due date"
+                />
               </div>
 
 
