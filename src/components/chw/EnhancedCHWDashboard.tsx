@@ -16,6 +16,7 @@ import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, Di
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Textarea } from "@/components/ui/textarea";
 import { Input } from "@/components/ui/input";
+import { DateTimePicker } from "@/components/ui/datetime-picker";
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuLabel, DropdownMenuSeparator, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { ScrollArea, ScrollBar } from "@/components/ui/scroll-area";
@@ -238,7 +239,7 @@ export function EnhancedCHWDashboard({ isFirstLogin = false }: CHWDashboardProps
   const [showScheduleModal, setShowScheduleModal] = useState(false);
   const [scheduleForm, setScheduleForm] = useState({
     motherId: "",
-    scheduledTime: "",
+    scheduledTime: undefined as Date | undefined,
     appointmentType: "prenatal_checkup",
     notes: "",
     recurrence: "none",
@@ -252,7 +253,7 @@ export function EnhancedCHWDashboard({ isFirstLogin = false }: CHWDashboardProps
   // 15-min CRUD – appointments
   const [editApptOpen, setEditApptOpen] = useState(false);
   const [editApptId, setEditApptId] = useState<number | null>(null);
-  const [editApptForm, setEditApptForm] = useState({ scheduledTime: '', notes: '', appointmentType: 'prenatal_checkup' });
+  const [editApptForm, setEditApptForm] = useState({ scheduledTime: undefined as Date | undefined, notes: '', appointmentType: 'prenatal_checkup' });
   const [editApptSubmitting, setEditApptSubmitting] = useState(false);
   const [deleteApptConfirm, setDeleteApptConfirm] = useState<number | null>(null);
   const [deleteApptSubmitting, setDeleteApptSubmitting] = useState(false);
@@ -432,7 +433,7 @@ export function EnhancedCHWDashboard({ isFirstLogin = false }: CHWDashboardProps
       const appt = await appointmentService.create({
         mother_id: motherUserId,
         health_worker_id: user!.id,
-        scheduled_time: new Date(scheduleForm.scheduledTime).toISOString(),
+        scheduled_time: scheduleForm.scheduledTime.toISOString(),
         appointment_type: scheduleForm.appointmentType,
         notes: scheduleForm.notes.trim() || undefined,
         recurrence_rule: scheduleForm.recurrence !== "none" ? scheduleForm.recurrence : undefined,
@@ -443,7 +444,7 @@ export function EnhancedCHWDashboard({ isFirstLogin = false }: CHWDashboardProps
         description: `Visit for ${motherEntry?.name ?? "mother"} on ${new Date(appt.scheduled_time).toLocaleString()}.`,
       });
       setShowScheduleModal(false);
-      setScheduleForm({ motherId: "", scheduledTime: "", appointmentType: "prenatal_checkup", notes: "", recurrence: "none" });
+      setScheduleForm({ motherId: "", scheduledTime: undefined, appointmentType: "prenatal_checkup", notes: "", recurrence: "none" });
     } catch (err: any) {
       toast({
         title: "Scheduling Failed",
@@ -894,11 +895,9 @@ export function EnhancedCHWDashboard({ isFirstLogin = false }: CHWDashboardProps
 
             <div>
               <label className="text-sm font-medium mb-2 block">Date & Time <span className="text-red-500">*</span></label>
-              <Input
-                type="datetime-local"
-                value={scheduleForm.scheduledTime}
-                onChange={(e) => setScheduleForm({ ...scheduleForm, scheduledTime: e.target.value })}
-                min={new Date().toISOString().slice(0, 16)}
+              <DateTimePicker
+                date={scheduleForm.scheduledTime}
+                setDate={(date) => setScheduleForm({ ...scheduleForm, scheduledTime: date })}
               />
             </div>
 
@@ -1031,11 +1030,9 @@ export function EnhancedCHWDashboard({ isFirstLogin = false }: CHWDashboardProps
           <div className="space-y-3">
             <div>
               <label className="text-sm font-medium">Date & Time</label>
-              <Input
-                type="datetime-local"
-                value={editApptForm.scheduledTime}
-                onChange={e => setEditApptForm(p => ({ ...p, scheduledTime: e.target.value }))}
-                className="mt-1"
+              <DateTimePicker
+                date={editApptForm.scheduledTime}
+                setDate={(date) => setEditApptForm(p => ({ ...p, scheduledTime: date }))}
               />
             </div>
             <div>
@@ -1069,7 +1066,7 @@ export function EnhancedCHWDashboard({ isFirstLogin = false }: CHWDashboardProps
                 setEditApptSubmitting(true);
                 try {
                   const updated = await appointmentService.update(editApptId, {
-                    scheduled_time: editApptForm.scheduledTime ? new Date(editApptForm.scheduledTime).toISOString() : undefined,
+                    scheduled_time: editApptForm.scheduledTime ? editApptForm.scheduledTime.toISOString() : undefined,
                     notes: editApptForm.notes || undefined,
                     appointment_type: editApptForm.appointmentType || undefined,
                   });
@@ -1765,7 +1762,7 @@ export function EnhancedCHWDashboard({ isFirstLogin = false }: CHWDashboardProps
                                       onClick={() => {
                                         setEditApptId(appt.id);
                                         setEditApptForm({
-                                          scheduledTime: appt.scheduled_time?.slice(0, 16) || '',
+                                          scheduledTime: appt.scheduled_time ? new Date(appt.scheduled_time) : undefined,
                                           notes: appt.notes || '',
                                           appointmentType: appt.appointment_type || 'prenatal_checkup',
                                         });
