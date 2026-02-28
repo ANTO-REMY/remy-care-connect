@@ -30,6 +30,7 @@ import { DateTimePicker } from "@/components/ui/datetime-picker";
 import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { usePolling } from "@/hooks/usePolling";
+import { PregnancyJourneyTracker } from "./PregnancyJourneyTracker";
 
 // Mock data for daily insights
 const dailyNutritionTips = [
@@ -221,6 +222,9 @@ export function EnhancedMotherDashboard({ isFirstLogin = false }: MotherDashboar
   const [motherScheduleSubmitting, setMotherScheduleSubmitting] = useState(false);
   const motherProfileIdRef = useRef<number | null>(null);
 
+  // Real profile data
+  const [profile, setProfile] = useState<{ due_date?: string } | null>(null);
+
   /**
    * Silently refresh appointments + motherProfileId every 15 s.
    * No loading spinners — only the initial mount shows the spinner.
@@ -380,10 +384,11 @@ export function EnhancedMotherDashboard({ isFirstLogin = false }: MotherDashboar
 
       // Mother profile ID (needed for check-in; fetched once, not on every poll)
       try {
-        const profile = await motherService.getMyProfile();
-        if (profile?.id && isMounted) {
-          setMotherProfileId(profile.id);
-          motherProfileIdRef.current = profile.id;
+        const fetchedProfile = await motherService.getMyProfile();
+        if (fetchedProfile?.id && isMounted) {
+          setMotherProfileId(fetchedProfile.id);
+          setProfile(fetchedProfile);
+          motherProfileIdRef.current = fetchedProfile.id;
         }
       } catch { /* ignore */ }
 
@@ -695,47 +700,7 @@ export function EnhancedMotherDashboard({ isFirstLogin = false }: MotherDashboar
         </div>
 
         {/* Pregnancy Progress Card */}
-        <Card className="mb-6 bg-gradient-to-r from-pink-500 via-purple-500 to-indigo-500 text-white border-0 overflow-hidden">
-          <CardContent className="p-6">
-            <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-4">
-              <div className="flex-1">
-                <div className="flex items-center gap-3 mb-3">
-                  <div className="bg-white/20 p-2 rounded-lg">
-                    <Baby className="h-6 w-6" />
-                  </div>
-                  <div>
-                    <p className="text-white/80 text-sm">Week {weeklyProgress.week} of {weeklyProgress.totalWeeks}</p>
-                    <p className="font-bold text-lg">Your baby is the size of a {weeklyProgress.babySize}! 🌽</p>
-                  </div>
-                </div>
-                <div className="space-y-2">
-                  <div className="flex justify-between text-sm">
-                    <span className="text-white/80">Pregnancy Journey</span>
-                    <span className="font-semibold">{Math.round(progressPercentage)}%</span>
-                  </div>
-                  <Progress value={progressPercentage} className="h-2 bg-white/20" />
-                </div>
-              </div>
-              <div className="flex gap-4">
-                <div className="bg-white/10 rounded-xl p-4 text-center">
-                  <p className="text-2xl font-bold">{weeklyProgress.babyWeight}</p>
-                  <p className="text-xs text-white/70">Weight</p>
-                </div>
-                <div className="bg-white/10 rounded-xl p-4 text-center">
-                  <p className="text-2xl font-bold">{weeklyProgress.babyLength}</p>
-                  <p className="text-xs text-white/70">Length</p>
-                </div>
-              </div>
-            </div>
-            <div className="mt-4 pt-4 border-t border-white/20 flex items-center justify-between">
-              <div className="flex items-center gap-2">
-                <Calendar className="h-4 w-4 text-white/70" />
-                <span className="text-sm text-white/80">{weeklyProgress.nextMilestone}</span>
-              </div>
-              <span className="text-sm font-medium">{weeklyProgress.daysUntilNext} days away</span>
-            </div>
-          </CardContent>
-        </Card>
+        {profile?.due_date && <PregnancyJourneyTracker dueDate={profile.due_date} />}
 
         {/* Quick Actions */}
         <div className="grid grid-cols-2 md:grid-cols-4 gap-3 mb-6">
