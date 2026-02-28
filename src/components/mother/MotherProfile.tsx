@@ -189,12 +189,16 @@ export function MotherProfile({ onBack, motherData }: MotherProfileProps) {
 
   return (
     <div className="space-y-4 sm:space-y-6 p-4 sm:p-6">
-      {onBack && (
-        <Button variant="ghost" onClick={onBack} className="mb-4">
-          <ArrowLeft className="h-4 w-4 mr-2" />
-          Back to Dashboard
+      <div className="flex items-center gap-4 mb-4">
+        <Button
+          variant="outline"
+          size="icon"
+          onClick={onBack || (() => window.history.back())}
+          className="rounded-full shadow-sm hover:scale-105 transition-transform shrink-0"
+        >
+          <ArrowLeft className="h-5 w-5" />
         </Button>
-      )}
+      </div>
       <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
         <div className="flex items-center gap-4">
           <Avatar className="h-16 w-16 border-2 border-primary">

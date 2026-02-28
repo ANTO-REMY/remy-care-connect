@@ -1,5 +1,5 @@
 import { useState, useEffect } from "react";
-import { Users, AlertTriangle, MessageCircle, Phone, Upload, Calendar, CheckCircle, X, User, LogOut } from "lucide-react";
+import { Users, AlertTriangle, MessageCircle, Phone, Upload, Calendar, CheckCircle, X, User, LogOut, ArrowLeft } from "lucide-react";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
@@ -151,7 +151,15 @@ export function CHWDashboard() {
     <div className="min-h-screen bg-background">
       <div className="relative w-full">
         <div className="w-full bg-gradient-to-r from-primary to-primary/80 text-primary-foreground rounded-t-none shadow-sm flex items-center justify-between px-4 sm:px-6 py-4 sm:py-6" style={{marginTop:0, borderTopLeftRadius:0, borderTopRightRadius:0}}>
-          <div className="flex items-center gap-3">
+          <div className="flex items-center gap-3 flex-1">
+            <Button
+              variant="outline"
+              size="icon"
+              onClick={() => window.history.back()}
+              className="rounded-full shadow-sm hover:scale-105 transition-transform bg-white/20 hover:bg-white/30 border-white/30 text-white shrink-0 mr-2"
+            >
+              <ArrowLeft className="h-5 w-5" />
+            </Button>
             <Users className="h-8 w-8" />
             <div className="min-w-0">
               <div className="text-2xl font-semibold">Welcome, {currentCHW?.name || user?.name}</div>

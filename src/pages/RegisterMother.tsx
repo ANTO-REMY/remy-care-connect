@@ -96,6 +96,14 @@ export default function RegisterMother() {
     }
 
     try {
+      // Use local date string instead of toISOString to avoid timezone off-by-one errors
+      const formatDateLocal = (d: Date) => {
+        const year = d.getFullYear();
+        const month = String(d.getMonth() + 1).padStart(2, '0');
+        const day = String(d.getDate()).padStart(2, '0');
+        return `${year}-${month}-${day}`;
+      };
+
       const result = await register({
         phone_number: normalizedPhone,
         first_name: formData.firstName.trim(),
@@ -103,8 +111,8 @@ export default function RegisterMother() {
         pin: formData.pin,
         role: 'mother',
         email: formData.email.trim() || undefined,
-        dob: formData.dobDate ? formData.dobDate.toISOString().split('T')[0] : '',
-        due_date: formData.dueDate ? formData.dueDate.toISOString().split('T')[0] : '',
+        dob: formData.dobDate ? formatDateLocal(formData.dobDate) : '',
+        due_date: formData.dueDate ? formatDateLocal(formData.dueDate) : '',
         ward_id: formData.wardId
       });
 
@@ -143,12 +151,19 @@ export default function RegisterMother() {
           phoneNumber={formData.phone}
           onSubmit={async (otp) => {
             try {
+              const formatDateLocal = (d: Date) => {
+                const year = d.getFullYear();
+                const month = String(d.getMonth() + 1).padStart(2, '0');
+                const day = String(d.getDate()).padStart(2, '0');
+                return `${year}-${month}-${day}`;
+              };
+
               const result = await verifyOTP(
                 normalizePhoneNumber(formData.phone), 
                 otp,
                 {
-                  dob: formData.dobDate ? formData.dobDate.toISOString().split('T')[0] : '',
-                  due_date: formData.dueDate ? formData.dueDate.toISOString().split('T')[0] : '',
+                  dob: formData.dobDate ? formatDateLocal(formData.dobDate) : '',
+                  due_date: formData.dueDate ? formatDateLocal(formData.dueDate) : '',
                   ward_id: formData.wardId
                 }
               );

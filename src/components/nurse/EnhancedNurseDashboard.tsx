@@ -7,7 +7,7 @@ import {
   Video, Download, Share2, Bell, Settings, BarChart3, Users,
   ArrowUpRight, ArrowDownRight, Sparkles, Star, ClipboardCheck,
   CheckCircle2, XCircle, Clock4, UserCheck, Briefcase, Camera,
-  PlusCircle, CalendarCheck, CalendarX, Loader2, AlertCircle
+  PlusCircle, CalendarCheck, CalendarX, Loader2, AlertCircle, ArrowLeft
 } from "lucide-react";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle, CardFooter } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -1064,8 +1064,16 @@ export function EnhancedNurseDashboard({ isFirstLogin = false }: NurseDashboardP
       <header className="sticky top-0 z-50 bg-white/80 backdrop-blur-md border-b">
         <div className="max-w-7xl mx-auto px-4 sm:px-6">
           <div className="flex items-center justify-between h-16">
-            <div className="flex items-center gap-3">
-              <div className="bg-gradient-to-br from-purple-500 to-pink-600 p-2 rounded-xl">
+            <div className="flex items-center gap-3 flex-1">
+              <Button
+                variant="outline"
+                size="icon"
+                onClick={() => window.history.back()}
+                className="rounded-full shadow-sm hover:scale-105 transition-transform bg-white border-purple-200 text-purple-600 hover:bg-purple-50 shrink-0"
+              >
+                <ArrowLeft className="h-5 w-5" />
+              </Button>
+              <div className="bg-gradient-to-br from-purple-500 to-pink-600 p-2 rounded-xl hidden sm:block">
                 <Stethoscope className="h-6 w-6 text-white" />
               </div>
               <div>

@@ -2,7 +2,7 @@ import { useState, useEffect, useCallback, useRef } from "react";
 import { useNavigate } from "react-router-dom";
 import {
   Users, AlertTriangle, MessageCircle, Phone, Upload, Calendar, CheckCircle,
-  X, User, LogOut, Search, Filter, MapPin, TrendingUp, Activity,
+  X, User, LogOut, Search, Filter, MapPin, TrendingUp, Activity, ArrowLeft,
   Heart, Baby, Clock, ChevronRight, MoreHorizontal, FileText,
   Video, Download, Share2, Bell, Settings, BarChart3, Stethoscope,
   ClipboardList, ArrowUpRight, ArrowDownRight, Sparkles, Star, Camera,
@@ -1249,6 +1249,14 @@ export function EnhancedCHWDashboard({ isFirstLogin = false }: CHWDashboardProps
         <div className="max-w-7xl mx-auto px-4 sm:px-6">
           <div className="flex items-center justify-between h-16">
             <div className="flex items-center gap-3">
+              <Button
+                variant="ghost"
+                size="icon"
+                onClick={() => navigate(-1)}
+                className="mr-1 rounded-full bg-slate-100 hover:bg-slate-200"
+              >
+                <ArrowLeft className="h-5 w-5" />
+              </Button>
               <div className="bg-gradient-to-br from-blue-500 to-indigo-600 p-2 rounded-xl">
                 <Users className="h-6 w-6 text-white" />
               </div>
