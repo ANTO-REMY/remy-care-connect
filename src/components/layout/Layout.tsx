@@ -15,10 +15,17 @@ export function Layout({ children }: LayoutProps) {
   const location = useLocation();
   const navigate = useNavigate();
   const isLandingPage = location.pathname === "/";
+  // The global back button logic here was absolute positioning it top-left which messed with headers.
+  // Instead of adding a fixed global button, we will provide a container layout
+  // and handle the back button specifically in headers, or for non-dashboard pages, we can show it globally.
+  // Let's hide the global back button if we are on a dashboard or profile page,
+  // and manually add it to their headers instead.
+
+  const isDashboardOrProfile = location.pathname.includes("/dashboard") || location.pathname.includes("/profile");
 
   return (
     <div className="relative min-h-screen">
-      {!isLandingPage && (
+      {!isLandingPage && !isDashboardOrProfile && (
         <button
           onClick={() => navigate(-1)}
           className={cn(

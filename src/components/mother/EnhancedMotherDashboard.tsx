@@ -5,7 +5,7 @@ import {
   User, LogOut, Camera, Heart, Apple, Bell, Calendar, Clock,
   ChevronRight, Sparkles, Utensils, Droplets, Moon, Sun,
   Activity, TrendingUp, FileText, Video, ExternalLink, Bookmark,
-  Share2, Play, Pause, Volume2, VolumeX, Loader2, Plus
+  Share2, Play, Pause, Volume2, VolumeX, Loader2, Plus, ArrowLeft
 } from "lucide-react";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle, CardFooter } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -620,6 +620,14 @@ export function EnhancedMotherDashboard({ isFirstLogin = false }: MotherDashboar
         <div className="max-w-7xl mx-auto px-4 sm:px-6">
           <div className="flex items-center justify-between h-16">
             <div className="flex items-center gap-3">
+              <Button
+                variant="ghost"
+                size="icon"
+                onClick={() => navigate(-1)}
+                className="mr-1 rounded-full bg-slate-100 hover:bg-slate-200"
+              >
+                <ArrowLeft className="h-5 w-5" />
+              </Button>
               <div className="bg-gradient-to-br from-pink-400 to-purple-500 p-2 rounded-xl">
                 <Baby className="h-6 w-6 text-white" />
               </div>
