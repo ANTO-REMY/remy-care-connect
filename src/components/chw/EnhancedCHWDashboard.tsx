@@ -238,6 +238,7 @@ export function EnhancedCHWDashboard({ isFirstLogin = false }: CHWDashboardProps
   const [appointments, setAppointments] = useState<Appointment[]>([]);
   const [appointmentsLoading, setAppointmentsLoading] = useState(false);
   const [showScheduleModal, setShowScheduleModal] = useState(false);
+  const [appointmentTab, setAppointmentTab] = useState<'yours' | 'requested'>('yours');
   const [scheduleForm, setScheduleForm] = useState({
     motherId: "",
     scheduledTime: undefined as Date | undefined,
@@ -337,6 +338,17 @@ export function EnhancedCHWDashboard({ isFirstLogin = false }: CHWDashboardProps
   const openSMS = (phone: string) => {
     window.open(`sms:${phone}`, '_blank');
   };
+
+  // Appointment filtering: separate by creator
+  const appointmentsScheduledByMe = appointments.filter(
+    appt => appt.created_by_user_id === user?.id
+  );
+  
+  const appointmentsRequestedByMother = appointments.filter(
+    appt => appt.created_by_user_id !== user?.id
+  );
+  
+  const displayedAppointments = appointmentTab === 'yours' ? appointmentsScheduledByMe : appointmentsRequestedByMother;
 
   const handleEscalation = async () => {
     if (!escalationForm.motherId || !escalationForm.issueType || !escalationForm.description) {
@@ -516,7 +528,10 @@ export function EnhancedCHWDashboard({ isFirstLogin = false }: CHWDashboardProps
     if (chwProfileId !== null) joinProfileRoom(chwProfileId);
   }, [chwProfileId]);
 
-  useSocket<Appointment>('appointment:created', (appt) => setAppointments(prev => [appt, ...prev]), { enabled: chwProfileId !== null });
+  useSocket<Appointment>('appointment:created', (appt) => {
+    // Avoid duplicates: only add if not already present (by ID)
+    setAppointments(prev => prev.some(a => a.id === appt.id) ? prev : [appt, ...prev]);
+  }, { enabled: chwProfileId !== null });
   useSocket<Appointment>('appointment:updated', (appt) => setAppointments(prev => prev.map(a => a.id === appt.id ? appt : a)), { enabled: chwProfileId !== null });
   useSocket<CheckIn>('checkin:new', (ci) => setRecentCheckIns(prev => [ci, ...prev]), { enabled: chwProfileId !== null });
   // Escalation payloads use the raw API shape; trigger a full refresh instead of direct state patch
@@ -1653,12 +1668,12 @@ export function EnhancedCHWDashboard({ isFirstLogin = false }: CHWDashboardProps
 
           {/* Appointments Tab */}
           <TabsContent value="appointments" className="space-y-4">
-            <div className="flex items-center justify-between">
+            <div className="flex items-center justify-between mb-6">
               <div>
-                <h3 className="font-semibold text-lg">Scheduled Visits</h3>
-                <p className="text-sm text-muted-foreground">
-                  {appointments.length > 0
-                    ? `${appointments.filter(a => a.status === 'scheduled').length} upcoming visit(s)`
+                <h3 className="font-semibold text-lg">Scheduled Appointments</h3>
+                <p className="text-sm text-muted-foreground mt-1">
+                  {displayedAppointments.length > 0
+                    ? `${displayedAppointments.filter(a => a.status === 'scheduled').length} upcoming visit(s)`
                     : "No visits scheduled yet"}
                 </p>
               </div>
@@ -1671,31 +1686,49 @@ export function EnhancedCHWDashboard({ isFirstLogin = false }: CHWDashboardProps
               </Button>
             </div>
 
+            {/* Appointment Tab Selector */}
+            <Tabs value={appointmentTab} onValueChange={(val) => setAppointmentTab(val as 'yours' | 'requested')} className="mb-6">
+              <TabsList className="grid w-full grid-cols-2">
+                <TabsTrigger value="yours" className="flex items-center gap-2">
+                  <CheckCircle className="h-4 w-4" />
+                  <span className="truncate">Scheduled by You ({appointmentsScheduledByMe.length})</span>
+                </TabsTrigger>
+                <TabsTrigger value="requested" className="flex items-center gap-2">
+                  <Calendar className="h-4 w-4" />
+                  <span className="truncate">Requested by Mother ({appointmentsRequestedByMother.length})</span>
+                </TabsTrigger>
+              </TabsList>
+            </Tabs>
+
             {appointmentsLoading ? (
               <div className="flex items-center justify-center py-12">
                 <Activity className="h-6 w-6 animate-spin text-muted-foreground mr-2" />
                 <span className="text-muted-foreground">Loading appointments...</span>
               </div>
-            ) : appointments.length === 0 ? (
+            ) : displayedAppointments.length === 0 ? (
               <Card className="border-dashed border-2 border-blue-200 bg-blue-50/50">
                 <CardContent className="p-8 text-center">
                   <CalendarCheck className="h-12 w-12 mx-auto mb-4 text-blue-400" />
-                  <h3 className="text-lg font-medium mb-2">No Visits Scheduled</h3>
+                  <h3 className="text-lg font-medium mb-2">No Visits in This Category</h3>
                   <p className="text-muted-foreground mb-4">
-                    Schedule your first home visit or checkup for an assigned mother.
+                    {appointmentTab === 'yours'
+                      ? "You haven't scheduled any appointments yet."
+                      : "No mothers have requested appointments yet."}
                   </p>
-                  <Button
-                    className="bg-blue-600 hover:bg-blue-700"
-                    onClick={() => setShowScheduleModal(true)}
-                  >
-                    <PlusCircle className="h-4 w-4 mr-2" />
-                    Schedule First Visit
-                  </Button>
+                  {appointmentTab === 'yours' && (
+                    <Button
+                      className="bg-blue-600 hover:bg-blue-700"
+                      onClick={() => setShowScheduleModal(true)}
+                    >
+                      <PlusCircle className="h-4 w-4 mr-2" />
+                      Schedule First Visit
+                    </Button>
+                  )}
                 </CardContent>
               </Card>
             ) : (
               <div className="space-y-3">
-                {appointments.map((appt) => {
+                {displayedAppointments.map((appt) => {
                   const isUpcoming = appt.status === 'scheduled';
                   const isPast = appt.status === 'completed';
                   const isCancelled = appt.status === 'canceled' || appt.status === 'cancelled';

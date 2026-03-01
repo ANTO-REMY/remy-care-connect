@@ -279,9 +279,15 @@ export function ModernMotherDashboard() {
   const { connected } = useSocketStatus();
   usePolling(refreshData, 300_000, !connected && !!user?.id);
 
-  useSocket<Appointment>('appointment:created', (appt) => setAppointments(prev => [appt, ...prev]), { enabled: !!user?.id });
+  useSocket<Appointment>('appointment:created', (appt) => {
+    // Avoid duplicates: only add if not already present (by ID)
+    setAppointments(prev => prev.some(a => a.id === appt.id) ? prev : [appt, ...prev]);
+  }, { enabled: !!user?.id });
   useSocket<Appointment>('appointment:updated', (appt) => setAppointments(prev => prev.map(a => a.id === appt.id ? appt : a)), { enabled: !!user?.id });
-  useSocket<CheckIn>('checkin:new', (ci) => setCheckins(prev => [ci, ...prev]), { enabled: !!user?.id });
+  useSocket<CheckIn>('checkin:new', (ci) => {
+    // Avoid duplicates: only add if not already present (by ID)
+    setCheckins(prev => prev.some(c => c.id === ci.id) ? prev : [ci, ...prev]);
+  }, { enabled: !!user?.id });
 
   useEffect(() => {
     let alive = true;

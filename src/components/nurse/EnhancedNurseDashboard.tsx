@@ -28,7 +28,7 @@ import { useToast } from "@/hooks/use-toast";
 import { useAuth } from "@/contexts/AuthContext";
 import { uploadPhoto, getPhotoFileUrl, getMyPhoto } from "@/services/photoService";
 import { escalationService, type Escalation as RealEscalation } from "@/services/escalationService";
-import { assignmentService, type Assignment } from "@/services/assignmentService";
+import { assignmentService, type Assignment, type AssignedMother } from "@/services/assignmentService";
 import { appointmentService, type Appointment } from "@/services/appointmentService";
 import { nurseService } from "@/services/nurseService";
 import { usePolling } from "@/hooks/usePolling";
@@ -206,15 +206,20 @@ export function EnhancedNurseDashboard({ isFirstLogin = false }: NurseDashboardP
   // Appointments for the nurse
   const [nurseAppointments, setNurseAppointments] = useState<Appointment[]>([]);
   const [nurseAppointmentsLoading, setNurseAppointmentsLoading] = useState(false);
+  const [nurseAppointmentTab, setNurseAppointmentTab] = useState<'yours' | 'requested'>('yours');
   const [showNurseScheduleModal, setShowNurseScheduleModal] = useState(false);
   const [nurseScheduleForm, setNurseScheduleForm] = useState({
-    motherUserId: "",
+    selectedChwId: "",
+    motherId: "",
     scheduledTime: undefined as Date | undefined,
     appointmentType: "prenatal_checkup",
     notes: "",
     recurrence: "none",
   });
   const [nurseScheduleSubmitting, setNurseScheduleSubmitting] = useState(false);
+  // Mothers for selected CHW (cascading dropdown)
+  const [mothersForSelectedChw, setMothersForSelectedChw] = useState<AssignedMother[]>([]);
+  const [mothersLoading, setMothersLoading] = useState(false);
   // 15-min CRUD – escalations
   const [editEscalOpen, setEditEscalOpen] = useState(false);
   const [editEscalId, setEditEscalId] = useState<number | null>(null);
@@ -286,6 +291,17 @@ export function EnhancedNurseDashboard({ isFirstLogin = false }: NurseDashboardP
       case 'resolved': return <Badge variant="outline" className="bg-green-50 text-green-700 border-green-200"><CheckCircle2 className="h-3 w-3 mr-1" />Resolved</Badge>;
     }
   };
+
+  // Appointment filtering: separate by creator
+  const nurseAppointmentsScheduledByMe = nurseAppointments.filter(
+    appt => appt.created_by_user_id === user?.id
+  );
+  
+  const nurseAppointmentsRequestedByMother = nurseAppointments.filter(
+    appt => appt.created_by_user_id !== user?.id
+  );
+  
+  const displayedNurseAppointments = nurseAppointmentTab === 'yours' ? nurseAppointmentsScheduledByMe : nurseAppointmentsRequestedByMother;
 
   const openWhatsApp = (phone: string) => {
     window.open(`https://wa.me/${phone.replace('+', '')}`, '_blank');
@@ -379,14 +395,18 @@ export function EnhancedNurseDashboard({ isFirstLogin = false }: NurseDashboardP
   };
 
   const handleScheduleNurseAppointment = async () => {
-    if (!nurseScheduleForm.motherUserId || !nurseScheduleForm.scheduledTime) {
-      toast({ title: "Missing Information", description: "Please select a mother and pick a date & time.", variant: "destructive" });
+    if (!nurseScheduleForm.motherId || !nurseScheduleForm.scheduledTime) {
+      toast({ title: "Missing Information", description: "Please select a CHW, mother, and pick a date & time.", variant: "destructive" });
       return;
     }
     setNurseScheduleSubmitting(true);
     try {
+      // Find the mother to get the user_id
+      const selectedMother = mothersForSelectedChw.find(m => String(m.mother_id) === nurseScheduleForm.motherId);
+      const motherUserId = selectedMother?.user_id ?? parseInt(nurseScheduleForm.motherId);
+      
       const appt = await appointmentService.create({
-        mother_id: parseInt(nurseScheduleForm.motherUserId),
+        mother_id: motherUserId,
         health_worker_id: user!.id,
         scheduled_time: nurseScheduleForm.scheduledTime.toISOString(),
         appointment_type: nurseScheduleForm.appointmentType,
@@ -394,15 +414,38 @@ export function EnhancedNurseDashboard({ isFirstLogin = false }: NurseDashboardP
         recurrence_rule: nurseScheduleForm.recurrence !== "none" ? nurseScheduleForm.recurrence : undefined,
       });
       setNurseAppointments(prev => [appt, ...prev]);
-      toast({ title: "Appointment Scheduled \u2713", description: `Visit on ${new Date(appt.scheduled_time).toLocaleString()}.` });
+      toast({ title: "Appointment Scheduled ✓", description: `Visit on ${new Date(appt.scheduled_time).toLocaleString()}.` });
       setShowNurseScheduleModal(false);
-      setNurseScheduleForm({ motherUserId: "", scheduledTime: undefined, appointmentType: "prenatal_checkup", notes: "", recurrence: "none" });
+      setNurseScheduleForm({ selectedChwId: "", motherId: "", scheduledTime: undefined, appointmentType: "prenatal_checkup", notes: "", recurrence: "none" });
+      setMothersForSelectedChw([]);
     } catch (err: any) {
       toast({ title: "Scheduling Failed", description: err.message || "Could not schedule appointment.", variant: "destructive" });
     } finally {
       setNurseScheduleSubmitting(false);
     }
   };
+
+  // Fetch mothers when CHW selection changes (cascading dropdown)
+  useEffect(() => {
+    const chwId = nurseScheduleForm.selectedChwId;
+    if (!chwId) {
+      setMothersForSelectedChw([]);
+      return;
+    }
+    let cancelled = false;
+    setMothersLoading(true);
+    assignmentService.getMothersForCHW(parseInt(chwId), 'active')
+      .then(resp => {
+        if (!cancelled) setMothersForSelectedChw(resp.mothers);
+      })
+      .catch(() => {
+        if (!cancelled) setMothersForSelectedChw([]);
+      })
+      .finally(() => {
+        if (!cancelled) setMothersLoading(false);
+      });
+    return () => { cancelled = true; };
+  }, [nurseScheduleForm.selectedChwId]);
 
   const markNotificationRead = (id: number) => {
     setNotifications(prev => prev.map(n => n.id === id ? { ...n, read: true } : n));
@@ -463,7 +506,10 @@ export function EnhancedNurseDashboard({ isFirstLogin = false }: NurseDashboardP
     if (nurseProfileId !== null) joinProfileRoom(nurseProfileId);
   }, [nurseProfileId]);
 
-  useSocket<Appointment>('appointment:created', (appt) => setNurseAppointments(prev => [appt, ...prev]), { enabled: nurseProfileId !== null });
+  useSocket<Appointment>('appointment:created', (appt) => {
+    // Avoid duplicates: only add if not already present (by ID)
+    setNurseAppointments(prev => prev.some(a => a.id === appt.id) ? prev : [appt, ...prev]);
+  }, { enabled: nurseProfileId !== null });
   useSocket<Appointment>('appointment:updated', (appt) => setNurseAppointments(prev => prev.map(a => a.id === appt.id ? appt : a)), { enabled: nurseProfileId !== null });
   // Escalation payloads use the raw API shape; trigger a full refresh instead of direct state patch
   useSocket('escalation:created', () => refreshData(), { enabled: nurseProfileId !== null });
@@ -779,20 +825,59 @@ export function EnhancedNurseDashboard({ isFirstLogin = false }: NurseDashboardP
         <DialogContent className="sm:max-w-md">
           <DialogHeader>
             <DialogTitle>Schedule Appointment</DialogTitle>
-            <DialogDescription>Book a visit for a mother in your care</DialogDescription>
+            <DialogDescription>Book a visit for a mother - first select a CHW, then choose the mother.</DialogDescription>
           </DialogHeader>
           <div className="space-y-4 pt-2">
+            {/* CHW Selection */}
             <div className="space-y-1">
-              <label className="text-sm font-medium">Mother (User ID)</label>
-              <Input
-                placeholder="Enter mother's user ID"
-                type="number"
-                value={nurseScheduleForm.motherUserId}
-                onChange={e => setNurseScheduleForm(f => ({ ...f, motherUserId: e.target.value }))}
-              />
+              <label className="text-sm font-medium">Community Health Worker <span className="text-red-500">*</span></label>
+              <Select 
+                value={nurseScheduleForm.selectedChwId} 
+                onValueChange={v => setNurseScheduleForm(f => ({ ...f, selectedChwId: v, motherId: "" }))}
+              >
+                <SelectTrigger>
+                  <SelectValue placeholder="Select CHW" />
+                </SelectTrigger>
+                <SelectContent>
+                  {displayCHWs.map(chw => (
+                    <SelectItem key={chw.id} value={String(chw.id)}>{chw.name}</SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
             </div>
+
+            {/* Mother Selection (cascading - depends on CHW) */}
             <div className="space-y-1">
-              <label className="text-sm font-medium">Date & Time</label>
+              <label className="text-sm font-medium">Mother <span className="text-red-500">*</span></label>
+              <Select 
+                value={nurseScheduleForm.motherId} 
+                onValueChange={v => setNurseScheduleForm(f => ({ ...f, motherId: v }))}
+                disabled={!nurseScheduleForm.selectedChwId || mothersLoading}
+              >
+                <SelectTrigger>
+                  <SelectValue placeholder={
+                    !nurseScheduleForm.selectedChwId 
+                      ? "Select CHW first" 
+                      : mothersLoading 
+                        ? "Loading mothers..." 
+                        : mothersForSelectedChw.length === 0 
+                          ? "No mothers assigned" 
+                          : "Select mother"
+                  } />
+                </SelectTrigger>
+                <SelectContent>
+                  {mothersForSelectedChw.map(m => (
+                    <SelectItem key={m.mother_id} value={String(m.mother_id)}>{m.name}</SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+              {nurseScheduleForm.selectedChwId && !mothersLoading && mothersForSelectedChw.length === 0 && (
+                <p className="text-xs text-amber-600 mt-1">This CHW has no assigned mothers.</p>
+              )}
+            </div>
+
+            <div className="space-y-1">
+              <label className="text-sm font-medium">Date & Time <span className="text-red-500">*</span></label>
               <DateTimePicker
                 date={nurseScheduleForm.scheduledTime}
                 setDate={(date) => setNurseScheduleForm(f => ({ ...f, scheduledTime: date }))}
@@ -839,7 +924,7 @@ export function EnhancedNurseDashboard({ isFirstLogin = false }: NurseDashboardP
               <Button
                 className="flex-1 bg-purple-600 hover:bg-purple-700"
                 onClick={handleScheduleNurseAppointment}
-                disabled={nurseScheduleSubmitting || !nurseScheduleForm.motherUserId || !nurseScheduleForm.scheduledTime}
+                disabled={nurseScheduleSubmitting || !nurseScheduleForm.motherId || !nurseScheduleForm.scheduledTime}
               >
                 {nurseScheduleSubmitting ? "Scheduling..." : "Schedule"}
               </Button>
@@ -1395,10 +1480,10 @@ export function EnhancedNurseDashboard({ isFirstLogin = false }: NurseDashboardP
 
           {/* Appointments Tab */}
           <TabsContent value="appointments" className="space-y-4">
-            <div className="flex items-center justify-between">
+            <div className="flex items-center justify-between mb-6">
               <div>
                 <h3 className="font-semibold text-lg">Scheduled Appointments</h3>
-                <p className="text-sm text-muted-foreground">{nurseAppointments.length} appointment{nurseAppointments.length !== 1 ? 's' : ''}</p>
+                <p className="text-sm text-muted-foreground mt-1">{displayedNurseAppointments.length} appointment{displayedNurseAppointments.length !== 1 ? 's' : ''}</p>
               </div>
               <Button
                 className="bg-purple-600 hover:bg-purple-700"
@@ -1409,24 +1494,44 @@ export function EnhancedNurseDashboard({ isFirstLogin = false }: NurseDashboardP
               </Button>
             </div>
 
+            {/* Appointment Tab Selector */}
+            <Tabs value={nurseAppointmentTab} onValueChange={(val) => setNurseAppointmentTab(val as 'yours' | 'requested')} className="mb-6">
+              <TabsList className="grid w-full grid-cols-2">
+                <TabsTrigger value="yours" className="flex items-center gap-2">
+                  <CheckCircle className="h-4 w-4" />
+                  <span className="truncate">Scheduled by You ({nurseAppointmentsScheduledByMe.length})</span>
+                </TabsTrigger>
+                <TabsTrigger value="requested" className="flex items-center gap-2">
+                  <Calendar className="h-4 w-4" />
+                  <span className="truncate">Requested by CHW/Mother ({nurseAppointmentsRequestedByMother.length})</span>
+                </TabsTrigger>
+              </TabsList>
+            </Tabs>
+
             {nurseAppointmentsLoading ? (
               <Card className="p-8 text-center">
                 <div className="animate-spin h-8 w-8 border-4 border-purple-500 border-t-transparent rounded-full mx-auto mb-4" />
                 <p className="text-muted-foreground">Loading appointments...</p>
               </Card>
-            ) : nurseAppointments.length === 0 ? (
+            ) : displayedNurseAppointments.length === 0 ? (
               <Card className="p-8 text-center">
                 <Calendar className="h-12 w-12 mx-auto mb-4 text-purple-300" />
-                <h3 className="text-lg font-medium mb-2">No Appointments Yet</h3>
-                <p className="text-muted-foreground mb-4">Schedule your first appointment for a mother.</p>
-                <Button onClick={() => setShowNurseScheduleModal(true)} className="bg-purple-600 hover:bg-purple-700">
-                  <PlusCircle className="h-4 w-4 mr-2" />
-                  Schedule First Appointment
-                </Button>
+                <h3 className="text-lg font-medium mb-2">No Appointments in This Category</h3>
+                <p className="text-muted-foreground mb-4">
+                  {nurseAppointmentTab === 'yours'
+                    ? "You haven't scheduled any appointments yet."
+                    : "No CHWs or mothers have requested appointments yet."}
+                </p>
+                {nurseAppointmentTab === 'yours' && (
+                  <Button onClick={() => setShowNurseScheduleModal(true)} className="bg-purple-600 hover:bg-purple-700">
+                    <PlusCircle className="h-4 w-4 mr-2" />
+                    Schedule First Appointment
+                  </Button>
+                )}
               </Card>
             ) : (
               <div className="space-y-3">
-                {nurseAppointments.map(appt => {
+                {displayedNurseAppointments.map(appt => {
                   const isScheduled = appt.status === 'scheduled';
                   const isCompleted = appt.status === 'completed';
                   const isCancelled = appt.status === 'canceled' || appt.status === 'cancelled';

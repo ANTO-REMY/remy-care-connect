@@ -11,6 +11,7 @@ export interface Appointment {
   id: number;
   mother_id: number;
   health_worker_id: number;
+  created_by_user_id: number | null;
   scheduled_time: string;      // ISO 8601
   appointment_type: string | null;
   recurrence_rule: string | null;
@@ -106,6 +107,24 @@ class AppointmentService {
   /** Convenience: get all appointments for a health worker (CHW or Nurse) */
   async getForHealthWorker(hwUserId: number, status?: AppointmentStatus): Promise<AppointmentListResponse> {
     return this.list({ health_worker_id: hwUserId, status });
+  }
+
+  /** Get appointments scheduled by a specific mother for a health worker */
+  async getScheduledByMother(motherUserId: number, hwUserId: number): Promise<AppointmentListResponse> {
+    const all = await this.list({ health_worker_id: hwUserId });
+    return {
+      ...all,
+      appointments: all.appointments.filter(a => a.created_by_user_id === motherUserId),
+    };
+  }
+
+  /** Get appointments scheduled by the health worker (CHW/Nurse) for a mother */
+  async getScheduledByHealthWorker(hwUserId: number, motherUserId: number): Promise<AppointmentListResponse> {
+    const all = await this.list({ mother_id: motherUserId });
+    return {
+      ...all,
+      appointments: all.appointments.filter(a => a.created_by_user_id === hwUserId),
+    };
   }
 }
 

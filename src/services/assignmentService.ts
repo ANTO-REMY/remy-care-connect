@@ -88,6 +88,25 @@ class AssignmentService {
     const qs = params.toString();
     return apiClient.get<AssignmentListResponse>(`/assignments${qs ? `?${qs}` : ''}`);
   }
+
+  /**
+   * Get the assigned CHW for a mother (by mother's user_id).
+   */
+  async getAssignedCHWForMother(motherUserId: number): Promise<{
+    assigned: boolean;
+    chw?: {
+      user_id: number;
+      profile_id: number;
+      name: string;
+      phone: string | null;
+      location: string | null;
+    };
+    assignment_id?: number;
+    assigned_at?: string | null;
+    message?: string;
+  }> {
+    return apiClient.get(`/mothers/${motherUserId}/assigned_chw`);
+  }
 }
 
 export const assignmentService = new AssignmentService();
