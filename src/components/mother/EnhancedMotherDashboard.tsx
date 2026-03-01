@@ -30,6 +30,7 @@ import { DateTimePicker } from "@/components/ui/datetime-picker";
 import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { usePolling } from "@/hooks/usePolling";
+import { useSocket, useSocketStatus } from "@/hooks/useSocket";
 import { PregnancyJourneyTracker } from "./PregnancyJourneyTracker";
 
 // Mock data for daily insights
@@ -239,8 +240,12 @@ export function EnhancedMotherDashboard({ isFirstLogin = false }: MotherDashboar
     } catch { /* ignore */ }
   }, [user?.id]);
 
-  // Poll every 15 seconds so appointments from CHW/nurse show automatically
-  usePolling(refreshData, 15_000, !!user?.id);
+  // WebSocket: real-time appointment updates. Falls back to 5-min polling when disconnected.
+  const { connected } = useSocketStatus();
+  usePolling(refreshData, 300_000, !connected && !!user?.id);
+
+  useSocket<Appointment>('appointment:created', (appt) => setAppointments(prev => [appt, ...prev]), { enabled: !!user?.id });
+  useSocket<Appointment>('appointment:updated', (appt) => setAppointments(prev => prev.map(a => a.id === appt.id ? appt : a)), { enabled: !!user?.id });
 
   /** Mother schedules an appointment with their assigned health worker */
   const handleMotherScheduleAppointment = async () => {

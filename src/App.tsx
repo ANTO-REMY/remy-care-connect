@@ -3,6 +3,7 @@ import { TooltipProvider } from "@/components/ui/tooltip";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { BrowserRouter, Routes, Route } from "react-router-dom";
 import { AuthProvider } from "./contexts/AuthContext";
+import { SocketProvider } from "./contexts/SocketContext";
 import LandingPage from "./pages/LandingPage";
 import RegisterMother from "./pages/RegisterMother";
 import RegisterHealthWorker from "./pages/RegisterHealthWorker";
@@ -11,6 +12,7 @@ import Login from "./pages/Login";
 import LoginCHW from "./pages/LoginCHW";
 import LoginNurse from "./pages/LoginNurse";
 import MotherIndex from "./pages/MotherIndex";
+import ModernMotherIndex from "./pages/ModernMotherIndex";
 import CHWIndex from "./pages/CHWIndex";
 import NurseIndex from "./pages/NurseIndex";
 import NotFound from "./pages/NotFound";
@@ -25,6 +27,7 @@ const queryClient = new QueryClient();
 const App = () => (
   <QueryClientProvider client={queryClient}>
     <AuthProvider>
+      <SocketProvider>
       <TooltipProvider>
         <Sonner />
         <BrowserRouter>
@@ -41,6 +44,7 @@ const App = () => (
             <Route path="/login/nurse" element={<Layout><LoginNurse /></Layout>} />
             {/* Dashboard Routes - Protected by role */}
             <Route path="/dashboard/mother" element={<Layout><ProtectedRoute requiredRole="mother"><MotherIndex /></ProtectedRoute></Layout>} />
+            <Route path="/dashboard/mother/modern" element={<Layout><ProtectedRoute requiredRole="mother"><ModernMotherIndex /></ProtectedRoute></Layout>} />
             <Route path="/dashboard/chw" element={<Layout><ProtectedRoute requiredRole="chw"><CHWIndex /></ProtectedRoute></Layout>} />
             <Route path="/dashboard/nurse" element={<Layout><ProtectedRoute requiredRole="nurse"><NurseIndex /></ProtectedRoute></Layout>} />
             {/* Profile Routes - Protected by role */}
@@ -52,6 +56,7 @@ const App = () => (
           </Routes>
         </BrowserRouter>
       </TooltipProvider>
+      </SocketProvider>
     </AuthProvider>
   </QueryClientProvider>
 );

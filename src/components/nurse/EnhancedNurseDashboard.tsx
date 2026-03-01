@@ -32,6 +32,7 @@ import { assignmentService, type Assignment } from "@/services/assignmentService
 import { appointmentService, type Appointment } from "@/services/appointmentService";
 import { nurseService } from "@/services/nurseService";
 import { usePolling } from "@/hooks/usePolling";
+import { useSocket, useSocketStatus, joinProfileRoom } from "@/hooks/useSocket";
 
 // Mock data for escalated cases
 const mockEscalatedCases = [
@@ -453,8 +454,20 @@ export function EnhancedNurseDashboard({ isFirstLogin = false }: NurseDashboardP
     } catch { /* ignore */ }
   }, [user]);
 
-  // Poll every 15 seconds so the dashboard stays in sync with the backend
-  usePolling(refreshData, 15_000, nurseProfileId !== null);
+  // WebSocket: real-time updates. Falls back to 5-min polling when disconnected.
+  const { connected } = useSocketStatus();
+  usePolling(refreshData, 300_000, !connected && nurseProfileId !== null);
+
+  // Join the nurse-specific socket room once profile is known
+  useEffect(() => {
+    if (nurseProfileId !== null) joinProfileRoom(nurseProfileId);
+  }, [nurseProfileId]);
+
+  useSocket<Appointment>('appointment:created', (appt) => setNurseAppointments(prev => [appt, ...prev]), { enabled: nurseProfileId !== null });
+  useSocket<Appointment>('appointment:updated', (appt) => setNurseAppointments(prev => prev.map(a => a.id === appt.id ? appt : a)), { enabled: nurseProfileId !== null });
+  // Escalation payloads use the raw API shape; trigger a full refresh instead of direct state patch
+  useSocket('escalation:created', () => refreshData(), { enabled: nurseProfileId !== null });
+  useSocket('escalation:updated', () => refreshData(), { enabled: nurseProfileId !== null });
 
   // One-time setup: photo, nurse profile, then initial data load
   useEffect(() => {

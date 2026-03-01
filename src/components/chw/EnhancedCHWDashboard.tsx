@@ -33,6 +33,7 @@ import { chwService } from "@/services/chwService";
 import { apiClient } from "@/lib/apiClient";
 import { checkinService, type CheckIn } from "@/services/checkinService";
 import { usePolling } from "@/hooks/usePolling";
+import { useSocket, useSocketStatus, joinProfileRoom } from "@/hooks/useSocket";
 
 // Mock data for mothers
 const mockMothers = [
@@ -506,8 +507,21 @@ export function EnhancedCHWDashboard({ isFirstLogin = false }: CHWDashboardProps
     } catch { /* ignore */ }
   }, [user]);
 
-  // Poll every 15 seconds so the dashboard stays in sync with the backend
-  usePolling(refreshData, 15_000, chwProfileId !== null);
+  // WebSocket: real-time updates. Falls back to 5-min polling when disconnected.
+  const { connected } = useSocketStatus();
+  usePolling(refreshData, 300_000, !connected && chwProfileId !== null);
+
+  // Join the CHW-specific socket room once profile is known
+  useEffect(() => {
+    if (chwProfileId !== null) joinProfileRoom(chwProfileId);
+  }, [chwProfileId]);
+
+  useSocket<Appointment>('appointment:created', (appt) => setAppointments(prev => [appt, ...prev]), { enabled: chwProfileId !== null });
+  useSocket<Appointment>('appointment:updated', (appt) => setAppointments(prev => prev.map(a => a.id === appt.id ? appt : a)), { enabled: chwProfileId !== null });
+  useSocket<CheckIn>('checkin:new', (ci) => setRecentCheckIns(prev => [ci, ...prev]), { enabled: chwProfileId !== null });
+  // Escalation payloads use the raw API shape; trigger a full refresh instead of direct state patch
+  useSocket('escalation:created', () => refreshData(), { enabled: chwProfileId !== null });
+  useSocket('escalation:updated', () => refreshData(), { enabled: chwProfileId !== null });
 
   // One-time setup: photo, CHW profile, nurses list, then initial data load
   useEffect(() => {
