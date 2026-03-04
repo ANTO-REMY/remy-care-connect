@@ -5,7 +5,7 @@ import {
   User, LogOut, Camera, Heart, Apple, Bell, Calendar, Clock,
   ChevronRight, Sparkles, Utensils, Droplets, Moon, Sun,
   Activity, TrendingUp, FileText, Video, ExternalLink, Bookmark,
-  Share2, Play, Pause, Volume2, VolumeX, Loader2, Plus, ArrowLeft
+  Share2, Play, Pause, Volume2, VolumeX, Loader2, Plus, ArrowLeft, Trash2
 } from "lucide-react";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle, CardFooter } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -220,6 +220,8 @@ export function EnhancedMotherDashboard({ isFirstLogin = false }: MotherDashboar
     notes: '',
   });
   const [motherScheduleSubmitting, setMotherScheduleSubmitting] = useState(false);
+  const [deleteApptConfirm, setDeleteApptConfirm] = useState<number | null>(null);
+  const [deleteApptSubmitting, setDeleteApptSubmitting] = useState(false);
   const motherProfileIdRef = useRef<number | null>(null);
 
   // Real profile data
@@ -1147,16 +1149,28 @@ export function EnhancedMotherDashboard({ isFirstLogin = false }: MotherDashboar
                                   </span>
                                 </div>
                               </div>
-                              <Badge
-                                variant="outline"
-                                className={`text-xs whitespace-nowrap ${
-                                  isScheduled ? 'bg-green-50 text-green-700 border-green-200' :
-                                  isCompleted ? 'bg-blue-50 text-blue-700 border-blue-200' :
-                                  'bg-gray-50 text-gray-600 border-gray-200'
-                                }`}
-                              >
-                                {appt.status}
-                              </Badge>
+                              <div className="flex items-center gap-2 flex-shrink-0">
+                                <Badge
+                                  variant="outline"
+                                  className={`text-xs whitespace-nowrap ${
+                                    isScheduled ? 'bg-green-50 text-green-700 border-green-200' :
+                                    isCompleted ? 'bg-blue-50 text-blue-700 border-blue-200' :
+                                    'bg-gray-50 text-gray-600 border-gray-200'
+                                  }`}
+                                >
+                                  {appt.status}
+                                </Badge>
+                                {isScheduled && (
+                                  <Button
+                                    variant="ghost"
+                                    size="icon"
+                                    className="h-7 w-7 text-red-400 hover:text-red-600 hover:bg-red-50"
+                                    onClick={() => setDeleteApptConfirm(appt.id)}
+                                  >
+                                    <Trash2 className="h-4 w-4" />
+                                  </Button>
+                                )}
+                              </div>
                             </div>
                             {appt.notes && (
                               <p className="text-xs text-muted-foreground mt-2 bg-gray-50 p-2 rounded-md">
@@ -1412,6 +1426,41 @@ export function EnhancedMotherDashboard({ isFirstLogin = false }: MotherDashboar
           </TabsContent>
         </Tabs>
       </main>
+
+      {/* Appointment Delete Confirmation */}
+      <Dialog open={deleteApptConfirm !== null} onOpenChange={(o) => { if (!o) setDeleteApptConfirm(null); }}>
+        <DialogContent className="max-w-sm">
+          <DialogHeader>
+            <DialogTitle>Cancel Appointment?</DialogTitle>
+            <DialogDescription>
+              This will permanently remove the appointment. This action cannot be undone.
+            </DialogDescription>
+          </DialogHeader>
+          <div className="flex gap-3 mt-2">
+            <Button
+              variant="destructive"
+              className="flex-1"
+              disabled={deleteApptSubmitting}
+              onClick={async () => {
+                if (!deleteApptConfirm) return;
+                setDeleteApptSubmitting(true);
+                try {
+                  await appointmentService.delete(deleteApptConfirm);
+                  setAppointments(prev => prev.filter(a => a.id !== deleteApptConfirm));
+                  setDeleteApptConfirm(null);
+                } catch (err: any) {
+                  toast({ title: 'Error', description: err?.message ?? 'Failed to delete appointment.', variant: 'destructive' });
+                } finally {
+                  setDeleteApptSubmitting(false);
+                }
+              }}
+            >
+              {deleteApptSubmitting ? <><Loader2 className="h-4 w-4 mr-2 animate-spin" />Deleting...</> : 'Yes, Delete'}
+            </Button>
+            <Button variant="outline" className="flex-1" onClick={() => setDeleteApptConfirm(null)} disabled={deleteApptSubmitting}>Cancel</Button>
+          </div>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }

@@ -190,11 +190,7 @@ export function EnhancedNurseDashboard({ isFirstLogin = false }: NurseDashboardP
   const [statusFilter, setStatusFilter] = useState<string>("all");
   const [priorityFilter, setPriorityFilter] = useState<string>("all");
   const [activeTab, setActiveTab] = useState("cases");
-  const [notifications, setNotifications] = useState([
-    { id: 1, message: "New critical case escalated from CHW", time: "2 min ago", read: false, type: "critical" },
-    { id: 2, message: "Case #1 updated by CHW", time: "15 min ago", read: false, type: "update" },
-    { id: 3, message: "Weekly report available", time: "1 hour ago", read: true, type: "info" },
-  ]);
+  const [notifications, setNotifications] = useState<{ id: number; message: string; time: string; read: boolean; type: string }[]>([]);
   const [caseNotes, setCaseNotes] = useState("");
   // Real-data state (populated from API; mock data used as initial fallback)
   const [nurseProfileId, setNurseProfileId] = useState<number | null>(null);
@@ -523,6 +519,11 @@ export function EnhancedNurseDashboard({ isFirstLogin = false }: NurseDashboardP
     if (data.appointments) setNurseAppointments(data.appointments);
     refreshData();
   }, { enabled: nurseProfileId !== null });
+
+  // Live notification feed — drives the Bell badge and dropdown
+  useSocket('escalation:created', () => setNotifications(prev => [{ id: Date.now(), message: 'New escalation case from CHW', time: 'just now', read: false, type: 'critical' }, ...prev.slice(0, 19)]), { enabled: nurseProfileId !== null });
+  useSocket('escalation:updated', () => setNotifications(prev => [{ id: Date.now(), message: 'Escalation case status updated', time: 'just now', read: false, type: 'update' }, ...prev.slice(0, 19)]), { enabled: nurseProfileId !== null });
+  useSocket('appointment:created', () => setNotifications(prev => [{ id: Date.now(), message: 'New appointment scheduled', time: 'just now', read: false, type: 'info' }, ...prev.slice(0, 19)]), { enabled: nurseProfileId !== null });
 
   // One-time setup: photo, nurse profile, then initial data load
   useEffect(() => {

@@ -265,11 +265,7 @@ export function EnhancedCHWDashboard({ isFirstLogin = false }: CHWDashboardProps
   const [editEscalSubmitting, setEditEscalSubmitting] = useState(false);
   const [deleteEscalConfirm, setDeleteEscalConfirm] = useState<number | null>(null);
   const [deleteEscalSubmitting, setDeleteEscalSubmitting] = useState(false);
-  const [notifications, setNotifications] = useState([
-    { id: 1, message: "Grace Akinyi reported feeling unwell", time: "10 min ago", read: false },
-    { id: 2, message: "New mother assigned to you", time: "1 hour ago", read: false },
-    { id: 3, message: "Weekly report ready", time: "3 hours ago", read: true },
-  ]);
+  const [notifications, setNotifications] = useState<{ id: number; message: string; time: string; read: boolean }[]>([]);
 
   // Ref keeps the latest chwProfileId available inside the polling callback
   const chwProfileIdRef = useRef<number | null>(null);
@@ -547,6 +543,13 @@ export function EnhancedCHWDashboard({ isFirstLogin = false }: CHWDashboardProps
     // Escalations & assignments are fetched via refreshData for simplicity
     refreshData();
   }, { enabled: chwProfileId !== null });
+
+  // Live notification feed — drives the Bell badge and dropdown
+  useSocket('escalation:created', () => setNotifications(prev => [{ id: Date.now(), message: 'New escalation case submitted', time: 'just now', read: false }, ...prev.slice(0, 19)]), { enabled: chwProfileId !== null });
+  useSocket('assignment:created', () => setNotifications(prev => [{ id: Date.now(), message: 'New mother assigned to you', time: 'just now', read: false }, ...prev.slice(0, 19)]), { enabled: chwProfileId !== null });
+  useSocket('assignment:status_changed', () => setNotifications(prev => [{ id: Date.now(), message: 'Assignment status changed', time: 'just now', read: false }, ...prev.slice(0, 19)]), { enabled: chwProfileId !== null });
+  useSocket<{ mother_name?: string }>('checkin:new', (ci) => setNotifications(prev => [{ id: Date.now(), message: `Check-in received${ci.mother_name ? ` from ${ci.mother_name}` : ''}`, time: 'just now', read: false }, ...prev.slice(0, 19)]), { enabled: chwProfileId !== null });
+  useSocket('appointment:created', () => setNotifications(prev => [{ id: Date.now(), message: 'New appointment scheduled', time: 'just now', read: false }, ...prev.slice(0, 19)]), { enabled: chwProfileId !== null });
 
   // One-time setup: photo, CHW profile, nurses list, then initial data load
   useEffect(() => {
