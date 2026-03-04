@@ -33,7 +33,6 @@ import { uploadPhoto, getPhotoFileUrl, getMyPhoto } from "@/services/photoServic
 import { appointmentService, type Appointment } from "@/services/appointmentService";
 import { motherService } from "@/services/motherService";
 import { checkinService, type CheckIn } from "@/services/checkinService";
-import { usePolling } from "@/hooks/usePolling";
 import { useSocket, useSocketStatus } from "@/hooks/useSocket";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { DateTimePicker } from "@/components/ui/datetime-picker";
@@ -275,18 +274,22 @@ export function ModernMotherDashboard() {
     }
   }, [user?.id]);
 
-  // WebSocket: real-time updates. Falls back to 5-min polling when disconnected.
+  // WebSocket: real-time updates
   const { connected } = useSocketStatus();
-  usePolling(refreshData, 300_000, !connected && !!user?.id);
 
   useSocket<Appointment>('appointment:created', (appt) => {
     // Avoid duplicates: only add if not already present (by ID)
     setAppointments(prev => prev.some(a => a.id === appt.id) ? prev : [appt, ...prev]);
   }, { enabled: !!user?.id });
   useSocket<Appointment>('appointment:updated', (appt) => setAppointments(prev => prev.map(a => a.id === appt.id ? appt : a)), { enabled: !!user?.id });
+  useSocket<{ id: number }>('appointment:deleted', ({ id }) => setAppointments(prev => prev.filter(a => a.id !== id)), { enabled: !!user?.id });
   useSocket<CheckIn>('checkin:new', (ci) => {
     // Avoid duplicates: only add if not already present (by ID)
     setCheckins(prev => prev.some(c => c.id === ci.id) ? prev : [ci, ...prev]);
+  }, { enabled: !!user?.id });
+  // Reconnect sync: replace state wholesale with the server snapshot
+  useSocket<{ appointments?: Appointment[] }>('sync', (data) => {
+    if (data.appointments) setAppointments(data.appointments);
   }, { enabled: !!user?.id });
 
   useEffect(() => {

@@ -21,6 +21,7 @@ import {
   createContext,
   useContext,
   useEffect,
+  useRef,
   useState,
   type ReactNode,
 } from 'react';
@@ -42,6 +43,7 @@ export function SocketProvider({ children }: { children: ReactNode }) {
   const { user } = useAuth();
   const [socket, setSocket] = useState<Socket | null>(null);
   const [connected, setConnected] = useState(false);
+  const wasConnectedRef = useRef(false);
 
   useEffect(() => {
     const token = sessionStorage.getItem('access_token');
@@ -51,6 +53,7 @@ export function SocketProvider({ children }: { children: ReactNode }) {
       disconnectSocket();
       setSocket(null);
       setConnected(false);
+      wasConnectedRef.current = false;
       return;
     }
 
@@ -59,7 +62,19 @@ export function SocketProvider({ children }: { children: ReactNode }) {
     setSocket(s);
     setConnected(s.connected);
 
-    const onConnect    = () => setConnected(true);
+    const onConnect = () => {
+      setConnected(true);
+      // On reconnect (not the first connect), request a full sync
+      // so the client catches up on events missed while disconnected.
+      if (wasConnectedRef.current) {
+        s.emit('request_sync', {
+          role: user.role,
+          user_id: user.id,
+          profile_id: (user as any).profile_id ?? null,
+        });
+      }
+      wasConnectedRef.current = true;
+    };
     const onDisconnect = () => setConnected(false);
 
     s.on('connect',    onConnect);

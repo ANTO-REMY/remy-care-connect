@@ -31,7 +31,6 @@ import { escalationService, type Escalation as RealEscalation } from "@/services
 import { assignmentService, type Assignment, type AssignedMother } from "@/services/assignmentService";
 import { appointmentService, type Appointment } from "@/services/appointmentService";
 import { nurseService } from "@/services/nurseService";
-import { usePolling } from "@/hooks/usePolling";
 import { useSocket, useSocketStatus, joinProfileRoom } from "@/hooks/useSocket";
 
 // Mock data for escalated cases
@@ -454,7 +453,7 @@ export function EnhancedNurseDashboard({ isFirstLogin = false }: NurseDashboardP
   /**
    * Fetch volatile data that should be kept fresh:
    * escalations, CHW assignments, and appointments.
-   * Called once on mount and then every 15 s via usePolling.
+   * Called once on mount and on WebSocket events.
    */
   const refreshData = useCallback(async () => {
     const profileId = nurseProfileIdRef.current;
@@ -497,9 +496,8 @@ export function EnhancedNurseDashboard({ isFirstLogin = false }: NurseDashboardP
     } catch { /* ignore */ }
   }, [user]);
 
-  // WebSocket: real-time updates. Falls back to 5-min polling when disconnected.
+  // WebSocket: real-time updates
   const { connected } = useSocketStatus();
-  usePolling(refreshData, 300_000, !connected && nurseProfileId !== null);
 
   // Join the nurse-specific socket room once profile is known
   useEffect(() => {
@@ -511,9 +509,20 @@ export function EnhancedNurseDashboard({ isFirstLogin = false }: NurseDashboardP
     setNurseAppointments(prev => prev.some(a => a.id === appt.id) ? prev : [appt, ...prev]);
   }, { enabled: nurseProfileId !== null });
   useSocket<Appointment>('appointment:updated', (appt) => setNurseAppointments(prev => prev.map(a => a.id === appt.id ? appt : a)), { enabled: nurseProfileId !== null });
+  useSocket<{ id: number }>('appointment:deleted', ({ id }) => setNurseAppointments(prev => prev.filter(a => a.id !== id)), { enabled: nurseProfileId !== null });
   // Escalation payloads use the raw API shape; trigger a full refresh instead of direct state patch
   useSocket('escalation:created', () => refreshData(), { enabled: nurseProfileId !== null });
   useSocket('escalation:updated', () => refreshData(), { enabled: nurseProfileId !== null });
+  useSocket('escalation:deleted', () => refreshData(), { enabled: nurseProfileId !== null });
+  // Assignment events — refresh to pick up changes to assigned mothers list
+  useSocket('assignment:created', () => refreshData(), { enabled: nurseProfileId !== null });
+  useSocket('assignment:status_changed', () => refreshData(), { enabled: nurseProfileId !== null });
+  useSocket('assignment:deleted', () => refreshData(), { enabled: nurseProfileId !== null });
+  // Reconnect sync: replace state wholesale with the server snapshot
+  useSocket<{ appointments?: Appointment[] }>('sync', (data) => {
+    if (data.appointments) setNurseAppointments(data.appointments);
+    refreshData();
+  }, { enabled: nurseProfileId !== null });
 
   // One-time setup: photo, nurse profile, then initial data load
   useEffect(() => {

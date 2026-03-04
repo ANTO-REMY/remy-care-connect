@@ -32,7 +32,6 @@ import { appointmentService, type Appointment } from "@/services/appointmentServ
 import { chwService } from "@/services/chwService";
 import { apiClient } from "@/lib/apiClient";
 import { checkinService, type CheckIn } from "@/services/checkinService";
-import { usePolling } from "@/hooks/usePolling";
 import { useSocket, useSocketStatus, joinProfileRoom } from "@/hooks/useSocket";
 
 // Mock data for mothers
@@ -476,8 +475,8 @@ export function EnhancedCHWDashboard({ isFirstLogin = false }: CHWDashboardProps
   /**
    * Fetch the volatile data that should be kept fresh:
    * check-ins, escalations, assigned mothers, and appointments.
-   * Called once on mount (inside the setup useEffect) and then
-   * every 15 s by the usePolling hook below.
+   * Called once on mount (inside the setup useEffect) and on
+   * WebSocket events (assignment/escalation changes).
    */
   const refreshData = useCallback(async () => {
     const profileId = chwProfileIdRef.current;
@@ -519,9 +518,8 @@ export function EnhancedCHWDashboard({ isFirstLogin = false }: CHWDashboardProps
     } catch { /* ignore */ }
   }, [user]);
 
-  // WebSocket: real-time updates. Falls back to 5-min polling when disconnected.
+  // WebSocket: real-time updates
   const { connected } = useSocketStatus();
-  usePolling(refreshData, 300_000, !connected && chwProfileId !== null);
 
   // Join the CHW-specific socket room once profile is known
   useEffect(() => {
@@ -533,10 +531,22 @@ export function EnhancedCHWDashboard({ isFirstLogin = false }: CHWDashboardProps
     setAppointments(prev => prev.some(a => a.id === appt.id) ? prev : [appt, ...prev]);
   }, { enabled: chwProfileId !== null });
   useSocket<Appointment>('appointment:updated', (appt) => setAppointments(prev => prev.map(a => a.id === appt.id ? appt : a)), { enabled: chwProfileId !== null });
+  useSocket<{ id: number }>('appointment:deleted', ({ id }) => setAppointments(prev => prev.filter(a => a.id !== id)), { enabled: chwProfileId !== null });
   useSocket<CheckIn>('checkin:new', (ci) => setRecentCheckIns(prev => [ci, ...prev]), { enabled: chwProfileId !== null });
   // Escalation payloads use the raw API shape; trigger a full refresh instead of direct state patch
   useSocket('escalation:created', () => refreshData(), { enabled: chwProfileId !== null });
   useSocket('escalation:updated', () => refreshData(), { enabled: chwProfileId !== null });
+  useSocket('escalation:deleted', () => refreshData(), { enabled: chwProfileId !== null });
+  // Assignment events — refresh to pick up changes to assigned mothers list
+  useSocket('assignment:created', () => refreshData(), { enabled: chwProfileId !== null });
+  useSocket('assignment:status_changed', () => refreshData(), { enabled: chwProfileId !== null });
+  useSocket('assignment:deleted', () => refreshData(), { enabled: chwProfileId !== null });
+  // Reconnect sync: replace state wholesale with the server snapshot
+  useSocket<{ appointments?: Appointment[] }>('sync', (data) => {
+    if (data.appointments) setAppointments(data.appointments);
+    // Escalations & assignments are fetched via refreshData for simplicity
+    refreshData();
+  }, { enabled: chwProfileId !== null });
 
   // One-time setup: photo, CHW profile, nurses list, then initial data load
   useEffect(() => {

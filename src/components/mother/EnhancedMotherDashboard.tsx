@@ -29,7 +29,6 @@ import { Input } from "@/components/ui/input";
 import { DateTimePicker } from "@/components/ui/datetime-picker";
 import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { usePolling } from "@/hooks/usePolling";
 import { useSocket, useSocketStatus } from "@/hooks/useSocket";
 import { PregnancyJourneyTracker } from "./PregnancyJourneyTracker";
 
@@ -240,15 +239,20 @@ export function EnhancedMotherDashboard({ isFirstLogin = false }: MotherDashboar
     } catch { /* ignore */ }
   }, [user?.id]);
 
-  // WebSocket: real-time appointment updates. Falls back to 5-min polling when disconnected.
+  // WebSocket: real-time appointment updates
   const { connected } = useSocketStatus();
-  usePolling(refreshData, 300_000, !connected && !!user?.id);
 
   useSocket<Appointment>('appointment:created', (appt) => {
     // Avoid duplicates: only add if not already present (by ID)
     setAppointments(prev => prev.some(a => a.id === appt.id) ? prev : [appt, ...prev]);
   }, { enabled: !!user?.id });
   useSocket<Appointment>('appointment:updated', (appt) => setAppointments(prev => prev.map(a => a.id === appt.id ? appt : a)), { enabled: !!user?.id });
+  useSocket<{ id: number }>('appointment:deleted', ({ id }) => setAppointments(prev => prev.filter(a => a.id !== id)), { enabled: !!user?.id });
+  useSocket('checkin:new', () => refreshData(), { enabled: !!user?.id });
+  // Reconnect sync: replace state wholesale with the server snapshot
+  useSocket<{ appointments?: Appointment[] }>('sync', (data) => {
+    if (data.appointments) setAppointments(data.appointments);
+  }, { enabled: !!user?.id });
 
   /** Mother schedules an appointment with their assigned health worker */
   const handleMotherScheduleAppointment = async () => {
