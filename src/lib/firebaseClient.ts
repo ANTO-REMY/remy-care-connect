@@ -83,9 +83,7 @@ export async function initFirebaseMessaging(): Promise<string | null> {
  */
 export async function unregisterDeviceToken(fcmToken: string): Promise<void> {
   try {
-    await apiClient.delete('/device-tokens', {
-      data: { fcm_token: fcmToken },
-    });
+    await apiClient.delete(`/device-tokens?fcm_token=${encodeURIComponent(fcmToken)}`);
   } catch {
     // Best-effort — don't block logout
   }
