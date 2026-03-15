@@ -16,7 +16,7 @@
 import { apiClient } from '@/lib/apiClient';
 
 // ── Placeholder flag ─────────────────────────────────────────────────────────
-let _initialised = false;
+const _initialised = false;
 
 /**
  * Initialise Firebase Messaging, request permission, obtain FCM token,

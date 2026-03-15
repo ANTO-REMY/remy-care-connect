@@ -34,7 +34,6 @@ class CheckinService {
   async create(motherId: number, data: CreateCheckInRequest): Promise<CheckIn> {
     const body: CreateCheckInRequest = { channel: 'app', ...data };
     const resp = await apiClient.post<CheckIn & { message: string }>(`/mothers/${motherId}/checkins`, body);
-    // eslint-disable-next-line @typescript-eslint/no-unused-vars
     const { message: _msg, ...checkin } = resp;
     return checkin;
   }

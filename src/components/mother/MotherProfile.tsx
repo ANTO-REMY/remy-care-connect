@@ -101,11 +101,11 @@ export function MotherProfile({ onBack, motherData }: MotherProfileProps) {
         } catch (photoError) {
           console.error('Failed to load profile photo:', photoError);
         }
-      } catch (error: any) {
+      } catch (error: unknown) {
         console.error('Failed to load mother profile:', error);
         toast({
           title: "Error",
-          description: error.message || "Failed to load profile",
+          description: (error as Error).message || "Failed to load profile",
           variant: "destructive",
         });
       } finally {
@@ -160,11 +160,11 @@ export function MotherProfile({ onBack, motherData }: MotherProfileProps) {
 
       setIsEditing(false);
       if (onBack) onBack();
-    } catch (error: any) {
+    } catch (error: unknown) {
       console.error('Profile save error:', error);
       toast({
         title: "Error",
-        description: error.message || "Failed to save profile",
+        description: (error as Error).message || "Failed to save profile",
         variant: "destructive",
       });
     } finally {

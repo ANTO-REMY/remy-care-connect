@@ -187,7 +187,7 @@ class ApiClient {
       }
 
       // Network or other errors
-      const errorMessage = error instanceof Error ? error.message : 'An unexpected error occurred';
+      const errorMessage = error instanceof Error ? (error as Error).message : 'An unexpected error occurred';
 
       let userFriendlyMessage = '';
       if (errorMessage.includes('fetch')) {

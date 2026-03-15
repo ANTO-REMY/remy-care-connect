@@ -52,7 +52,7 @@ export async function uploadPhoto(file: File): Promise<PhotoMeta> {
 
     if (!res.ok) {
         const err = await res.json().catch(() => ({ message: 'Upload failed' }));
-        throw new Error(err.error || err.message || 'Photo upload failed');
+        throw new Error(err.error || (err as Error).message || 'Photo upload failed');
     }
 
     const raw: RawPhotoResponse = await res.json();
@@ -81,7 +81,7 @@ export async function getMyPhoto(): Promise<PhotoMeta | null> {
 
     if (!res.ok) {
         const err = await res.json().catch(() => ({ message: 'Failed to fetch photo' }));
-        throw new Error(err.error || err.message || 'Failed to fetch photo');
+        throw new Error(err.error || (err as Error).message || 'Failed to fetch photo');
     }
 
     const raw: RawPhotoResponse = await res.json();
@@ -108,7 +108,7 @@ export async function getUserPhoto(userId: number): Promise<PhotoMeta | null> {
 
     if (!res.ok) {
         const err = await res.json().catch(() => ({ message: 'Failed to fetch photo' }));
-        throw new Error(err.error || err.message || 'Failed to fetch photo');
+        throw new Error(err.error || (err as Error).message || 'Failed to fetch photo');
     }
 
     const raw: RawPhotoResponse = await res.json();
@@ -134,7 +134,7 @@ export async function deletePhoto(): Promise<void> {
 
     if (!res.ok) {
         const err = await res.json().catch(() => ({ message: 'Delete failed' }));
-        throw new Error(err.message || 'Failed to delete photo');
+        throw new Error((err as Error).message || 'Failed to delete photo');
     }
 }
 

@@ -70,8 +70,8 @@ export default function PhotoOnboardingModal({
             await uploadPhoto(selectedFile);
             setUploaded(true);
             toast.success('Photo uploaded! ðŸŽ‰', { description: 'Your profile photo has been saved.' });
-        } catch (err: any) {
-            toast.error('Upload failed', { description: err.message || 'Could not upload photo. Please try again.' });
+        } catch (err: unknown) {
+            toast.error('Upload failed', { description: (err as Error).message || 'Could not upload photo. Please try again.' });
         } finally {
             setUploading(false);
         }

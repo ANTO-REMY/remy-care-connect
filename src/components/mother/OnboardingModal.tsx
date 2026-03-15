@@ -115,9 +115,9 @@ export default function OnboardingModal({ open, onComplete }: OnboardingModalPro
             toast.success('Photo uploaded! ðŸŽ‰', {
                 description: 'Your profile photo has been saved.',
             });
-        } catch (err: any) {
+        } catch (err: unknown) {
             toast.error('Upload failed', {
-                description: err.message || 'Could not upload photo. Please try again.',
+                description: (err as Error).message || 'Could not upload photo. Please try again.',
             });
         } finally {
             setUploadingPhoto(false);
@@ -167,7 +167,7 @@ export default function OnboardingModal({ open, onComplete }: OnboardingModalPro
 
             if (!res.ok) {
                 const err = await res.json().catch(() => ({}));
-                throw new Error(err.error || err.message || 'Failed to save next-of-kin');
+                throw new Error(err.error || (err as Error).message || 'Failed to save next-of-kin');
             }
 
             toast.success("You're all set! ðŸŒŸ", {
@@ -176,9 +176,9 @@ export default function OnboardingModal({ open, onComplete }: OnboardingModalPro
 
             markOnboardingComplete();
             onComplete();
-        } catch (err: any) {
+        } catch (err: unknown) {
             toast.error('Could not save next-of-kin', {
-                description: err.message || 'Please try again.',
+                description: (err as Error).message || 'Please try again.',
             });
         } finally {
             setSavingNok(false);

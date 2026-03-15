@@ -326,10 +326,10 @@ export function EnhancedNurseDashboard({ isFirstLogin = false }: NurseDashboardP
         title: "Case Resolved",
         description: "The case has been marked as resolved and the CHW has been notified.",
       });
-    } catch (err: any) {
+    } catch (err: unknown) {
       toast({
         title: "Update Failed",
-        description: err.message || "Could not resolve the case. Please try again.",
+        description: (err as Error).message || "Could not resolve the case. Please try again.",
         variant: "destructive",
       });
     } finally {
@@ -355,10 +355,10 @@ export function EnhancedNurseDashboard({ isFirstLogin = false }: NurseDashboardP
         title: "Note Added",
         description: "Your note has been saved to the case.",
       });
-    } catch (err: any) {
+    } catch (err: unknown) {
       toast({
         title: "Save Failed",
-        description: err.message || "Could not save note.",
+        description: (err as Error).message || "Could not save note.",
         variant: "destructive",
       });
     } finally {
@@ -381,8 +381,8 @@ export function EnhancedNurseDashboard({ isFirstLogin = false }: NurseDashboardP
         );
       }
       toast({ title: "Case Updated", description: "Case marked as in progress." });
-    } catch (err: any) {
-      toast({ title: "Update Failed", description: err.message || "Could not update status.", variant: "destructive" });
+    } catch (err: unknown) {
+      toast({ title: "Update Failed", description: (err as Error).message || "Could not update status.", variant: "destructive" });
     } finally {
       setActionLoading(false);
       setShowCaseDetails(false);
@@ -413,8 +413,8 @@ export function EnhancedNurseDashboard({ isFirstLogin = false }: NurseDashboardP
       setShowNurseScheduleModal(false);
       setNurseScheduleForm({ selectedChwId: "", motherId: "", scheduledTime: undefined, appointmentType: "prenatal_checkup", notes: "", recurrence: "none" });
       setMothersForSelectedChw([]);
-    } catch (err: any) {
-      toast({ title: "Scheduling Failed", description: err.message || "Could not schedule appointment.", variant: "destructive" });
+    } catch (err: unknown) {
+      toast({ title: "Scheduling Failed", description: (err as Error).message || "Could not schedule appointment.", variant: "destructive" });
     } finally {
       setNurseScheduleSubmitting(false);
     }
@@ -562,10 +562,10 @@ export function EnhancedNurseDashboard({ isFirstLogin = false }: NurseDashboardP
         description: "Your profile photo has been successfully updated.",
       });
       setShowPhotoUpload(false);
-    } catch (err: any) {
+    } catch (err: unknown) {
       toast({
         title: "Upload failed",
-        description: err.message || "Could not upload photo.",
+        description: (err as Error).message || "Could not upload photo.",
         variant: "destructive",
       });
     }
@@ -1014,8 +1014,8 @@ export function EnhancedNurseDashboard({ isFirstLogin = false }: NurseDashboardP
                   } : e) : prev);
                   setEditEscalOpen(false);
                   toast({ title: "Escalation Updated", description: "Changes saved successfully." });
-                } catch (err: any) {
-                  toast({ title: "Error", description: err.message, variant: "destructive" });
+                } catch (err: unknown) {
+                  toast({ title: "Error", description: (err as Error).message, variant: "destructive" });
                 } finally {
                   setEditEscalSubmitting(false);
                 }
@@ -1050,8 +1050,8 @@ export function EnhancedNurseDashboard({ isFirstLogin = false }: NurseDashboardP
                   setRealEscalations(prev => prev ? prev.filter(e => e.id !== deleteEscalConfirm) : prev);
                   setDeleteEscalConfirm(null);
                   toast({ title: "Escalation Deleted" });
-                } catch (err: any) {
-                  toast({ title: "Error", description: err.message, variant: "destructive" });
+                } catch (err: unknown) {
+                  toast({ title: "Error", description: (err as Error).message, variant: "destructive" });
                 } finally {
                   setDeleteEscalSubmitting(false);
                 }
@@ -1118,8 +1118,8 @@ export function EnhancedNurseDashboard({ isFirstLogin = false }: NurseDashboardP
                   setNurseAppointments(prev => prev.map(a => a.id === editApptId ? updated : a));
                   setEditApptOpen(false);
                   toast({ title: "Appointment Updated", description: "Changes saved successfully." });
-                } catch (err: any) {
-                  toast({ title: "Error", description: err.message, variant: "destructive" });
+                } catch (err: unknown) {
+                  toast({ title: "Error", description: (err as Error).message, variant: "destructive" });
                 } finally {
                   setEditApptSubmitting(false);
                 }
@@ -1154,8 +1154,8 @@ export function EnhancedNurseDashboard({ isFirstLogin = false }: NurseDashboardP
                   setNurseAppointments(prev => prev.filter(a => a.id !== deleteApptConfirm));
                   setDeleteApptConfirm(null);
                   toast({ title: "Appointment Deleted" });
-                } catch (err: any) {
-                  toast({ title: "Error", description: err.message, variant: "destructive" });
+                } catch (err: unknown) {
+                  toast({ title: "Error", description: (err as Error).message, variant: "destructive" });
                 } finally {
                   setDeleteApptSubmitting(false);
                 }

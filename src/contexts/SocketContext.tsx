@@ -1,3 +1,4 @@
+/* eslint-disable react-refresh/only-export-components */
 /**
  * SocketContext.tsx
  * ──────────────────
@@ -70,7 +71,7 @@ export function SocketProvider({ children }: { children: ReactNode }) {
         s.emit('request_sync', {
           role: user.role,
           user_id: user.id,
-          profile_id: (user as any).profile_id ?? null,
+          profile_id: (user as Record<string, unknown>).profile_id as number ?? null,
         });
       }
       wasConnectedRef.current = true;

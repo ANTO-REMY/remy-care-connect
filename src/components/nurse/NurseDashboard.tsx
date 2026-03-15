@@ -32,10 +32,10 @@ export function NurseDashboard() {
         setLoading(true);
         const nurseData = await nurseService.getCurrentProfile();
         setCurrentNurse(nurseData);
-      } catch (error: any) {
+      } catch (error: unknown) {
         toast({
           title: "Error",
-          description: error.message || "Failed to load dashboard data",
+          description: (error as Error).message || "Failed to load dashboard data",
           variant: "destructive"
         });
       } finally {
@@ -47,8 +47,8 @@ export function NurseDashboard() {
   }, [toast]);
 
   // Placeholder for escalated cases - will be implemented when backend endpoint is ready
-  const pendingCases: any[] = [];
-  const resolvedCases: any[] = [];
+  const pendingCases: unknown[] = [];
+  const resolvedCases: unknown[] = [];
 
   const getCaseDetails = (caseId: string) => {
     // Placeholder - will be implemented when backend endpoint is ready

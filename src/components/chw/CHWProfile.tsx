@@ -50,10 +50,10 @@ export function CHWProfile({ onBack }: CHWProfileProps) {
         } catch (photoError) {
           console.error('Failed to load profile photo:', photoError);
         }
-      } catch (error: any) {
+      } catch (error: unknown) {
         toast({
           title: "Error",
-          description: error.message || "Failed to load profile",
+          description: (error as Error).message || "Failed to load profile",
           variant: "destructive"
         });
       }
@@ -85,10 +85,10 @@ export function CHWProfile({ onBack }: CHWProfileProps) {
       });
 
       setIsEditing(false);
-    } catch (error: any) {
+    } catch (error: unknown) {
       toast({
         title: "Error",
-        description: error.message || "Failed to update profile",
+        description: (error as Error).message || "Failed to update profile",
         variant: "destructive"
       });
     } finally {
