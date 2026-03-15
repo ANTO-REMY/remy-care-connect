@@ -1,3 +1,4 @@
+/* eslint-disable react-refresh/only-export-components */
 import React, { createContext, useContext, useState, useEffect } from 'react';
 import { authService, type LoginRequest, type RegisterRequest } from '@/services/authService';
 
@@ -95,9 +96,9 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 
       console.log('💾 User state updated successfully');
       return { success: true, role: response.user.role };
-    } catch (error: any) {
+    } catch (error: unknown) {
       console.error('❌ AuthContext login error:', error);
-      const errorMessage = error.message || 'Login failed. Please try again.';
+      const errorMessage = (error as Error).message || 'Login failed. Please try again.';
       return { success: false, error: errorMessage };
     }
   };
@@ -109,9 +110,9 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         success: true,
         userId: response.user_id,
       };
-    } catch (error: any) {
+    } catch (error: unknown) {
       console.error('Registration error:', error);
-      const errorMessage = error.message || 'Registration failed. Please try again.';
+      const errorMessage = (error as Error).message || 'Registration failed. Please try again.';
       return {
         success: false,
         error: errorMessage,
@@ -136,9 +137,9 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         sessionStorage.setItem('mother_profile_id', String(response.profile_id));
       }
       return { success: true };
-    } catch (error: any) {
+    } catch (error: unknown) {
       console.error('OTP verification error:', error);
-      const errorMessage = error.message || 'OTP verification failed. Please try again.';
+      const errorMessage = (error as Error).message || 'OTP verification failed. Please try again.';
       return { success: false, error: errorMessage };
     }
   };

@@ -333,8 +333,8 @@ export function ModernMotherDashboard() {
       setProfileImage(getPhotoFileUrl(meta.file_url));
       toast({ title: "Photo updated ✓" });
       setShowPhotoUpload(false);
-    } catch (err: any) {
-      toast({ title: "Upload failed", description: err.message, variant: "destructive" });
+    } catch (err: unknown) {
+      toast({ title: "Upload failed", description: (err as Error).message, variant: "destructive" });
     }
   };
 
@@ -357,8 +357,8 @@ export function ModernMotherDashboard() {
           ? "Keep taking care of yourself!"
           : "Your CHW has been notified.",
       });
-    } catch (err: any) {
-      toast({ title: "Submission failed", description: err.message, variant: "destructive" });
+    } catch (err: unknown) {
+      toast({ title: "Submission failed", description: (err as Error).message, variant: "destructive" });
     } finally {
       setCheckInSubmitting(false);
     }
@@ -382,8 +382,8 @@ export function ModernMotherDashboard() {
       toast({ title: "Appointment requested ✓", description: formatDate(appt.scheduled_time) });
       setShowScheduleModal(false);
       setScheduleForm({ scheduledTime: undefined, appointmentType: "prenatal_checkup", notes: "" });
-    } catch (err: any) {
-      toast({ title: "Scheduling failed", description: err.message, variant: "destructive" });
+    } catch (err: unknown) {
+      toast({ title: "Scheduling failed", description: (err as Error).message, variant: "destructive" });
     } finally {
       setScheduleSubmitting(false);
     }

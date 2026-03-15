@@ -52,10 +52,10 @@ export function CHWDashboard() {
         ]);
         setCurrentCHW(chwData);
         setAssignedMothers(mothersData);
-      } catch (error: any) {
+      } catch (error: unknown) {
         toast({
           title: "Error",
-          description: error.message || "Failed to load dashboard data",
+          description: (error as Error).message || "Failed to load dashboard data",
           variant: "destructive"
         });
       } finally {

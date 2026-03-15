@@ -6,7 +6,7 @@ import { Button } from "@/components/ui/button";
 interface NextOfKinModalProps {
   open: boolean;
   onClose: () => void;
-  onSave: (kin: any[]) => void;
+  onSave: (kin: { name: string; phone: string; sex: string; relationship: string; }[]) => void;
 }
 
 export function NextOfKinModal({ open, onClose, onSave }: NextOfKinModalProps) {

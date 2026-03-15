@@ -17,7 +17,7 @@ export function PinInput({ value, onChange, name, label, required, visuallyHidde
   const values = [0, 1, 2, 3].map((i) => value[i] || '');
 
   const handleChange = (e: React.ChangeEvent<HTMLInputElement>, idx: number) => {
-    let val = e.target.value.replace(/\D/g, '');
+    const val = e.target.value.replace(/\D/g, '');
 
     if (val.length > 1) {
         // Paste or multiple chars

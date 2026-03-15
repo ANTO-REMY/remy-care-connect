@@ -47,6 +47,6 @@ export async function saveWard(wardId: number): Promise<void> {
     });
     if (!res.ok) {
         const err = await res.json().catch(() => ({}));
-        throw new Error((err as any).error || 'Failed to save ward');
+        throw new Error((err as Record<string, string>).error || 'Failed to save ward');
     }
 }

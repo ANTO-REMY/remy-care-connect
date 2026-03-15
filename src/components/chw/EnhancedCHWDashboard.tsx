@@ -398,10 +398,10 @@ export function EnhancedCHWDashboard({ isFirstLogin = false }: CHWDashboardProps
             title: "Case Escalated ✓",
             description: `Case for ${created.mother_name} sent to nurse successfully.`,
           });
-        } catch (err: any) {
+        } catch (err: unknown) {
           toast({
             title: "Escalation Failed",
-            description: err.message || "Could not submit escalation. Please try again.",
+            description: (err as Error).message || "Could not submit escalation. Please try again.",
             variant: "destructive",
           });
         } finally {
@@ -437,7 +437,7 @@ export function EnhancedCHWDashboard({ isFirstLogin = false }: CHWDashboardProps
     setScheduleSubmitting(true);
     try {
       const motherEntry = displayMothers.find(m => String(m.id) === scheduleForm.motherId);
-      const motherUserId = (motherEntry as any)?.user_id ?? parseInt(scheduleForm.motherId);
+      const motherUserId = (motherEntry as Record<string, unknown>)?.user_id as number ?? parseInt(scheduleForm.motherId);
       const appt = await appointmentService.create({
         mother_id: motherUserId,
         health_worker_id: user!.id,
@@ -453,10 +453,10 @@ export function EnhancedCHWDashboard({ isFirstLogin = false }: CHWDashboardProps
       });
       setShowScheduleModal(false);
       setScheduleForm({ motherId: "", scheduledTime: undefined, appointmentType: "prenatal_checkup", notes: "", recurrence: "none" });
-    } catch (err: any) {
+    } catch (err: unknown) {
       toast({
         title: "Scheduling Failed",
-        description: err.message || "Could not schedule appointment. Please try again.",
+        description: (err as Error).message || "Could not schedule appointment. Please try again.",
         variant: "destructive",
       });
     } finally {
@@ -601,10 +601,10 @@ export function EnhancedCHWDashboard({ isFirstLogin = false }: CHWDashboardProps
         description: "Your profile photo has been successfully updated.",
       });
       setShowPhotoUpload(false);
-    } catch (err: any) {
+    } catch (err: unknown) {
       toast({
         title: "Upload failed",
-        description: err.message || "Could not upload photo.",
+        description: (err as Error).message || "Could not upload photo.",
         variant: "destructive",
       });
     }
@@ -1115,8 +1115,8 @@ export function EnhancedCHWDashboard({ isFirstLogin = false }: CHWDashboardProps
                   setAppointments(prev => prev.map(a => a.id === editApptId ? updated : a));
                   setEditApptOpen(false);
                   toast({ title: "Appointment Updated", description: "Changes saved successfully." });
-                } catch (err: any) {
-                  toast({ title: "Error", description: err.message, variant: "destructive" });
+                } catch (err: unknown) {
+                  toast({ title: "Error", description: (err as Error).message, variant: "destructive" });
                 } finally {
                   setEditApptSubmitting(false);
                 }
@@ -1151,8 +1151,8 @@ export function EnhancedCHWDashboard({ isFirstLogin = false }: CHWDashboardProps
                   setAppointments(prev => prev.filter(a => a.id !== deleteApptConfirm));
                   setDeleteApptConfirm(null);
                   toast({ title: "Appointment Deleted" });
-                } catch (err: any) {
-                  toast({ title: "Error", description: err.message, variant: "destructive" });
+                } catch (err: unknown) {
+                  toast({ title: "Error", description: (err as Error).message, variant: "destructive" });
                 } finally {
                   setDeleteApptSubmitting(false);
                 }
@@ -1236,8 +1236,8 @@ export function EnhancedCHWDashboard({ isFirstLogin = false }: CHWDashboardProps
                   } : e) : prev);
                   setEditEscalOpen(false);
                   toast({ title: "Escalation Updated", description: "Changes saved successfully." });
-                } catch (err: any) {
-                  toast({ title: "Error", description: err.message, variant: "destructive" });
+                } catch (err: unknown) {
+                  toast({ title: "Error", description: (err as Error).message, variant: "destructive" });
                 } finally {
                   setEditEscalSubmitting(false);
                 }
@@ -1272,8 +1272,8 @@ export function EnhancedCHWDashboard({ isFirstLogin = false }: CHWDashboardProps
                   setRealEscalations(prev => prev ? prev.filter(e => e.id !== deleteEscalConfirm) : prev);
                   setDeleteEscalConfirm(null);
                   toast({ title: "Escalation Deleted" });
-                } catch (err: any) {
-                  toast({ title: "Error", description: err.message, variant: "destructive" });
+                } catch (err: unknown) {
+                  toast({ title: "Error", description: (err as Error).message, variant: "destructive" });
                 } finally {
                   setDeleteEscalSubmitting(false);
                 }

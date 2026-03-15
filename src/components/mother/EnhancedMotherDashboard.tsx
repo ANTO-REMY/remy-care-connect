@@ -275,8 +275,8 @@ export function EnhancedMotherDashboard({ isFirstLogin = false }: MotherDashboar
       toast({ title: "Appointment Requested ✓", description: `Visit on ${new Date(appt.scheduled_time).toLocaleString()}.` });
       setShowMotherScheduleModal(false);
       setMotherScheduleForm({ scheduledTime: undefined, appointmentType: 'prenatal_checkup', notes: '' });
-    } catch (err: any) {
-      toast({ title: "Scheduling Failed", description: err.message || "Could not schedule appointment.", variant: "destructive" });
+    } catch (err: unknown) {
+      toast({ title: "Scheduling Failed", description: (err as Error).message || "Could not schedule appointment.", variant: "destructive" });
     } finally {
       setMotherScheduleSubmitting(false);
     }
@@ -294,10 +294,10 @@ export function EnhancedMotherDashboard({ isFirstLogin = false }: MotherDashboar
         description: "Your profile photo has been successfully updated.",
       });
       setShowPhotoUpload(false);
-    } catch (err: any) {
+    } catch (err: unknown) {
       toast({
         title: "Upload failed",
-        description: err.message || "Could not upload photo.",
+        description: (err as Error).message || "Could not upload photo.",
         variant: "destructive",
       });
     }
@@ -348,10 +348,10 @@ export function EnhancedMotherDashboard({ isFirstLogin = false }: MotherDashboar
           ? "Great! Keep taking care of yourself."
           : "Your CHW has been notified and will contact you soon.",
       });
-    } catch (err: any) {
+    } catch (err: unknown) {
       toast({
         title: "Submission Failed",
-        description: err.message || "Could not submit check-in. Please try again.",
+        description: (err as Error).message || "Could not submit check-in. Please try again.",
         variant: "destructive",
       });
     } finally {
@@ -1448,8 +1448,8 @@ export function EnhancedMotherDashboard({ isFirstLogin = false }: MotherDashboar
                   await appointmentService.delete(deleteApptConfirm);
                   setAppointments(prev => prev.filter(a => a.id !== deleteApptConfirm));
                   setDeleteApptConfirm(null);
-                } catch (err: any) {
-                  toast({ title: 'Error', description: err?.message ?? 'Failed to delete appointment.', variant: 'destructive' });
+                } catch (err: unknown) {
+                  toast({ title: 'Error', description: (err as Error)?.message ?? 'Failed to delete appointment.', variant: 'destructive' });
                 } finally {
                   setDeleteApptSubmitting(false);
                 }

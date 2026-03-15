@@ -45,11 +45,7 @@ export function MotherDashboard() {
     } catch { /* ignore – stale data is fine until next tick */ }
   }, []);
 
-  useEffect(() => {
-    loadMotherData();
-  }, []);
-
-  const loadMotherData = async () => {
+  const loadMotherData = useCallback(async () => {
     try {
       setLoading(true);
       
@@ -69,17 +65,21 @@ export function MotherDashboard() {
       } else if (nextOfKin.length === 0) {
         setShowNextOfKinModal(true);
       }
-    } catch (error: any) {
+    } catch (error: unknown) {
       console.error('Error loading mother data:', error);
       toast({
         title: "Error",
-        description: error.message || "Failed to load profile data",
+        description: (error as Error).message || "Failed to load profile data",
         variant: "destructive"
       });
     } finally {
       setLoading(false);
     }
-  };
+  }, [toast]);
+
+  useEffect(() => {
+    loadMotherData();
+  }, [loadMotherData]);
 
   /** Reset the check-in modal to initial state */
   const resetCheckInModal = () => {
@@ -116,11 +116,11 @@ export function MotherDashboard() {
 
       setShowCheckInModal(false);
       // Keep checkInResponse visible for the success banner below the button
-    } catch (error: any) {
+    } catch (error: unknown) {
       console.error('Check-in error:', error);
       toast({
         title: "Check-in failed",
-        description: error.message || "Failed to record check-in. Please try again.",
+        description: (error as Error).message || "Failed to record check-in. Please try again.",
         variant: "destructive",
       });
     } finally {
@@ -136,7 +136,7 @@ export function MotherDashboard() {
     window.open(`sms:${phone}`, '_blank');
   };
 
-  const handleNextOfKinSave = async (kin: any[]) => {
+  const handleNextOfKinSave = async (kin: { name: string; phone: string; sex: string; relationship: string; }[]) => {
     if (!motherProfile || kin.length === 0) return;
     
     try {
