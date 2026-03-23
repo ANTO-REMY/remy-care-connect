@@ -1,4 +1,4 @@
-﻿import { useState, useEffect, useCallback, useRef } from "react";
+import { useState, useEffect, useCallback, useRef } from "react";
 import { useNavigate } from "react-router-dom";
 import {
   AlertTriangle, MessageCircle, Phone, Clock, CheckCircle, User, FileText,
@@ -225,6 +225,10 @@ export function EnhancedNurseDashboard({ isFirstLogin = false }: NurseDashboardP
   const [editEscalSubmitting, setEditEscalSubmitting] = useState(false);
   const [deleteEscalConfirm, setDeleteEscalConfirm] = useState<number | null>(null);
   const [deleteEscalSubmitting, setDeleteEscalSubmitting] = useState(false);
+  // Deleted escalations recycle bin (nurse)
+  const [hiddenNurseEscalations, setHiddenNurseEscalations] = useState<typeof mockEscalatedCases>([]);
+  const [hiddenNurseEscalationsLoading, setHiddenNurseEscalationsLoading] = useState(false);
+  const [showHiddenNurseEscalations, setShowHiddenNurseEscalations] = useState(false);
   // 15-min CRUD â€“ appointments
   const [editApptOpen, setEditApptOpen] = useState(false);
   const [editApptId, setEditApptId] = useState<number | null>(null);
@@ -263,8 +267,8 @@ export function EnhancedNurseDashboard({ isFirstLogin = false }: NurseDashboardP
       )
     : [];
 
-  // Filter cases â€” use real escalations when loaded, otherwise empty
-  const allCases = realEscalations ?? [];
+  // Filter cases â€” use hidden list if viewing trash, else real escalations
+  const allCases = showHiddenNurseEscalations ? hiddenNurseEscalations : (realEscalations ?? []);
   const filteredCases = allCases.filter(caseItem => {
     const matchesSearch = caseItem.motherName.toLowerCase().includes(searchQuery.toLowerCase()) ||
       caseItem.chwName.toLowerCase().includes(searchQuery.toLowerCase());
@@ -447,6 +451,67 @@ export function EnhancedNurseDashboard({ isFirstLogin = false }: NurseDashboardP
       setHiddenNurseAppointmentsLoading(false);
     }
   }, [user, toast]);
+
+  const loadHiddenNurseEscalations = useCallback(async () => {
+    if (!nurseProfileId) return;
+    setHiddenNurseEscalationsLoading(true);
+    try {
+      const resp = await escalationService.list({
+        nurse_id: nurseProfileId,
+        deleted_only: true,
+      });
+      const mapped = resp.escalations.map((e) => ({
+        id: e.id,
+        motherId: e.mother_id ?? 0,
+        motherName: e.mother_name,
+        motherPhone: '',
+        motherAvatar: '',
+        chwName: e.chw_name,
+        chwPhone: '',
+        issue: e.case_description,
+        issueType: e.issue_type ?? e.case_description,
+        escalatedAt: e.created_at,
+        status: e.status as 'pending' | 'in_progress' | 'resolved',
+        priority: e.priority as 'low' | 'medium' | 'high' | 'critical',
+        notes: e.notes ?? '',
+        weeksPregnant: 0,
+        location: '',
+        vitals: { bloodPressure: '---', heartRate: '---', temperature: '---' },
+      }));
+      setHiddenNurseEscalations(mapped as typeof mockEscalatedCases);
+    } catch (err: unknown) {
+      toast({ title: 'Could not load deleted escalations', description: (err as Error).message, variant: 'destructive' });
+    } finally {
+      setHiddenNurseEscalationsLoading(false);
+    }
+  }, [nurseProfileId, toast]);
+
+  const handleRestoreNurseEscalation = useCallback(async (id: number) => {
+    try {
+      await escalationService.restoreDeleted(id);
+      setHiddenNurseEscalations(prev => prev.filter(e => e.id !== id));
+      // Re-fetch active escalations
+      if (nurseProfileId) {
+        const resp = await escalationService.list({ nurse_id: nurseProfileId });
+        setRealEscalations(resp.escalations.map((e: any) => ({
+          ...e,
+          id: e.id,
+          motherName: e.mother_name,
+          chwName: e.chw_name,
+          issue: e.case_description,
+          issueType: e.issue_type ?? e.case_description,
+          escalatedAt: e.created_at,
+          status: e.status,
+          priority: e.priority,
+          notes: e.notes ?? '',
+        })));
+      }
+      setShowHiddenNurseEscalations(false);
+      toast({ title: "Escalation Restored", description: "This case is back in your active view." });
+    } catch (err: unknown) {
+      toast({ title: "Restore Failed", description: (err as Error).message, variant: "destructive" });
+    }
+  }, [nurseProfileId, toast]);
 
   // Fetch mothers when CHW selection changes (cascading dropdown)
   useEffect(() => {
@@ -1066,9 +1131,9 @@ export function EnhancedNurseDashboard({ isFirstLogin = false }: NurseDashboardP
         <DialogContent className="max-w-sm">
           <DialogHeader>
             <DialogTitle className="flex items-center gap-2 text-red-600">
-              <AlertCircle className="h-5 w-5" />Delete Escalation?
+              <AlertCircle className="h-5 w-5" />Remove Escalation From Your Dashboard?
             </DialogTitle>
-            <DialogDescription>This will permanently remove the escalation and cannot be undone.</DialogDescription>
+            <DialogDescription>You can restore this within 15 days from the Recently Deleted section.</DialogDescription>
           </DialogHeader>
           <div className="flex gap-3 pt-2">
             <Button
@@ -1079,10 +1144,10 @@ export function EnhancedNurseDashboard({ isFirstLogin = false }: NurseDashboardP
                 if (!deleteEscalConfirm) return;
                 setDeleteEscalSubmitting(true);
                 try {
-                  await escalationService.delete(deleteEscalConfirm);
+                  await escalationService.softDelete(deleteEscalConfirm, 'deleted_by_nurse_dashboard');
                   setRealEscalations(prev => prev ? prev.filter(e => e.id !== deleteEscalConfirm) : prev);
                   setDeleteEscalConfirm(null);
-                  toast({ title: "Escalation Deleted" });
+                  toast({ title: 'Escalation Removed' });
                 } catch (err: unknown) {
                   toast({ title: "Error", description: (err as Error).message, variant: "destructive" });
                 } finally {
@@ -1090,7 +1155,7 @@ export function EnhancedNurseDashboard({ isFirstLogin = false }: NurseDashboardP
                 }
               }}
             >
-              {deleteEscalSubmitting ? <><Loader2 className="h-4 w-4 mr-2 animate-spin" />Deleting...</> : "Yes, Delete"}
+              {deleteEscalSubmitting ? <><Loader2 className="h-4 w-4 mr-2 animate-spin" />Removing...</> : 'Yes, Remove'}
             </Button>
             <Button variant="outline" className="flex-1" onClick={() => setDeleteEscalConfirm(null)} disabled={deleteEscalSubmitting}>Cancel</Button>
           </div>
@@ -1172,7 +1237,7 @@ export function EnhancedNurseDashboard({ isFirstLogin = false }: NurseDashboardP
             <DialogTitle className="flex items-center gap-2 text-red-600">
               <AlertCircle className="h-5 w-5" />Remove Appointment From Your Dashboard?
             </DialogTitle>
-            <DialogDescription>This only deletes it from your dashboard for you. It will remain in the system for other users.</DialogDescription>
+            <DialogDescription>You can restore this within 15 days from the Recently Deleted section.</DialogDescription>
           </DialogHeader>
           <div className="flex gap-3 pt-2">
             <Button
@@ -1295,6 +1360,14 @@ export function EnhancedNurseDashboard({ isFirstLogin = false }: NurseDashboardP
                     <Clock className="mr-2 h-4 w-4" />
                     Recently Deleted Appointments (15 days)
                   </DropdownMenuItem>
+                  <DropdownMenuItem onClick={async () => {
+                    setActiveTab('cases');
+                    setShowHiddenNurseEscalations(true);
+                    await loadHiddenNurseEscalations();
+                  }}>
+                    <Clock className="mr-2 h-4 w-4" />
+                    Recently Deleted Escalations (15 days)
+                  </DropdownMenuItem>
                   <DropdownMenuItem>
                     <Settings className="mr-2 h-4 w-4" />
                     Settings
@@ -1387,6 +1460,40 @@ export function EnhancedNurseDashboard({ isFirstLogin = false }: NurseDashboardP
 
           {/* Cases Tab */}
           <TabsContent value="cases" className="space-y-4">
+            {/* Header for Cases Tab with View/Restore Hidden Toggle */}
+            <div className="flex items-center justify-between mb-2">
+               <div>
+                  <h3 className="text-xl font-bold flex items-center gap-2">
+                    {showHiddenNurseEscalations ? (
+                      <><Clock className="h-5 w-5 text-blue-600" /> Recently Hidden Escalations</>
+                    ) : (
+                      <><AlertTriangle className="h-5 w-5 text-red-600" /> Recently Escalated</>
+                    )}
+                  </h3>
+                  {showHiddenNurseEscalations && (
+                    <p className="text-sm text-muted-foreground italic">Items are restorable for 15 days.</p>
+                  )}
+               </div>
+               {showHiddenNurseEscalations ? (
+                 <Button variant="outline" size="sm" onClick={() => setShowHiddenNurseEscalations(false)}>
+                   <ArrowLeft className="h-4 w-4 mr-2" />
+                   Back to Active
+                 </Button>
+               ) : (
+                 <Button 
+                   variant="ghost" 
+                   size="sm" 
+                   className="text-muted-foreground hover:text-blue-600 font-normal" 
+                   onClick={async () => {
+                     setShowHiddenNurseEscalations(true);
+                     await loadHiddenNurseEscalations();
+                   }}
+                 >
+                   <Clock className="h-4 w-4 mr-1" /> View Deleted
+                 </Button>
+               )}
+            </div>
+
             {/* Filters */}
             <div className="flex flex-col sm:flex-row gap-4">
               <div className="relative flex-1">
@@ -1425,122 +1532,171 @@ export function EnhancedNurseDashboard({ isFirstLogin = false }: NurseDashboardP
             </div>
 
             {/* Cases List */}
-            <div className="space-y-4">
-              {filteredCases.map((caseItem) => (
-                <Card
-                  key={caseItem.id}
-                  className="cursor-pointer hover:shadow-lg transition-all"
-                  onClick={() => handleCaseClick(caseItem)}
-                >
-                  <CardContent className="p-4">
-                    <div className="flex items-start gap-4">
-                      <Avatar className="h-14 w-14">
-                        <AvatarImage src={caseItem.motherAvatar} />
-                        <AvatarFallback className="bg-pink-100 text-pink-600 text-lg">
-                          {caseItem.motherName.charAt(0)}
-                        </AvatarFallback>
-                      </Avatar>
-                      <div className="flex-1">
-                        <div className="flex items-start justify-between">
-                          <div>
-                            <div className="flex items-center gap-2">
-                              <h4 className="font-semibold text-lg">{caseItem.motherName}</h4>
-                              {getStatusBadge(caseItem.status)}
+            {((showHiddenNurseEscalations ? hiddenNurseEscalationsLoading : (realEscalations === null))) ? (
+              <div className="flex items-center justify-center py-12">
+                <Loader2 className="h-8 w-8 animate-spin text-muted-foreground mr-2" />
+                <span className="text-muted-foreground">Loading cases...</span>
+              </div>
+            ) : filteredCases.length === 0 ? (
+              <Card className="p-8 text-center bg-gray-50/50 border-dashed border-2 border-gray-200">
+                <div className="bg-white p-3 rounded-full w-fit mx-auto shadow-sm mb-4">
+                   {showHiddenNurseEscalations ? <CalendarX className="h-8 w-8 text-muted-foreground" /> : <CheckCircle2 className="h-12 w-12 text-green-500" />}
+                </div>
+                <h3 className="text-lg font-medium mb-2">{showHiddenNurseEscalations ? "No Hidden Escalations" : "No Cases Found"}</h3>
+                <p className="text-muted-foreground">
+                  {showHiddenNurseEscalations ? "Your recycle bin is empty." : "All escalated cases have been handled. Great work!"}
+                </p>
+              </Card>
+            ) : (
+              <div className="space-y-4">
+                {filteredCases.map((caseItem) => (
+                  <Card
+                    key={caseItem.id}
+                    className={`transition-all ${showHiddenNurseEscalations ? "border-gray-200 bg-gray-50/20 shadow-none opacity-90" : "cursor-pointer hover:shadow-lg"}`}
+                    onClick={() => !showHiddenNurseEscalations && handleCaseClick(caseItem)}
+                  >
+                    <CardContent className="p-4">
+                      <div className="flex items-start gap-4">
+                        <Avatar className="h-14 w-14">
+                          <AvatarImage src={caseItem.motherAvatar} />
+                          <AvatarFallback className={showHiddenNurseEscalations ? "bg-gray-300 text-gray-600" : "bg-pink-100 text-pink-600 text-lg"}>
+                            {caseItem.motherName.charAt(0)}
+                          </AvatarFallback>
+                        </Avatar>
+                        <div className="flex-1">
+                          <div className="flex items-start justify-between">
+                            <div>
+                              <div className="flex items-center gap-2">
+                                <h4 className="font-semibold text-lg">{caseItem.motherName}</h4>
+                                {getStatusBadge(caseItem.status)}
+                              </div>
+                              <p className="text-sm text-muted-foreground mt-1">
+                                {caseItem.weeksPregnant || '28'} weeks â€¢ {caseItem.location || 'Kibera'}
+                              </p>
                             </div>
-                            <p className="text-sm text-muted-foreground mt-1">
-                              {caseItem.weeksPregnant} weeks â€¢ {caseItem.location}
+                            <Badge className={showHiddenNurseEscalations ? "bg-gray-400" : getPriorityColor(caseItem.priority)}>
+                              {caseItem.priority}
+                            </Badge>
+                          </div>
+
+                          <div className={`mt-3 p-3 rounded-lg border ${showHiddenNurseEscalations ? "bg-white border-gray-100" : "bg-red-50 border-red-100"}`}>
+                            <p className={`text-sm ${showHiddenNurseEscalations ? "text-gray-700 font-medium" : "text-red-800"}`}>
+                              <span className="font-medium">{caseItem.issueType}:</span> {caseItem.issue}
                             </p>
                           </div>
-                          <Badge className={getPriorityColor(caseItem.priority)}>
-                            {caseItem.priority}
-                          </Badge>
-                        </div>
 
-                        <div className="mt-3 p-3 bg-red-50 rounded-lg border border-red-100">
-                          <p className="text-sm text-red-800">
-                            <span className="font-medium">{caseItem.issueType}:</span> {caseItem.issue}
-                          </p>
-                        </div>
-
-                        <div className="flex items-center justify-between mt-3 flex-wrap gap-2">
-                          <div className="flex items-center gap-4 text-sm text-muted-foreground">
-                            <span className="flex items-center gap-1">
-                              <UserCheck className="h-4 w-4" />
-                              {caseItem.chwName}
-                            </span>
-                            <span className="flex items-center gap-1">
-                              <Clock className="h-4 w-4" />
-                              {new Date(caseItem.escalatedAt).toLocaleString()}
-                            </span>
-                          </div>
-                          <div className="flex gap-2">
-                            <Button size="sm" variant="outline">
-                              View Details
-                              <ChevronRight className="h-4 w-4 ml-1" />
-                            </Button>
-                            {isWithin15Min(caseItem.escalatedAt) && (
-                              <>
-                                <Button
-                                  size="sm"
-                                  variant="outline"
-                                  className="text-xs border-blue-200 text-blue-700 hover:bg-blue-50"
+                          <div className="flex items-center justify-between mt-3 flex-wrap gap-2">
+                            <div className="flex items-center gap-4 text-sm text-muted-foreground">
+                              <span className="flex items-center gap-1">
+                                <UserCheck className="h-4 w-4" />
+                                {caseItem.chwName}
+                              </span>
+                              <span className="flex items-center gap-1">
+                                <Clock className="h-4 w-4" />
+                                {new Date(caseItem.escalatedAt).toLocaleString()}
+                              </span>
+                            </div>
+                            <div className="flex gap-2">
+                              {showHiddenNurseEscalations ? (
+                                <Button 
+                                  size="sm" 
+                                  className="bg-blue-600 hover:bg-blue-700"
                                   onClick={(e) => {
                                     e.stopPropagation();
-                                    setEditEscalId(caseItem.id);
-                                    setEditEscalForm({
-                                      description: caseItem.issue,
-                                      priority: caseItem.priority,
-                                      notes: caseItem.notes || '',
-                                      issueType: caseItem.issueType,
-                                    });
-                                    setEditEscalOpen(true);
+                                    handleRestoreNurseEscalation(caseItem.id);
                                   }}
                                 >
-                                  Edit
+                                  <PlusCircle className="h-4 w-4 mr-2" />
+                                  Restore to Dashboard
                                 </Button>
-                                <Button
-                                  size="sm"
-                                  variant="outline"
-                                  className="text-xs border-red-300 text-red-700 hover:bg-red-50"
-                                  onClick={(e) => {
-                                    e.stopPropagation();
-                                    setDeleteEscalConfirm(caseItem.id);
-                                  }}
-                                >
-                                  Delete
-                                </Button>
-                              </>
-                            )}
+                              ) : (
+                                <>
+                                  <Button size="sm" variant="outline" onClick={() => handleCaseClick(caseItem)}>
+                                    View Details
+                                    <ChevronRight className="h-4 w-4 ml-1" />
+                                  </Button>
+                                  {isWithin15Min(caseItem.escalatedAt) && (
+                                    <>
+                                      <Button
+                                        size="sm"
+                                        variant="outline"
+                                        className="text-xs border-blue-200 text-blue-700 hover:bg-blue-50"
+                                        onClick={(e) => {
+                                          e.stopPropagation();
+                                          setEditEscalId(caseItem.id);
+                                          setEditEscalForm({
+                                            description: caseItem.issue,
+                                            priority: caseItem.priority,
+                                            notes: caseItem.notes || '',
+                                            issueType: caseItem.issueType,
+                                          });
+                                          setEditEscalOpen(true);
+                                        }}
+                                      >
+                                        Edit
+                                      </Button>
+                                      <Button
+                                        size="sm"
+                                        variant="outline"
+                                        className="text-xs border-red-300 text-red-700 hover:bg-red-50"
+                                        onClick={(e) => {
+                                          e.stopPropagation();
+                                          setDeleteEscalConfirm(caseItem.id);
+                                        }}
+                                      >
+                                        Delete
+                                      </Button>
+                                    </>
+                                  )}
+                                </>
+                              )}
+                            </div>
                           </div>
                         </div>
                       </div>
-                    </div>
-                  </CardContent>
-                </Card>
-              ))}
-            </div>
-
-            {filteredCases.length === 0 && (
-              <Card className="p-8 text-center">
-                <CheckCircle2 className="h-12 w-12 mx-auto mb-4 text-green-500" />
-                <h3 className="text-lg font-medium mb-2">No Cases Found</h3>
-                <p className="text-muted-foreground">All escalated cases have been handled. Great work!</p>
-              </Card>
+                    </CardContent>
+                  </Card>
+                ))}
+              </div>
             )}
           </TabsContent>
 
-          {/* Appointments Tab */}
+          {/* Appointments Tab Header */}
           <TabsContent value="appointments" className="space-y-4">
-            <div className="flex items-center justify-between mb-6">
+            <div className="flex items-center justify-between mb-4">
               <div>
-                <h3 className="font-semibold text-lg">{showHiddenNurseAppointments ? 'Recently Deleted Appointments' : 'Scheduled Appointments'}</h3>
-                <p className="text-sm text-muted-foreground mt-1">{displayedNurseAppointments.length} appointment{displayedNurseAppointments.length !== 1 ? 's' : ''}</p>
+                <h3 className="font-bold text-xl flex items-center gap-2">
+                  {showHiddenNurseAppointments ? (
+                     <><Clock className="h-5 w-5 text-blue-600" /> Recently Hidden Visits</>
+                  ) : (
+                    <><CalendarCheck className="h-5 w-5 text-blue-600" /> Scheduled Visits</>
+                  )}
+                </h3>
+                <p className="text-sm text-muted-foreground mt-1">
+                  {showHiddenNurseAppointments ? 'Saved for 15 days.' : `${displayedNurseAppointments.length} appointment${displayedNurseAppointments.length !== 1 ? 's' : ''} scheduled.`}
+                </p>
               </div>
               {showHiddenNurseAppointments ? (
-                <Button variant="outline" onClick={() => setShowHiddenNurseAppointments(false)}>
-                  Back To Active Appointments
+                <Button variant="outline" size="sm" onClick={() => setShowHiddenNurseAppointments(false)}>
+                  <ArrowLeft className="h-4 w-4 mr-2" />
+                  Back to Active
                 </Button>
               ) : (
+                <Button 
+                  variant="ghost" 
+                  size="sm" 
+                  className="text-muted-foreground hover:text-blue-600 font-normal"
+                  onClick={async () => {
+                    setShowHiddenNurseAppointments(true);
+                    await loadHiddenNurseAppointments();
+                  }}
+                >
+                  <Clock className="h-4 w-4 mr-1" /> View Deleted
+                </Button>
+              )}
+            </div>
+
+            {!showHiddenNurseAppointments && (
                 <Button
                   className="bg-purple-600 hover:bg-purple-700"
                   onClick={() => setShowNurseScheduleModal(true)}
@@ -1549,7 +1705,6 @@ export function EnhancedNurseDashboard({ isFirstLogin = false }: NurseDashboardP
                   Schedule Appointment
                 </Button>
               )}
-            </div>
 
             {/* Appointment Tab Selector */}
             {!showHiddenNurseAppointments && (

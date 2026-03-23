@@ -1,4 +1,4 @@
-﻿import { useState, useEffect, useCallback, useRef } from "react";
+import { useState, useEffect, useCallback, useRef } from "react";
 import { useNavigate } from "react-router-dom";
 import {
   Users, AlertTriangle, MessageCircle, Phone, Upload, Calendar, CheckCircle,
@@ -268,6 +268,10 @@ export function EnhancedCHWDashboard({ isFirstLogin = false }: CHWDashboardProps
   const [editEscalSubmitting, setEditEscalSubmitting] = useState(false);
   const [deleteEscalConfirm, setDeleteEscalConfirm] = useState<number | null>(null);
   const [deleteEscalSubmitting, setDeleteEscalSubmitting] = useState(false);
+  // Deleted escalations (soft-delete recycle bin)
+  const [hiddenEscalations, setHiddenEscalations] = useState<typeof mockEscalatedCases>([]);
+  const [hiddenEscalationsLoading, setHiddenEscalationsLoading] = useState(false);
+  const [showHiddenEscalations, setShowHiddenEscalations] = useState(false);
   const [notifications, setNotifications] = useState<{ id: number; message: string; time: string; read: boolean }[]>([]);
 
   // Ref keeps the latest chwProfileId available inside the polling callback
@@ -505,7 +509,34 @@ export function EnhancedCHWDashboard({ isFirstLogin = false }: CHWDashboardProps
     }
   }, [user, toast]);
 
-  const markNotificationRead = (id: number) => {
+  const loadHiddenEscalations = useCallback(async () => {
+    if (!chwProfileIdRef.current) return;
+    setHiddenEscalationsLoading(true);
+    try {
+      const resp = await escalationService.list({
+        chw_id: chwProfileIdRef.current,
+        deleted_only: true,
+      });
+      const mapped = resp.escalations.map((e) => ({
+        id: e.id,
+        motherId: e.mother_id ?? 0,
+        motherName: e.mother_name,
+        issue: e.case_description,
+        issueType: e.issue_type ?? e.case_description,
+        escalatedAt: e.created_at,
+        status: e.status as 'pending' | 'in_progress' | 'resolved' | 'rejected',
+        priority: e.priority as 'low' | 'medium' | 'high' | 'critical',
+        notes: e.notes ?? '',
+      }));
+      setHiddenEscalations(mapped as typeof mockEscalatedCases);
+    } catch (err: unknown) {
+      toast({ title: 'Could not load deleted escalations', description: (err as Error).message, variant: 'destructive' });
+    } finally {
+      setHiddenEscalationsLoading(false);
+    }
+  }, [toast]);
+
+   const markNotificationRead = (id: number) => {
     setNotifications(prev => prev.map(n => n.id === id ? { ...n, read: true } : n));
   };
 
@@ -554,6 +585,18 @@ export function EnhancedCHWDashboard({ isFirstLogin = false }: CHWDashboardProps
       setAppointments(apptResp.appointments);
     } catch { /* ignore */ }
   }, [user]);
+
+  const handleRestoreEscalation = useCallback(async (id: number) => {
+    try {
+      await escalationService.restoreDeleted(id);
+      setHiddenEscalations(prev => prev.filter(e => e.id !== id));
+      await refreshData();
+      setShowHiddenEscalations(false);
+      toast({ title: "Escalation Restored", description: "This case is back in your active view." });
+    } catch (err: unknown) {
+      toast({ title: "Restore Failed", description: (err as Error).message, variant: "destructive" });
+    }
+  }, [refreshData, toast]);
 
   // WebSocket: real-time updates
   const { connected } = useSocketStatus();
@@ -1188,7 +1231,7 @@ export function EnhancedCHWDashboard({ isFirstLogin = false }: CHWDashboardProps
             <DialogTitle className="flex items-center gap-2 text-red-600">
               <AlertCircle className="h-5 w-5" />Remove Appointment From Your Dashboard?
             </DialogTitle>
-            <DialogDescription>This only deletes it from your dashboard for you. It will remain in the system for other users.</DialogDescription>
+            <DialogDescription>You can restore this within 15 days from the Recently Deleted section.</DialogDescription>
           </DialogHeader>
           <div className="flex gap-3 pt-2">
             <Button
@@ -1216,6 +1259,25 @@ export function EnhancedCHWDashboard({ isFirstLogin = false }: CHWDashboardProps
           </div>
         </DialogContent>
       </Dialog>
+
+      {/* -- Delete Escalation Confirmation -- */}
+      <Dialog open={deleteEscalConfirm !== null} onOpenChange={(o) => { if (!o) setDeleteEscalConfirm(null); }}>
+        <DialogContent className="max-w-sm">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2 text-red-600">
+              <AlertCircle className="h-5 w-5" />Remove Escalation From Your Dashboard?
+            </DialogTitle>
+            <DialogDescription>You can restore this within 15 days from the Recently Deleted section.</DialogDescription>
+          </DialogHeader>
+          <div className="flex gap-3 pt-2">
+            <Button variant="destructive" className="flex-1" disabled={deleteEscalSubmitting} onClick={async () => { if (!deleteEscalConfirm) return; setDeleteEscalSubmitting(true); try { await escalationService.softDelete(deleteEscalConfirm, 'deleted_by_chw_dashboard'); setRealEscalations(prev => prev ? prev.filter(e => e.id !== deleteEscalConfirm) : prev); setDeleteEscalConfirm(null); toast({ title: 'Escalation Hidden', description: 'Restorable for 15 days in Recently Hidden.' }); } catch (err) { toast({ title: 'Error', description: (err as Error).message, variant: 'destructive' }); } finally { setDeleteEscalSubmitting(false); } }}>
+              {deleteEscalSubmitting ? <><Loader2 className="h-4 w-4 mr-2 animate-spin" />Removing...</> : 'Yes, Remove'}
+            </Button>
+            <Button variant="outline" className="flex-1" onClick={() => setDeleteEscalConfirm(null)} disabled={deleteEscalSubmitting}>Cancel</Button>
+          </div>
+        </DialogContent>
+      </Dialog>
+
 
       {/* â”€â”€ Edit Escalation Dialog (15-min window) â”€â”€ */}
       <Dialog open={editEscalOpen} onOpenChange={setEditEscalOpen}>
@@ -1426,6 +1488,14 @@ export function EnhancedCHWDashboard({ isFirstLogin = false }: CHWDashboardProps
                   }}>
                     <Clock className="mr-2 h-4 w-4" />
                     Recently Deleted Appointments (15 days)
+                  </DropdownMenuItem>
+                  <DropdownMenuItem onClick={async () => {
+                    setActiveTab('cases');
+                    setShowHiddenEscalations(true);
+                    await loadHiddenEscalations();
+                  }}>
+                    <Clock className="mr-2 h-4 w-4" />
+                    Recently Deleted Escalations (15 days)
                   </DropdownMenuItem>
                   <DropdownMenuItem>
                     <Settings className="mr-2 h-4 w-4" />
@@ -1772,7 +1842,41 @@ export function EnhancedCHWDashboard({ isFirstLogin = false }: CHWDashboardProps
               )}
             </div>
 
-            {/* Appointment Tab Selector */}
+            {/* Symmetrical Header for Appointments Tab with Restore Toggle */}
+            <div className="flex items-center justify-between mb-4">
+               <div>
+                  <h3 className="text-xl font-bold flex items-center gap-2">
+                    {showHiddenAppointments ? (
+                      <><Clock className="h-5 w-5 text-blue-600" /> Recently Hidden Visits</>
+                    ) : (
+                      <><CalendarCheck className="h-5 w-5 text-blue-600" /> Scheduled Visits</>
+                    )}
+                  </h3>
+                  {showHiddenAppointments && (
+                    <p className="text-sm text-muted-foreground italic">Restorable for 15 days.</p>
+                  )}
+               </div>
+               {showHiddenAppointments ? (
+                 <Button variant="outline" size="sm" onClick={() => setShowHiddenAppointments(false)}>
+                   <ArrowLeft className="h-4 w-4 mr-2" />
+                   Back to Active
+                 </Button>
+               ) : (
+                 <Button 
+                   variant="ghost" 
+                   size="sm" 
+                   className="text-muted-foreground hover:text-blue-600 font-normal" 
+                   onClick={async () => {
+                     setShowHiddenAppointments(true);
+                     await loadHiddenAppointments();
+                   }}
+                 >
+                   <Clock className="h-4 w-4 mr-1" /> View Deleted
+                 </Button>
+               )}
+            </div>
+
+            {/* Appointment Tab Selector (Only visible for active visits) */}
             {!showHiddenAppointments && (
               <Tabs value={appointmentTab} onValueChange={(val) => setAppointmentTab(val as 'yours' | 'requested')} className="mb-6">
                 <TabsList className="grid w-full grid-cols-2">
@@ -1958,23 +2062,66 @@ export function EnhancedCHWDashboard({ isFirstLogin = false }: CHWDashboardProps
 
           {/* Escalated Cases Tab */}
           <TabsContent value="cases" className="space-y-4">
-            {/* Show real escalations only */}
-            {(() => {
-              const displayCases = realEscalations ?? [];
+            {/* Header for Cases Tab with View/Restore Hidden Toggle */}
+            <div className="flex items-center justify-between mb-4">
+               <div>
+                  <h3 className="text-xl font-bold flex items-center gap-2">
+                    {showHiddenEscalations ? (
+                      <><Clock className="h-5 w-5 text-blue-600" /> Recently Hidden Escalations</>
+                    ) : (
+                      <><AlertTriangle className="h-5 w-5 text-red-600" /> Currently Escalated</>
+                    )}
+                  </h3>
+                  {showHiddenEscalations && (
+                    <p className="text-sm text-muted-foreground italic">Restorable for 15 days.</p>
+                  )}
+               </div>
+               {showHiddenEscalations ? (
+                 <Button variant="outline" size="sm" onClick={() => setShowHiddenEscalations(false)}>
+                   <ArrowLeft className="h-4 w-4 mr-2" />
+                   Back to Active
+                 </Button>
+               ) : (
+                 <Button 
+                   variant="ghost" 
+                   size="sm" 
+                   className="text-muted-foreground hover:text-blue-600 font-normal" 
+                   onClick={async () => {
+                     setShowHiddenEscalations(true);
+                     await loadHiddenEscalations();
+                   }}
+                 >
+                   <Clock className="h-4 w-4 mr-1" /> View Deleted
+                 </Button>
+               )}
+            </div>
+
+            {/* Display Logic for Escalations */}
+            {(showHiddenEscalations ? hiddenEscalationsLoading : escalationSubmitting) ? (
+              <div className="flex items-center justify-center py-12">
+                 <Loader2 className="h-8 w-8 animate-spin text-muted-foreground mr-2" />
+                 <span className="text-muted-foreground">Loading cases...</span>
+              </div>
+            ) : (() => {
+              const displayCases = showHiddenEscalations ? (hiddenEscalations || []) : (realEscalations ?? []);
               if (displayCases.length === 0) return (
-                <Card className="p-8 text-center">
-                  <CheckCircle className="h-12 w-12 mx-auto mb-4 text-green-500" />
-                  <h3 className="text-lg font-medium mb-2">No Escalated Cases</h3>
-                  <p className="text-muted-foreground">All mothers are doing well. Great work!</p>
+                <Card className="p-8 text-center bg-gray-50/50 border-dashed border-2 border-gray-200">
+                  <div className="bg-white p-3 rounded-full w-fit mx-auto shadow-sm mb-4">
+                     {showHiddenEscalations ? <CalendarX className="h-8 w-8 text-muted-foreground" /> : <CheckCircle className="h-12 w-12 text-green-500" />}
+                  </div>
+                  <h3 className="text-lg font-medium mb-2">{showHiddenEscalations ? "No Hidden Escalations" : "No Escalated Cases"}</h3>
+                  <p className="text-muted-foreground">
+                    {showHiddenEscalations ? "You don't have any cases in the recycle bin." : "All mothers are doing well. Great work!"}
+                  </p>
                 </Card>
               );
               return displayCases.map((caseItem) => (
-                <Card key={caseItem.id} className="border-red-200">
-                  <CardHeader>
+                <Card key={caseItem.id} className={showHiddenEscalations ? "border-gray-200 bg-gray-50/20 shadow-none opacity-90" : "border-red-200"}>
+                  <CardHeader className="py-4">
                     <div className="flex items-start justify-between">
                       <div className="flex items-center gap-3">
-                        <div className="bg-red-100 p-2 rounded-lg">
-                          <AlertTriangle className="h-5 w-5 text-red-600" />
+                        <div className={showHiddenEscalations ? "bg-gray-100 p-2 rounded-lg" : "bg-red-100 p-2 rounded-lg"}>
+                          {showHiddenEscalations ? <Clock className="h-5 w-5 text-gray-600" /> : <AlertTriangle className="h-5 w-5 text-red-600" />}
                         </div>
                         <div>
                           <CardTitle className="text-lg">{caseItem.motherName}</CardTitle>
@@ -1992,52 +2139,64 @@ export function EnhancedCHWDashboard({ isFirstLogin = false }: CHWDashboardProps
                         }>
                           {caseItem.status.replace('_', ' ')}
                         </Badge>
-                        <Badge variant="destructive">{caseItem.priority} priority</Badge>
+                        <Badge variant="destructive" className={showHiddenEscalations ? "bg-gray-400" : ""}>{caseItem.priority} priority</Badge>
                       </div>
                     </div>
                   </CardHeader>
-                  <CardContent>
+                  <CardContent className="pb-4">
                     <div className="space-y-4">
-                      <div className="p-4 bg-red-50 rounded-lg border border-red-100">
-                        <p className="font-medium text-red-800 mb-1">Issue: {caseItem.issueType}</p>
-                        <p className="text-sm text-red-700">{caseItem.notes}</p>
+                      <div className={`p-4 rounded-lg border ${showHiddenEscalations ? "bg-white border-gray-100" : "bg-red-50 border-red-100"}`}>
+                        <p className={`font-medium mb-1 ${showHiddenEscalations ? "text-gray-800" : "text-red-800"}`}>Issue: {caseItem.issueType}</p>
+                        <p className={`text-sm ${showHiddenEscalations ? "text-gray-600" : "text-red-700"}`}>{caseItem.notes}</p>
                       </div>
                       <div className="flex gap-2 flex-wrap">
-                        <Button className="flex-1">
-                          <Stethoscope className="h-4 w-4 mr-2" />
-                          View Full Case
-                        </Button>
-                        <Button variant="outline">
-                          <MessageCircle className="h-4 w-4 mr-2" />
-                          Contact Nurse
-                        </Button>
-                        {isWithin15Min(caseItem.escalatedAt) && (
+                        {showHiddenEscalations ? (
+                          <Button 
+                            className="flex-1 bg-blue-600 hover:bg-blue-700"
+                            onClick={() => handleRestoreEscalation(caseItem.id)}
+                          >
+                            <PlusCircle className="h-4 w-4 mr-2" />
+                            Restore Case to Active
+                          </Button>
+                        ) : (
                           <>
-                            <Button
-                              size="sm"
-                              variant="outline"
-                              className="text-xs border-blue-200 text-blue-700 hover:bg-blue-50"
-                              onClick={() => {
-                                setEditEscalId(caseItem.id);
-                                setEditEscalForm({
-                                  description: caseItem.issue,
-                                  priority: caseItem.priority,
-                                  notes: caseItem.notes || '',
-                                  issueType: caseItem.issueType,
-                                });
-                                setEditEscalOpen(true);
-                              }}
-                            >
-                              Edit
+                            <Button className="flex-1">
+                              <Stethoscope className="h-4 w-4 mr-2" />
+                              View Full Case
                             </Button>
-                            <Button
-                              size="sm"
-                              variant="outline"
-                              className="text-xs border-red-300 text-red-700 hover:bg-red-50"
-                              onClick={() => setDeleteEscalConfirm(caseItem.id)}
-                            >
-                              Delete
+                            <Button variant="outline">
+                              <MessageCircle className="h-4 w-4 mr-2" />
+                              Contact Nurse
                             </Button>
+                            {isWithin15Min(caseItem.escalatedAt) && (
+                              <div className="flex gap-2 ml-auto">
+                                <Button
+                                  size="sm"
+                                  variant="outline"
+                                  className="text-xs border-blue-200 text-blue-700 hover:bg-blue-50"
+                                  onClick={() => {
+                                    setEditEscalId(caseItem.id);
+                                    setEditEscalForm({
+                                      description: caseItem.issue,
+                                      priority: caseItem.priority,
+                                      notes: caseItem.notes || '',
+                                      issueType: caseItem.issueType,
+                                    });
+                                    setEditEscalOpen(true);
+                                  }}
+                                >
+                                  Edit
+                                </Button>
+                                <Button
+                                  size="sm"
+                                  variant="outline"
+                                  className="text-xs border-red-300 text-red-700 hover:bg-red-50"
+                                  onClick={() => setDeleteEscalConfirm(caseItem.id)}
+                                >
+                                  Delete
+                                </Button>
+                              </div>
+                            )}
                           </>
                         )}
                       </div>

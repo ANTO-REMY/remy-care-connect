@@ -46,6 +46,8 @@ export interface EscalationFilters {
   mother_id?: number;
   status?: EscalationStatus;
   priority?: EscalationPriority;
+  deleted_only?: boolean;
+  include_deleted?: boolean;
 }
 
 class EscalationService {
@@ -62,6 +64,8 @@ class EscalationService {
     if (filters?.mother_id)  params.set('mother_id',  String(filters.mother_id));
     if (filters?.status)     params.set('status',     filters.status);
     if (filters?.priority)   params.set('priority',   filters.priority);
+    if (typeof filters?.deleted_only === 'boolean')   params.set('deleted_only',   String(filters.deleted_only));
+    if (typeof filters?.include_deleted === 'boolean') params.set('include_deleted', String(filters.include_deleted));
     const qs = params.toString();
     return apiClient.get<EscalationListResponse>(`/escalations${qs ? `?${qs}` : ''}`);
   }
@@ -81,9 +85,19 @@ class EscalationService {
     return apiClient.patch<Escalation>(`/escalations/${id}`, data);
   }
 
-  /** Delete an escalation */
+  /** Soft-delete escalation from current user's dashboard (non-destructive) */
+  async softDelete(id: number, reason?: string): Promise<{ message: string; escalation_id: number }> {
+    return apiClient.post<{ message: string; escalation_id: number }>(`/escalations/${id}/delete`, { reason });
+  }
+
+  /** Restore a previously soft-deleted escalation */
+  async restoreDeleted(id: number): Promise<{ message: string; escalation_id: number }> {
+    return apiClient.delete<{ message: string; escalation_id: number }>(`/escalations/${id}/delete`);
+  }
+
+  /** @deprecated — hard delete disabled on backend. Use softDelete() instead. */
   async delete(id: number): Promise<{ message: string }> {
-    return apiClient.delete<{ message: string }>(`/escalations/${id}`);
+    return this.softDelete(id) as Promise<{ message: string }>;
   }
 }
 
