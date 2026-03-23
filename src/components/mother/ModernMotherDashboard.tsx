@@ -5,10 +5,10 @@
  * Color scheme  : dark charcoal/teal sidebar + bright teal accent (#14b8a6)
  * Charts        : pure SVG (no extra libraries)
  * Data source   : same real endpoints as EnhancedMotherDashboard
- *   â€¢ GET /mothers/me
- *   â€¢ GET /mothers/:id/checkins
- *   â€¢ GET /appointments?mother_id=:id
- *   â€¢ GET /photos/me   (profile photo)
+ *   - GET /mothers/me
+ *   - GET /mothers/:id/checkins
+ *   - GET /appointments?mother_id=:id
+ *   - GET /photos/me   (profile photo)
  *
  * Route         : /dashboard/mother/modern   (separate; existing route untouched)
  */
@@ -19,7 +19,7 @@ import {
   Baby, Bell, Calendar, ChevronRight, LogOut, User,
   Camera, Activity, TrendingUp, CheckCircle, AlertCircle,
   LayoutDashboard, ClipboardList, Heart, BookOpen, Settings,
-  Plus, Loader2, Menu, X, ChevronLeft, ChevronDown,
+  Plus, Loader2, Menu, X, ChevronLeft, ChevronDown, Trash2,
   MoreVertical, ArrowUpRight, ArrowDownRight, Clock, Phone,
 } from "lucide-react";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
@@ -40,13 +40,13 @@ import { DateTimePicker } from "@/components/ui/datetime-picker";
 import { Label } from "@/components/ui/label";
 import { Input } from "@/components/ui/input";
 
-// â”€â”€â”€ colour tokens (inline so we don't touch tailwind.config) â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+// Color tokens (inline so we don't touch tailwind.config)
 const SIDEBAR_BG   = "#0d2b2b";
 const SIDEBAR_HOVER = "#163f3f";
 const TEAL_ACC     = "#14b8a6";
 const PAGE_BG      = "#f0f7f6";
 
-// â”€â”€â”€ helpers â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+// Helpers
 function pregnancyWeekAndDays(dueDateStr: string): { week: number; daysLeft: number } {
   const due  = new Date(dueDateStr);
   const today = new Date();
@@ -62,7 +62,7 @@ function formatTime(iso: string) {
   return new Date(iso).toLocaleTimeString("en-KE", { hour: "2-digit", minute: "2-digit" });
 }
 
-// â”€â”€â”€ SVG pie chart â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+// SVG pie chart
 interface PieSlice { label: string; value: number; color: string }
 function PieChart({ slices, size = 160 }: { slices: PieSlice[]; size?: number }) {
   const total = slices.reduce((s, sl) => s + sl.value, 0);
@@ -101,7 +101,7 @@ function PieChart({ slices, size = 160 }: { slices: PieSlice[]; size?: number })
   );
 }
 
-// â”€â”€â”€ SVG line / area chart â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+// SVG line / area chart
 interface LinePoint { label: string; value: number }
 function LineChart({ points, width = 480, height = 160, color = TEAL_ACC }: {
   points: LinePoint[]; width?: number; height?: number; color?: string;
@@ -340,7 +340,7 @@ export function ModernMotherDashboard() {
     try {
       const meta = await uploadPhoto(file);
       setProfileImage(getPhotoFileUrl(meta.file_url));
-      toast({ title: "Photo updated âœ“" });
+      toast({ title: "Photo updated" });
       setShowPhotoUpload(false);
     } catch (err: unknown) {
       toast({ title: "Upload failed", description: (err as Error).message, variant: "destructive" });
@@ -361,7 +361,7 @@ export function ModernMotherDashboard() {
       setCheckInSelected(null);
       setCheckInComment("");
       toast({
-        title: checkInSelected === "ok" ? "Check-in recorded âœ“" : "Check-in recorded",
+        title: checkInSelected === "ok" ? "Check-in recorded" : "Check-in recorded",
         description: checkInSelected === "ok"
           ? "Keep taking care of yourself!"
           : "Your CHW has been notified.",
@@ -388,7 +388,7 @@ export function ModernMotherDashboard() {
         notes: scheduleForm.notes.trim() || undefined,
       });
       setAppointments(prev => [appt, ...prev]);
-      toast({ title: "Appointment requested âœ“", description: formatDate(appt.scheduled_time) });
+      toast({ title: "Appointment requested", description: formatDate(appt.scheduled_time) });
       setShowScheduleModal(false);
       setScheduleForm({ scheduledTime: undefined, appointmentType: "prenatal_checkup", notes: "" });
     } catch (err: unknown) {
@@ -758,7 +758,8 @@ export function ModernMotherDashboard() {
                               }
                             }}
                           >
-                            Hide
+                            <Trash2 className="h-3.5 w-3.5 mr-1" />
+                            Delete
                           </Button>
                         </td>
                       </tr>
@@ -986,6 +987,7 @@ export function ModernMotherDashboard() {
                       try {
                         await appointmentService.restoreDeleted(appt.id);
                         setHiddenAppointments(prev => prev.filter(a => a.id !== appt.id));
+                        await refreshData();
                         toast({ title: 'Appointment Restored' });
                       } catch (err: unknown) {
                         toast({ title: 'Error', description: (err as Error).message || 'Could not restore appointment.', variant: 'destructive' });

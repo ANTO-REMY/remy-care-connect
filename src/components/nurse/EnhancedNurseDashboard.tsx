@@ -7,7 +7,7 @@ import {
   Video, Download, Share2, Bell, Settings, BarChart3, Users,
   ArrowUpRight, ArrowDownRight, Sparkles, Star, ClipboardCheck,
   CheckCircle2, XCircle, Clock4, UserCheck, Briefcase, Camera,
-  PlusCircle, CalendarCheck, CalendarX, Loader2, AlertCircle, ArrowLeft
+  PlusCircle, CalendarCheck, CalendarX, Loader2, AlertCircle, ArrowLeft, Trash2
 } from "lucide-react";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle, CardFooter } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -54,7 +54,7 @@ const mockEscalatedCases = [
     vitals: {
       bloodPressure: "150/95",
       heartRate: "88",
-      temperature: "37.2Â°C"
+      temperature: "37.2 C"
     }
   },
   {
@@ -76,7 +76,7 @@ const mockEscalatedCases = [
     vitals: {
       bloodPressure: "140/90",
       heartRate: "95",
-      temperature: "37.5Â°C"
+      temperature: "37.5 C"
     }
   },
 ];
@@ -127,7 +127,7 @@ const nurseResources = [
     category: "Critical Care",
     author: "Ministry of Health",
     date: "2024-01-15",
-    thumbnail: "ðŸš¨"
+    thumbnail: "[EMERGENCY]"
   },
   {
     id: 2,
@@ -136,7 +136,7 @@ const nurseResources = [
     category: "Guidelines",
     author: "WHO",
     date: "2024-01-10",
-    thumbnail: "ðŸ“‹"
+    thumbnail: "[GUIDE]"
   },
   {
     id: 3,
@@ -146,7 +146,7 @@ const nurseResources = [
     author: "Dr. Sarah Johnson",
     date: "2024-02-01",
     duration: "25:30",
-    thumbnail: "ðŸŽ¥"
+    thumbnail: "[VIDEO]"
   },
   {
     id: 4,
@@ -155,7 +155,7 @@ const nurseResources = [
     category: "Emergency",
     author: "Ministry of Health",
     date: "2024-01-20",
-    thumbnail: "ðŸ©º"
+    thumbnail: "[MEDICAL]"
   },
 ];
 
@@ -420,7 +420,7 @@ export function EnhancedNurseDashboard({ isFirstLogin = false }: NurseDashboardP
         recurrence_rule: nurseScheduleForm.recurrence !== "none" ? nurseScheduleForm.recurrence : undefined,
       });
       setNurseAppointments(prev => [appt, ...prev]);
-      toast({ title: "Appointment Scheduled âœ“", description: `Visit on ${new Date(appt.scheduled_time).toLocaleString()}.` });
+      toast({ title: "Appointment Scheduled", description: `Visit on ${new Date(appt.scheduled_time).toLocaleString()}.` });
       setShowNurseScheduleModal(false);
       setNurseScheduleForm({ selectedChwId: "", motherId: "", scheduledTime: undefined, appointmentType: "prenatal_checkup", notes: "", recurrence: "none" });
       setMothersForSelectedChw([]);
@@ -810,7 +810,7 @@ export function EnhancedNurseDashboard({ isFirstLogin = false }: NurseDashboardP
                     <CardContent className="p-4 text-center">
                       <p className="text-xs text-amber-600 mb-1">Temperature</p>
                       <p className="text-2xl font-bold text-amber-700">{selectedCase.vitals.temperature}</p>
-                      <p className="text-xs text-amber-500">Â°C</p>
+                      <p className="text-xs text-amber-500">C</p>
                     </CardContent>
                   </Card>
                 </div>
@@ -1465,7 +1465,7 @@ export function EnhancedNurseDashboard({ isFirstLogin = false }: NurseDashboardP
                <div>
                   <h3 className="text-xl font-bold flex items-center gap-2">
                     {showHiddenNurseEscalations ? (
-                      <><Clock className="h-5 w-5 text-blue-600" /> Recently Hidden Escalations</>
+                       <><Clock className="h-5 w-5 text-blue-600" /> Recently Deleted Escalations</>
                     ) : (
                       <><AlertTriangle className="h-5 w-5 text-red-600" /> Recently Escalated</>
                     )}
@@ -1542,7 +1542,7 @@ export function EnhancedNurseDashboard({ isFirstLogin = false }: NurseDashboardP
                 <div className="bg-white p-3 rounded-full w-fit mx-auto shadow-sm mb-4">
                    {showHiddenNurseEscalations ? <CalendarX className="h-8 w-8 text-muted-foreground" /> : <CheckCircle2 className="h-12 w-12 text-green-500" />}
                 </div>
-                <h3 className="text-lg font-medium mb-2">{showHiddenNurseEscalations ? "No Hidden Escalations" : "No Cases Found"}</h3>
+                <h3 className="text-lg font-medium mb-2">{showHiddenNurseEscalations ? "No Deleted Escalations" : "No Cases Found"}</h3>
                 <p className="text-muted-foreground">
                   {showHiddenNurseEscalations ? "Your recycle bin is empty." : "All escalated cases have been handled. Great work!"}
                 </p>
@@ -1571,7 +1571,7 @@ export function EnhancedNurseDashboard({ isFirstLogin = false }: NurseDashboardP
                                 {getStatusBadge(caseItem.status)}
                               </div>
                               <p className="text-sm text-muted-foreground mt-1">
-                                {caseItem.weeksPregnant || '28'} weeks â€¢ {caseItem.location || 'Kibera'}
+                                {caseItem.weeksPregnant || '28'} weeks | {caseItem.location || 'Kibera'}
                               </p>
                             </div>
                             <Badge className={showHiddenNurseEscalations ? "bg-gray-400" : getPriorityColor(caseItem.priority)}>
@@ -1616,38 +1616,37 @@ export function EnhancedNurseDashboard({ isFirstLogin = false }: NurseDashboardP
                                     <ChevronRight className="h-4 w-4 ml-1" />
                                   </Button>
                                   {isWithin15Min(caseItem.escalatedAt) && (
-                                    <>
-                                      <Button
-                                        size="sm"
-                                        variant="outline"
-                                        className="text-xs border-blue-200 text-blue-700 hover:bg-blue-50"
-                                        onClick={(e) => {
-                                          e.stopPropagation();
-                                          setEditEscalId(caseItem.id);
-                                          setEditEscalForm({
-                                            description: caseItem.issue,
-                                            priority: caseItem.priority,
-                                            notes: caseItem.notes || '',
-                                            issueType: caseItem.issueType,
-                                          });
-                                          setEditEscalOpen(true);
-                                        }}
-                                      >
-                                        Edit
-                                      </Button>
-                                      <Button
-                                        size="sm"
-                                        variant="outline"
-                                        className="text-xs border-red-300 text-red-700 hover:bg-red-50"
-                                        onClick={(e) => {
-                                          e.stopPropagation();
-                                          setDeleteEscalConfirm(caseItem.id);
-                                        }}
-                                      >
-                                        Delete
-                                      </Button>
-                                    </>
+                                    <Button
+                                      size="sm"
+                                      variant="outline"
+                                      className="text-xs border-blue-200 text-blue-700 hover:bg-blue-50"
+                                      onClick={(e) => {
+                                        e.stopPropagation();
+                                        setEditEscalId(caseItem.id);
+                                        setEditEscalForm({
+                                          description: caseItem.issue,
+                                          priority: caseItem.priority,
+                                          notes: caseItem.notes || '',
+                                          issueType: caseItem.issueType,
+                                        });
+                                        setEditEscalOpen(true);
+                                      }}
+                                    >
+                                      Edit
+                                    </Button>
                                   )}
+                                  <Button
+                                    variant="ghost"
+                                    size="icon"
+                                    className="h-8 w-8 text-red-500 hover:text-red-700 hover:bg-red-50"
+                                    onClick={(e) => {
+                                      e.stopPropagation();
+                                      setDeleteEscalConfirm(caseItem.id);
+                                    }}
+                                    title="Delete from dashboard"
+                                  >
+                                    <Trash2 className="h-4 w-4" />
+                                  </Button>
                                 </>
                               )}
                             </div>
@@ -1667,7 +1666,7 @@ export function EnhancedNurseDashboard({ isFirstLogin = false }: NurseDashboardP
               <div>
                 <h3 className="font-bold text-xl flex items-center gap-2">
                   {showHiddenNurseAppointments ? (
-                     <><Clock className="h-5 w-5 text-blue-600" /> Recently Hidden Visits</>
+                     <><Clock className="h-5 w-5 text-blue-600" /> Recently Deleted Visits</>
                   ) : (
                     <><CalendarCheck className="h-5 w-5 text-blue-600" /> Scheduled Visits</>
                   )}
@@ -1763,78 +1762,88 @@ export function EnhancedNurseDashboard({ isFirstLogin = false }: NurseDashboardP
                             )}
                           </div>
                           <div className="flex-1">
-                            <div className="flex items-start justify-between">
+                            <div className="flex items-start justify-between gap-2">
                               <div>
                                 <p className="font-medium capitalize">{appt.appointment_type?.replace(/_/g, ' ')}</p>
                                 <p className="text-sm text-muted-foreground">
                                   {new Date(appt.scheduled_time).toLocaleString('en-KE', { dateStyle: 'medium', timeStyle: 'short' })}
                                 </p>
-                                {appt.recurrence_rule && appt.recurrence_rule !== 'none' && (
-                                  <p className="text-xs text-purple-600 mt-0.5">â†» {appt.recurrence_rule}</p>
-                                )}
-                                {appt.notes && (
-                                  <p className="text-xs text-muted-foreground mt-1 line-clamp-2">{appt.notes}</p>
+                              </div>
+                              <div className="flex items-center gap-2">
+                                <Badge variant="outline" className={`text-xs ${
+                                  isScheduled ? 'bg-purple-50 text-purple-700 border-purple-200' :
+                                  isCompleted ? 'bg-green-50 text-green-700 border-green-200' :
+                                  'bg-gray-50 text-gray-500 border-gray-200'
+                                }`}>
+                                  {appt.status}
+                                </Badge>
+                                {!showHiddenNurseAppointments && (
+                                  <Button
+                                    variant="ghost"
+                                    size="icon"
+                                    className="h-8 w-8 text-red-500 hover:text-red-700 hover:bg-red-50"
+                                    onClick={() => setDeleteApptConfirm(appt.id)}
+                                    title="Delete from dashboard"
+                                    aria-label="Delete appointment from dashboard"
+                                  >
+                                    <Trash2 className="h-4 w-4" />
+                                  </Button>
                                 )}
                               </div>
-                              <Badge variant="outline" className={`text-xs ${
-                                isScheduled ? 'bg-purple-50 text-purple-700 border-purple-200' :
-                                isCompleted ? 'bg-green-50 text-green-700 border-green-200' :
-                                'bg-gray-50 text-gray-500 border-gray-200'
-                              }`}>
-                                {appt.status}
-                              </Badge>
                             </div>
-                            {isScheduled && !showHiddenNurseAppointments && (
+
+                            {appt.recurrence_rule && appt.recurrence_rule !== 'none' && (
+                              <p className="text-xs text-purple-600 mt-1">Repeats: {appt.recurrence_rule}</p>
+                            )}
+                            {appt.notes && (
+                              <p className="text-xs text-muted-foreground mt-1 line-clamp-2">{appt.notes}</p>
+                            )}
+
+                            {!showHiddenNurseAppointments && (
                               <div className="flex gap-2 mt-3 flex-wrap">
-                                <Button
-                                  size="sm"
-                                  variant="outline"
-                                  className="text-green-700 border-green-200 hover:bg-green-50"
-                                  onClick={async () => {
-                                    await appointmentService.updateStatus(appt.id, 'completed');
-                                    setNurseAppointments(prev => prev.map(a => a.id === appt.id ? { ...a, status: 'completed' } : a));
-                                  }}
-                                >
-                                  <CalendarCheck className="h-3 w-3 mr-1" /> Mark Completed
-                                </Button>
-                                <Button
-                                  size="sm"
-                                  variant="outline"
-                                  className="text-red-600 border-red-200 hover:bg-red-50"
-                                  onClick={async () => {
-                                    await appointmentService.updateStatus(appt.id, 'cancelled');
-                                    setNurseAppointments(prev => prev.map(a => a.id === appt.id ? { ...a, status: 'cancelled' } : a));
-                                  }}
-                                >
-                                  <CalendarX className="h-3 w-3 mr-1" /> Cancel
-                                </Button>
-                                {isWithin15Min(appt.created_at) && (
+                                {isScheduled && (
                                   <>
                                     <Button
                                       size="sm"
                                       variant="outline"
-                                      className="text-xs border-blue-200 text-blue-700 hover:bg-blue-50"
-                                      onClick={() => {
-                                        setEditApptId(appt.id);
-                                        setEditApptForm({
-                                          scheduledTime: appt.scheduled_time ? new Date(appt.scheduled_time) : undefined,
-                                          notes: appt.notes || '',
-                                          appointmentType: appt.appointment_type || 'prenatal_checkup',
-                                        });
-                                        setEditApptOpen(true);
+                                      className="text-green-700 border-green-200 hover:bg-green-50"
+                                      onClick={async () => {
+                                        await appointmentService.updateStatus(appt.id, 'completed');
+                                        setNurseAppointments(prev => prev.map(a => a.id === appt.id ? { ...a, status: 'completed' } : a));
                                       }}
                                     >
-                                      Edit
+                                      <CalendarCheck className="h-3 w-3 mr-1" /> Mark Completed
                                     </Button>
                                     <Button
                                       size="sm"
                                       variant="outline"
-                                      className="text-xs border-red-300 text-red-700 hover:bg-red-50"
-                                      onClick={() => setDeleteApptConfirm(appt.id)}
+                                      className="text-red-600 border-red-200 hover:bg-red-50"
+                                      onClick={async () => {
+                                        await appointmentService.updateStatus(appt.id, 'cancelled');
+                                        setNurseAppointments(prev => prev.map(a => a.id === appt.id ? { ...a, status: 'cancelled' } : a));
+                                      }}
                                     >
-                                      Hide
+                                      <CalendarX className="h-3 w-3 mr-1" /> Cancel
                                     </Button>
                                   </>
+                                )}
+                                {isWithin15Min(appt.created_at) && (
+                                  <Button
+                                    size="sm"
+                                    variant="outline"
+                                    className="text-xs border-blue-200 text-blue-700 hover:bg-blue-50"
+                                    onClick={() => {
+                                      setEditApptId(appt.id);
+                                      setEditApptForm({
+                                        scheduledTime: appt.scheduled_time ? new Date(appt.scheduled_time) : undefined,
+                                        notes: appt.notes || '',
+                                        appointmentType: appt.appointment_type || 'prenatal_checkup',
+                                      });
+                                      setEditApptOpen(true);
+                                    }}
+                                  >
+                                    Edit
+                                  </Button>
                                 )}
                               </div>
                             )}
@@ -1842,8 +1851,7 @@ export function EnhancedNurseDashboard({ isFirstLogin = false }: NurseDashboardP
                               <div className="flex gap-2 mt-3">
                                 <Button
                                   size="sm"
-                                  variant="outline"
-                                  className="text-green-700 border-green-200 hover:bg-green-50"
+                                  className="bg-blue-600 hover:bg-blue-700"
                                   onClick={async () => {
                                     try {
                                       await appointmentService.restoreDeleted(appt.id);
@@ -1854,6 +1862,7 @@ export function EnhancedNurseDashboard({ isFirstLogin = false }: NurseDashboardP
                                     }
                                   }}
                                 >
+                                  <PlusCircle className="h-4 w-4 mr-2" />
                                   Restore
                                 </Button>
                               </div>
@@ -1960,11 +1969,11 @@ export function EnhancedNurseDashboard({ isFirstLogin = false }: NurseDashboardP
                         <div className="flex items-center justify-between mt-3">
                           <div className="text-sm text-muted-foreground">
                             <span>By {resource.author}</span>
-                            <span className="mx-2">â€¢</span>
+                            <span className="mx-2">|</span>
                             <span>{new Date(resource.date).toLocaleDateString()}</span>
                             {resource.duration && (
                               <>
-                                <span className="mx-2">â€¢</span>
+                                <span className="mx-2">|</span>
                                 <span>{resource.duration}</span>
                               </>
                             )}

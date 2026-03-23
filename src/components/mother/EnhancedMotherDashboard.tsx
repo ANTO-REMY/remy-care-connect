@@ -42,7 +42,7 @@ const dailyNutritionTips = [
     description: "Start your day with iron-fortified oatmeal topped with sliced bananas and a handful of almonds.",
     calories: "350 kcal",
     nutrients: ["Iron", "Fiber", "Potassium"],
-    image: "ðŸ¥£",
+    image: "[BREAKFAST]",
     time: "7:00 AM"
   },
   {
@@ -52,7 +52,7 @@ const dailyNutritionTips = [
     description: "Calcium-rich Greek yogurt with berries and a drizzle of honey for sustained energy.",
     calories: "200 kcal",
     nutrients: ["Calcium", "Protein", "Antioxidants"],
-    image: "ðŸ¥›",
+    image: "[SNACK]",
     time: "10:00 AM"
   },
   {
@@ -62,7 +62,7 @@ const dailyNutritionTips = [
     description: "Omega-3 rich salmon with quinoa and steamed vegetables for brain development.",
     calories: "450 kcal",
     nutrients: ["Omega-3", "Protein", "Folate"],
-    image: "ðŸŸ",
+    image: "[LUNCH]",
     time: "1:00 PM"
   },
   {
@@ -72,7 +72,7 @@ const dailyNutritionTips = [
     description: "Whole grain toast with mashed avocado and a sprinkle of chia seeds.",
     calories: "250 kcal",
     nutrients: ["Healthy Fats", "Fiber", "Vitamin E"],
-    image: "ðŸ¥‘",
+    image: "[AVOCADO]",
     time: "4:00 PM"
   },
   {
@@ -82,18 +82,18 @@ const dailyNutritionTips = [
     description: "Protein-packed chicken breast with roasted sweet potatoes and green beans.",
     calories: "400 kcal",
     nutrients: ["Protein", "Vitamin A", "Iron"],
-    image: "ðŸ—",
+    image: "[DINNER]",
     time: "7:00 PM"
   }
 ];
 
 // Mock reminders data
 const dailyReminders = [
-  { id: 1, title: "Take Prenatal Vitamins", time: "8:00 AM", completed: true, type: "medication", icon: "ðŸ’Š" },
-  { id: 2, title: "Drink 8 glasses of water", time: "Throughout day", completed: false, type: "hydration", icon: "ðŸ’§" },
-  { id: 3, title: "30-minute walk", time: "5:00 PM", completed: false, type: "exercise", icon: "ðŸš¶â€â™€ï¸" },
-  { id: 4, title: "Daily check-in", time: "9:00 PM", completed: false, type: "health", icon: "âœ…" },
-  { id: 5, title: "Read pregnancy article", time: "Anytime", completed: false, type: "education", icon: "ðŸ“š" },
+  { id: 1, title: "Take Prenatal Vitamins", time: "8:00 AM", completed: true, type: "medication", icon: "MED" },
+  { id: 2, title: "Drink 8 glasses of water", time: "Throughout day", completed: false, type: "hydration", icon: "H2O" },
+  { id: 3, title: "30-minute walk", time: "5:00 PM", completed: false, type: "exercise", icon: "WALK" },
+  { id: 4, title: "Daily check-in", time: "9:00 PM", completed: false, type: "health", icon: "CHECK" },
+  { id: 5, title: "Read pregnancy article", time: "Anytime", completed: false, type: "education", icon: "READ" },
 ];
 
 // Mock articles data
@@ -304,7 +304,7 @@ export function EnhancedMotherDashboard({ isFirstLogin = false }: MotherDashboar
         notes: motherScheduleForm.notes.trim() || undefined,
       });
       setAppointments(prev => [appt, ...prev]);
-      toast({ title: "Appointment Requested âœ“", description: `Visit on ${new Date(appt.scheduled_time).toLocaleString()}.` });
+      toast({ title: "Appointment Requested", description: `Visit on ${new Date(appt.scheduled_time).toLocaleString()}.` });
       setShowMotherScheduleModal(false);
       setMotherScheduleForm({ scheduledTime: undefined, appointmentType: 'prenatal_checkup', notes: '' });
     } catch (err: unknown) {
@@ -375,7 +375,7 @@ export function EnhancedMotherDashboard({ isFirstLogin = false }: MotherDashboar
       setCheckInSelected(null);
       setCheckInComment('');
       toast({
-        title: checkInSelected === 'ok' ? "Check-in recorded âœ“" : "Check-in Recorded",
+        title: checkInSelected === 'ok' ? "Check-in recorded" : "Check-in Recorded",
         description: checkInSelected === 'ok'
           ? "Great! Keep taking care of yourself."
           : "Your CHW has been notified and will contact you soon.",
@@ -397,7 +397,7 @@ export function EnhancedMotherDashboard({ isFirstLogin = false }: MotherDashboar
       setWaterIntake(prev => prev + 1);
       if (waterIntake + 1 === 8) {
         toast({
-          title: "Goal Reached! ðŸŽ‰",
+          title: "Goal Reached!",
           description: "You've reached your daily water intake goal!",
         });
       }
@@ -535,9 +535,9 @@ export function EnhancedMotherDashboard({ isFirstLogin = false }: MotherDashboar
                 </DialogTitle>
                 <DialogDescription className="flex items-center gap-4 text-sm">
                   <span>By {selectedArticle.author}</span>
-                  <span>â€¢</span>
+                  <span>|</span>
                   <span>{selectedArticle.date}</span>
-                  <span>â€¢</span>
+                  <span>|</span>
                   <span className="flex items-center gap-1">
                     <Clock className="h-3 w-3" />
                     {selectedArticle.readTime}
@@ -764,7 +764,7 @@ export function EnhancedMotherDashboard({ isFirstLogin = false }: MotherDashboar
             <span className="text-muted-foreground">{greeting.text}</span>
           </div>
           <h2 className="text-3xl font-bold text-foreground mb-2">
-            {user?.first_name || 'Mom'}! ðŸ‘‹
+            {user?.first_name || 'Mom'}!
           </h2>
           <p className="text-muted-foreground">
             You're doing amazing! Let's make today count for you and your baby.
@@ -1002,7 +1002,7 @@ export function EnhancedMotherDashboard({ isFirstLogin = false }: MotherDashboar
                         <div className="flex items-center gap-2 text-xs text-muted-foreground">
                           <Clock className="h-3 w-3" />
                           {article.readTime}
-                          {article.duration && <span>â€¢ {article.duration}</span>}
+                          {article.duration && <span>| {article.duration}</span>}
                         </div>
                       </CardContent>
                     </Card>
@@ -1090,7 +1090,6 @@ export function EnhancedMotherDashboard({ isFirstLogin = false }: MotherDashboar
                 <span className="text-muted-foreground">Loading appointments...</span>
               </div>
             ) : ((showHiddenAppointments ? hiddenAppointments : appointments).length === 0) ? (
-              /* Empty state â€” show mock demo appointment so UI never looks broken */
               <div className="space-y-3">
                 <Card className="border-dashed border-2 border-primary/30 bg-primary/5">
                   <CardContent className="p-4 text-center">
@@ -1105,64 +1104,6 @@ export function EnhancedMotherDashboard({ isFirstLogin = false }: MotherDashboar
                     )}
                   </CardContent>
                 </Card>
-
-                {/* Demo appointment card */}
-                {!showHiddenAppointments && [
-                  {
-                    id: "demo-1",
-                    title: "Prenatal Checkup",
-                    worker: "Your Nurse",
-                    time: "Tomorrow, 10:00 AM",
-                    status: "scheduled",
-                    notes: "Bring your antenatal card.",
-                    type: "checkup",
-                  },
-                  {
-                    id: "demo-2",
-                    title: "Routine Home Visit",
-                    worker: "Your CHW",
-                    time: "Friday, 2:00 PM",
-                    status: "scheduled",
-                    notes: "CHW will check vitals and answer questions.",
-                    type: "visit",
-                  },
-                ].map((appt) => (
-                  <Card key={appt.id} className="opacity-60">
-                    <CardContent className="p-4">
-                      <div className="flex items-start gap-4">
-                        <div className={`p-3 rounded-xl ${appt.type === 'checkup' ? 'bg-purple-100' : 'bg-blue-100'}`}>
-                          {appt.type === 'checkup'
-                            ? <Activity className="h-5 w-5 text-purple-600" />
-                            : <Heart className="h-5 w-5 text-blue-600" />
-                          }
-                        </div>
-                        <div className="flex-1">
-                          <div className="flex items-center justify-between">
-                            <h4 className="font-medium">{appt.title}</h4>
-                            <Badge variant="outline" className="bg-green-50 text-green-700 border-green-200 text-xs">
-                              {appt.status}
-                            </Badge>
-                          </div>
-                          <p className="text-sm text-muted-foreground mt-1">{appt.worker}</p>
-                          <div className="flex items-center gap-1 mt-1 text-sm text-muted-foreground">
-                            <Clock className="h-3 w-3" />
-                            <span>{appt.time}</span>
-                          </div>
-                          {appt.notes && (
-                            <p className="text-xs text-muted-foreground mt-2 bg-gray-50 p-2 rounded">
-                              ðŸ“‹ {appt.notes}
-                            </p>
-                          )}
-                        </div>
-                      </div>
-                    </CardContent>
-                  </Card>
-                ))}
-                {!showHiddenAppointments && (
-                  <p className="text-center text-xs text-muted-foreground italic">
-                    Sample appointments shown above â€” real appointments will appear here once scheduled.
-                  </p>
-                )}
               </div>
             ) : (
               /* Real appointments from API */
@@ -1219,12 +1160,13 @@ export function EnhancedMotherDashboard({ isFirstLogin = false }: MotherDashboar
                                 >
                                   {appt.status}
                                 </Badge>
-                                {isScheduled && !showHiddenAppointments && (
+                                {!showHiddenAppointments && (
                                   <Button
                                     variant="ghost"
                                     size="icon"
                                     className="h-7 w-7 text-red-400 hover:text-red-600 hover:bg-red-50"
                                     onClick={() => setDeleteApptConfirm(appt.id)}
+                                    title="Delete from dashboard"
                                   >
                                     <Trash2 className="h-4 w-4" />
                                   </Button>
@@ -1238,6 +1180,7 @@ export function EnhancedMotherDashboard({ isFirstLogin = false }: MotherDashboar
                                       try {
                                         await appointmentService.restoreDeleted(appt.id);
                                         setHiddenAppointments(prev => prev.filter(a => a.id !== appt.id));
+                                        await refreshData();
                                         toast({ title: 'Appointment Restored' });
                                       } catch (err: unknown) {
                                         toast({ title: 'Error', description: (err as Error).message || 'Could not restore appointment.', variant: 'destructive' });
@@ -1251,15 +1194,15 @@ export function EnhancedMotherDashboard({ isFirstLogin = false }: MotherDashboar
                             </div>
                             {appt.notes && (
                               <p className="text-xs text-muted-foreground mt-2 bg-gray-50 p-2 rounded-md">
-                                ðŸ“‹ {appt.notes}
+                                Note: {appt.notes}
                               </p>
                             )}
                             <div className="flex flex-wrap items-center gap-2 mt-2">
                               {appt.escalated && (
-                                <Badge className="bg-red-100 text-red-700 text-xs">âš  Escalated</Badge>
+                                <Badge className="bg-red-100 text-red-700 text-xs">Escalated</Badge>
                               )}
                               {appt.recurrence_rule && appt.recurrence_rule !== 'none' && (
-                                <span className="text-xs text-purple-600">â†º {appt.recurrence_rule}</span>
+                                <span className="text-xs text-purple-600">Repeats: {appt.recurrence_rule}</span>
                               )}
                             </div>
                           </div>
@@ -1332,19 +1275,19 @@ export function EnhancedMotherDashboard({ isFirstLogin = false }: MotherDashboar
               <CardContent>
                 <ul className="space-y-2 text-sm">
                   <li className="flex items-start gap-2">
-                    <span className="text-green-500 mt-0.5">âœ“</span>
+                    <span className="text-green-500 mt-0.5">OK</span>
                     <span>Stay hydrated - aim for 8-10 glasses of water daily</span>
                   </li>
                   <li className="flex items-start gap-2">
-                    <span className="text-green-500 mt-0.5">âœ“</span>
+                    <span className="text-green-500 mt-0.5">OK</span>
                     <span>Include protein in every meal for baby's growth</span>
                   </li>
                   <li className="flex items-start gap-2">
-                    <span className="text-green-500 mt-0.5">âœ“</span>
+                    <span className="text-green-500 mt-0.5">OK</span>
                     <span>Choose whole grains over refined carbohydrates</span>
                   </li>
                   <li className="flex items-start gap-2">
-                    <span className="text-green-500 mt-0.5">âœ“</span>
+                    <span className="text-green-500 mt-0.5">OK</span>
                     <span>Take your prenatal vitamins with food</span>
                   </li>
                 </ul>
@@ -1423,7 +1366,7 @@ export function EnhancedMotherDashboard({ isFirstLogin = false }: MotherDashboar
                     <div className="flex items-center justify-between text-xs text-muted-foreground">
                       <div className="flex items-center gap-2">
                         <span>{article.author}</span>
-                        <span>â€¢</span>
+                        <span>|</span>
                         <span className="flex items-center gap-1">
                           <Clock className="h-3 w-3" />
                           {article.readTime}

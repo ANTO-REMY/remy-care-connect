@@ -5,7 +5,7 @@ import {
   X, User, LogOut, Search, Filter, MapPin, TrendingUp, Activity, ArrowLeft,
   Heart, Baby, Clock, ChevronRight, MoreHorizontal, FileText,
   Video, Download, Share2, Bell, Settings, BarChart3, Stethoscope,
-  ClipboardList, ArrowUpRight, ArrowDownRight, Sparkles, Star, Camera,
+  ClipboardList, ArrowUpRight, ArrowDownRight, Sparkles, Star, Camera, Trash2,
   PlusCircle, Plus, CalendarCheck, CalendarX, Loader2, AlertCircle
 } from "lucide-react";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle, CardFooter } from "@/components/ui/card";
@@ -148,7 +148,7 @@ const educationalMaterials = [
     size: "2.3 MB",
     category: "Nutrition",
     downloads: 156,
-    thumbnail: "ðŸ¥—"
+    thumbnail: "[NUTRITION]"
   },
   {
     id: 2,
@@ -157,7 +157,7 @@ const educationalMaterials = [
     size: "1.8 MB",
     category: "Safety",
     downloads: 234,
-    thumbnail: "âš ï¸"
+    thumbnail: "[ALERT]"
   },
   {
     id: 3,
@@ -166,7 +166,7 @@ const educationalMaterials = [
     size: "45 MB",
     category: "Wellness",
     downloads: 89,
-    thumbnail: "ðŸ§˜â€â™€ï¸",
+    thumbnail: "[EXERCISE]",
     duration: "12:30"
   },
   {
@@ -176,7 +176,7 @@ const educationalMaterials = [
     size: "3.1 MB",
     category: "Postpartum",
     downloads: 178,
-    thumbnail: "ðŸ‘¶"
+    thumbnail: "[BABY]"
   },
   {
     id: 5,
@@ -185,7 +185,7 @@ const educationalMaterials = [
     size: "28 MB",
     category: "Breastfeeding",
     downloads: 267,
-    thumbnail: "ðŸ¤±",
+    thumbnail: "[CARE]",
     duration: "18:45"
   },
 ];
@@ -252,6 +252,9 @@ export function EnhancedCHWDashboard({ isFirstLogin = false }: CHWDashboardProps
   // Live check-in feed
   const [recentCheckIns, setRecentCheckIns] = useState<CheckIn[]>([]);
   const [checkInsLoading, setCheckInsLoading] = useState(false);
+  const [hiddenCheckIns, setHiddenCheckIns] = useState<CheckIn[]>([]);
+  const [hiddenCheckInsLoading, setHiddenCheckInsLoading] = useState(false);
+  const [showHiddenCheckIns, setShowHiddenCheckIns] = useState(false);
   const [checkInToEscalate, setCheckInToEscalate] = useState<CheckIn | null>(null);
   const [showEscalateFromCheckinDialog, setShowEscalateFromCheckinDialog] = useState(false);
   // 15-min CRUD â€“ appointments
@@ -284,7 +287,7 @@ export function EnhancedCHWDashboard({ isFirstLogin = false }: CHWDashboardProps
     name: m.name,
     phone_number: m.phone ?? "",
     status: "ok" as "ok" | "not_ok" | "no_response",
-    last_check_in: m.assigned_at ? new Date(m.assigned_at).toLocaleDateString() : "â€”",
+    last_check_in: m.assigned_at ? new Date(m.assigned_at).toLocaleDateString() : "-",
     weeks_pregnant: 0,
     location: m.location ?? "Unknown",
     due_date: "",
@@ -343,6 +346,8 @@ export function EnhancedCHWDashboard({ isFirstLogin = false }: CHWDashboardProps
 
   // Appointment filtering: separate by creator
   const sourceAppointments = showHiddenAppointments ? hiddenAppointments : appointments;
+
+  const displayedCheckIns = showHiddenCheckIns ? hiddenCheckIns : recentCheckIns;
 
   const appointmentsScheduledByMe = sourceAppointments.filter(
     appt => appt.created_by_user_id === user?.id
@@ -419,7 +424,7 @@ export function EnhancedCHWDashboard({ isFirstLogin = false }: CHWDashboardProps
             ...(prev ?? []),
           ] as typeof mockEscalatedCases);
           toast({
-            title: "Case Escalated âœ“",
+            title: "Case Escalated",
             description: `Case for ${created.mother_name} sent to nurse successfully.`,
           });
         } catch (err: unknown) {
@@ -509,6 +514,19 @@ export function EnhancedCHWDashboard({ isFirstLogin = false }: CHWDashboardProps
     }
   }, [user, toast]);
 
+  const loadHiddenCheckIns = useCallback(async () => {
+    if (!chwProfileIdRef.current) return;
+    setHiddenCheckInsLoading(true);
+    try {
+      const resp = await checkinService.listForCHWWithDeleted(chwProfileIdRef.current, { deleted_only: true });
+      setHiddenCheckIns(resp.checkins);
+    } catch (err: unknown) {
+      toast({ title: 'Could not load deleted check-ins', description: (err as Error).message, variant: 'destructive' });
+    } finally {
+      setHiddenCheckInsLoading(false);
+    }
+  }, [toast]);
+
   const loadHiddenEscalations = useCallback(async () => {
     if (!chwProfileIdRef.current) return;
     setHiddenEscalationsLoading(true);
@@ -524,9 +542,9 @@ export function EnhancedCHWDashboard({ isFirstLogin = false }: CHWDashboardProps
         issue: e.case_description,
         issueType: e.issue_type ?? e.case_description,
         escalatedAt: e.created_at,
-        status: e.status as 'pending' | 'in_progress' | 'resolved' | 'rejected',
-        priority: e.priority as 'low' | 'medium' | 'high' | 'critical',
-        notes: e.notes ?? '',
+        status: e.status as "pending" | "in_progress" | "resolved" | "rejected",
+        priority: e.priority as "low" | "medium" | "high" | "critical",
+        notes: e.notes ?? "",
       }));
       setHiddenEscalations(mapped as typeof mockEscalatedCases);
     } catch (err: unknown) {
@@ -586,6 +604,35 @@ export function EnhancedCHWDashboard({ isFirstLogin = false }: CHWDashboardProps
     } catch { /* ignore */ }
   }, [user]);
 
+  const handleDeleteCheckInCard = useCallback(async (checkInId: number) => {
+    try {
+      await checkinService.softDelete(checkInId, 'deleted_by_chw_dashboard');
+      setRecentCheckIns(prev => prev.filter(ci => ci.id !== checkInId));
+      toast({
+        title: 'Check-in Card Deleted',
+        description: 'This check-in was removed from your dashboard feed.',
+      });
+    } catch (err: unknown) {
+      toast({
+        title: 'Delete Failed',
+        description: (err as Error).message || 'Could not delete check-in card.',
+        variant: 'destructive',
+      });
+    }
+  }, [toast]);
+
+  const handleRestoreCheckIn = useCallback(async (checkInId: number) => {
+    try {
+      await checkinService.restore(checkInId);
+      setHiddenCheckIns(prev => prev.filter(ci => ci.id !== checkInId));
+      await refreshData();
+      setShowHiddenCheckIns(false);
+      toast({ title: "Check-in Restored", description: "This card is back in your live feed." });
+    } catch (err: unknown) {
+      toast({ title: "Restore Failed", description: (err as Error).message, variant: "destructive" });
+    }
+  }, [refreshData, toast]);
+
   const handleRestoreEscalation = useCallback(async (id: number) => {
     try {
       await escalationService.restoreDeleted(id);
@@ -618,6 +665,17 @@ export function EnhancedCHWDashboard({ isFirstLogin = false }: CHWDashboardProps
     }
   }, { enabled: chwProfileId !== null });
   useSocket<CheckIn>('checkin:new', (ci) => setRecentCheckIns(prev => [ci, ...prev]), { enabled: chwProfileId !== null });
+  useSocket<{ id: number; user_id: number }>('checkin:deleted', ({ id, user_id }) => {
+    if (user_id === user?.id) {
+      setRecentCheckIns(prev => prev.filter(ci => ci.id !== id));
+    }
+  }, { enabled: chwProfileId !== null });
+  useSocket<{ id: number; user_id: number }>('checkin:restored', ({ id, user_id }) => {
+    if (user_id === user?.id) {
+      refreshData(); // Easiest way to get it back in the list
+    }
+  }, { enabled: chwProfileId !== null });
+
   // Escalation payloads use the raw API shape; trigger a full refresh instead of direct state patch
   useSocket('escalation:created', () => refreshData(), { enabled: chwProfileId !== null });
   useSocket('escalation:updated', () => refreshData(), { enabled: chwProfileId !== null });
@@ -773,7 +831,7 @@ export function EnhancedCHWDashboard({ isFirstLogin = false }: CHWDashboardProps
                     <DialogDescription className="flex items-center gap-2 mt-1">
                       <MapPin className="h-4 w-4" />
                       {selectedMother.location}
-                      <span>â€¢</span>
+                      <span>|</span>
                       <span>{selectedMother.phone_number}</span>
                     </DialogDescription>
                     <div className="flex items-center gap-2 mt-2">
@@ -961,10 +1019,10 @@ export function EnhancedCHWDashboard({ isFirstLogin = false }: CHWDashboardProps
                   <SelectValue placeholder="Priority level" />
                 </SelectTrigger>
                 <SelectContent>
-                  <SelectItem value="critical">ðŸ”´ Critical</SelectItem>
-                  <SelectItem value="high">ðŸŸ  High</SelectItem>
-                  <SelectItem value="medium">ðŸŸ¡ Medium</SelectItem>
-                  <SelectItem value="low">ðŸŸ¢ Low</SelectItem>
+                  <SelectItem value="critical">Critical</SelectItem>
+                  <SelectItem value="high">High</SelectItem>
+                  <SelectItem value="medium">Medium</SelectItem>
+                  <SelectItem value="low">Low</SelectItem>
                 </SelectContent>
               </Select>
             </div>
@@ -1265,13 +1323,31 @@ export function EnhancedCHWDashboard({ isFirstLogin = false }: CHWDashboardProps
         <DialogContent className="max-w-sm">
           <DialogHeader>
             <DialogTitle className="flex items-center gap-2 text-red-600">
-              <AlertCircle className="h-5 w-5" />Remove Escalation From Your Dashboard?
+              <AlertCircle className="h-5 w-5" />Delete Escalation?
             </DialogTitle>
-            <DialogDescription>You can restore this within 15 days from the Recently Deleted section.</DialogDescription>
+            <DialogDescription>This will permanently remove the escalation and cannot be undone.</DialogDescription>
           </DialogHeader>
           <div className="flex gap-3 pt-2">
-            <Button variant="destructive" className="flex-1" disabled={deleteEscalSubmitting} onClick={async () => { if (!deleteEscalConfirm) return; setDeleteEscalSubmitting(true); try { await escalationService.softDelete(deleteEscalConfirm, 'deleted_by_chw_dashboard'); setRealEscalations(prev => prev ? prev.filter(e => e.id !== deleteEscalConfirm) : prev); setDeleteEscalConfirm(null); toast({ title: 'Escalation Hidden', description: 'Restorable for 15 days in Recently Hidden.' }); } catch (err) { toast({ title: 'Error', description: (err as Error).message, variant: 'destructive' }); } finally { setDeleteEscalSubmitting(false); } }}>
-              {deleteEscalSubmitting ? <><Loader2 className="h-4 w-4 mr-2 animate-spin" />Removing...</> : 'Yes, Remove'}
+            <Button
+              variant="destructive"
+              className="flex-1"
+              disabled={deleteEscalSubmitting}
+              onClick={async () => {
+                if (!deleteEscalConfirm) return;
+                setDeleteEscalSubmitting(true);
+                try {
+                  await escalationService.delete(deleteEscalConfirm);
+                  setRealEscalations(prev => prev ? prev.filter(e => e.id !== deleteEscalConfirm) : prev);
+                  setDeleteEscalConfirm(null);
+                  toast({ title: "Escalation Deleted" });
+                } catch (err: unknown) {
+                  toast({ title: "Error", description: (err as Error).message, variant: "destructive" });
+                } finally {
+                  setDeleteEscalSubmitting(false);
+                }
+              }}
+            >
+              {deleteEscalSubmitting ? <><Loader2 className="h-4 w-4 mr-2 animate-spin" />Deleting...</> : 'Yes, Delete'}
             </Button>
             <Button variant="outline" className="flex-1" onClick={() => setDeleteEscalConfirm(null)} disabled={deleteEscalSubmitting}>Cancel</Button>
           </div>
@@ -1393,7 +1469,7 @@ export function EnhancedCHWDashboard({ isFirstLogin = false }: CHWDashboardProps
                 }
               }}
             >
-              {deleteEscalSubmitting ? <><Loader2 className="h-4 w-4 mr-2 animate-spin" />Deleting...</> : "Yes, Delete"}
+              {deleteEscalSubmitting ? <><Loader2 className="h-4 w-4 mr-2 animate-spin" />Deleting...</> : 'Yes, Delete'}
             </Button>
             <Button variant="outline" className="flex-1" onClick={() => setDeleteEscalConfirm(null)} disabled={deleteEscalSubmitting}>Cancel</Button>
           </div>
@@ -1666,7 +1742,7 @@ export function EnhancedCHWDashboard({ isFirstLogin = false }: CHWDashboardProps
                         <div className="flex items-center gap-2 mt-2 text-xs text-muted-foreground">
                           <MapPin className="h-3 w-3" />
                           {mother.location}
-                          <span>â€¢</span>
+                          <span>|</span>
                           <Baby className="h-3 w-3" />
                           {mother.weeks_pregnant} weeks
                         </div>
@@ -1738,32 +1814,70 @@ export function EnhancedCHWDashboard({ isFirstLogin = false }: CHWDashboardProps
                 <div className="h-2 w-2 rounded-full bg-green-500 animate-pulse" />
                 <h3 className="font-semibold text-lg">Live Check-in Feed</h3>
                 {checkInsLoading && <Loader2 className="h-4 w-4 animate-spin text-muted-foreground" />}
-                {recentCheckIns.length > 0 && (
-                  <Badge variant="outline" className="ml-auto">{recentCheckIns.length} recent</Badge>
+                {displayedCheckIns.length > 0 && (
+                  <Badge variant="outline" className="ml-auto">{displayedCheckIns.length} recent</Badge>
                 )}
+                 <DropdownMenu>
+                  <DropdownMenuTrigger asChild>
+                    <Button variant="ghost" size="sm" className="ml-auto">
+                      <MoreHorizontal className="h-4 w-4" />
+                    </Button>
+                  </DropdownMenuTrigger>
+                  <DropdownMenuContent align="end">
+                    <DropdownMenuItem onClick={() => {
+                      setShowHiddenCheckIns(true);
+                      loadHiddenCheckIns();
+                    }}>
+                      <Trash2 className="h-4 w-4 mr-2" />
+                      View Deleted Check-ins
+                    </DropdownMenuItem>
+                  </DropdownMenuContent>
+                </DropdownMenu>
               </div>
-              {checkInsLoading ? (
+              {checkInsLoading || hiddenCheckInsLoading ? (
                 <div className="flex items-center justify-center py-8">
                   <Loader2 className="h-6 w-6 animate-spin text-muted-foreground mr-2" />
-                  <span className="text-muted-foreground">Loading check-ins...</span>
+                  <span className="text-muted-foreground">
+                    {hiddenCheckInsLoading ? 'Loading deleted check-ins...' : 'Loading check-ins...'}
+                  </span>
                 </div>
-              ) : recentCheckIns.length === 0 ? (
+              ) : displayedCheckIns.length === 0 ? (
                 <Card className="border-dashed border-2 border-gray-200 bg-gray-50/50">
                   <CardContent className="p-6 text-center">
                     <Heart className="h-10 w-10 mx-auto mb-3 text-gray-300" />
-                    <p className="text-muted-foreground text-sm">No check-ins yet from assigned mothers.</p>
+                    <p className="text-muted-foreground text-sm">
+                      {showHiddenCheckIns
+                        ? "No recently deleted check-ins."
+                        : "No check-ins yet from assigned mothers."}
+                    </p>
+                    {showHiddenCheckIns && (
+                      <Button variant="link" onClick={() => setShowHiddenCheckIns(false)}>
+                        Back to live feed
+                      </Button>
+                    )}
                   </CardContent>
                 </Card>
               ) : (
                 <div className="space-y-3">
-                  {recentCheckIns.map((ci) => (
+                  {showHiddenCheckIns && (
+                    <div className="flex items-center justify-between pb-2">
+                       <h3 className="text-lg font-semibold">Recently Deleted Check-ins</h3>
+                       <Button variant="outline" size="sm" onClick={() => setShowHiddenCheckIns(false)}>
+                         <ArrowLeft className="h-4 w-4 mr-2" />
+                         Back to Live Feed
+                       </Button>
+                     </div>
+                  )}
+                  {displayedCheckIns.map((ci) => (
                     <Card key={ci.id} className={`border-l-4 ${
+                      showHiddenCheckIns ? 'border-l-gray-400 bg-gray-50/50' :
                       ci.response === 'ok' ? 'border-l-green-500 bg-green-50/30' : 'border-l-red-500 bg-red-50/30'
                     }`}>
                       <CardContent className="p-4">
                         <div className="flex items-start gap-3">
                           <Avatar className="h-10 w-10">
                             <AvatarFallback className={`text-white text-sm font-semibold ${
+                              showHiddenCheckIns ? 'bg-gray-400' :
                               ci.response === 'ok' ? 'bg-green-500' : 'bg-red-500'
                             }`}>
                               {(ci.mother_name ?? 'M').charAt(0).toUpperCase()}
@@ -1772,12 +1886,14 @@ export function EnhancedCHWDashboard({ isFirstLogin = false }: CHWDashboardProps
                           <div className="flex-1 min-w-0">
                             <div className="flex items-center gap-2 flex-wrap">
                               <p className="font-medium text-sm">{ci.mother_name ?? `Mother #${ci.mother_id}`}</p>
-                              <Badge className={ci.response === 'ok'
-                                ? 'bg-green-500 text-white text-xs'
-                                : 'bg-red-500 text-white text-xs'
-                              }>
-                                {ci.response === 'ok' ? 'Feeling Good' : 'Not Well'}
-                              </Badge>
+                              {!showHiddenCheckIns && (
+                                <Badge className={ci.response === 'ok'
+                                  ? 'bg-green-500 text-white text-xs'
+                                  : 'bg-red-500 text-white text-xs'
+                                }>
+                                  {ci.response === 'ok' ? 'Feeling Good' : 'Not Well'}
+                                </Badge>
+                              )}
                               <span className="text-xs text-muted-foreground ml-auto">
                                 {new Date(ci.created_at).toLocaleString()}
                               </span>
@@ -1788,10 +1904,19 @@ export function EnhancedCHWDashboard({ isFirstLogin = false }: CHWDashboardProps
                           </div>
                         </div>
                         <div className="flex justify-end gap-2 mt-3">
-                          {isCheckInEscalated(ci) ? (
+                          {showHiddenCheckIns ? (
+                            <Button
+                              size="sm"
+                              variant="outline"
+                              className="text-xs"
+                              onClick={() => handleRestoreCheckIn(ci.id)}
+                            >
+                              Restore
+                            </Button>
+                          ) : isCheckInEscalated(ci) ? (
                             <Badge variant="outline" className="bg-amber-50 text-amber-700 border-amber-300 flex items-center gap-1">
                               <CheckCircle className="h-3 w-3" />
-                              Escalation Pending
+                              Escalated
                             </Badge>
                           ) : (
                             <Button
@@ -1805,6 +1930,18 @@ export function EnhancedCHWDashboard({ isFirstLogin = false }: CHWDashboardProps
                             >
                               <AlertTriangle className="h-3 w-3 mr-1" />
                               Escalate
+                            </Button>
+                          )}
+                          {!showHiddenCheckIns && (
+                            <Button
+                              size="icon"
+                              variant="ghost"
+                              className="h-8 w-8 text-red-600 hover:bg-red-50 hover:text-red-700"
+                              onClick={() => handleDeleteCheckInCard(ci.id)}
+                              aria-label="Delete check-in card from dashboard"
+                              title="Delete card from dashboard"
+                            >
+                              <Trash2 className="h-4 w-4" />
                             </Button>
                           )}
                         </div>
@@ -1847,7 +1984,7 @@ export function EnhancedCHWDashboard({ isFirstLogin = false }: CHWDashboardProps
                <div>
                   <h3 className="text-xl font-bold flex items-center gap-2">
                     {showHiddenAppointments ? (
-                      <><Clock className="h-5 w-5 text-blue-600" /> Recently Hidden Visits</>
+                      <><Clock className="h-5 w-5 text-blue-600" /> Recently Deleted Visits</>
                     ) : (
                       <><CalendarCheck className="h-5 w-5 text-blue-600" /> Scheduled Visits</>
                     )}
@@ -1954,79 +2091,97 @@ export function EnhancedCHWDashboard({ isFirstLogin = false }: CHWDashboardProps
                                   })}
                                 </p>
                               </div>
-                              <Badge
-                                variant="outline"
-                                className={
-                                  isUpcoming ? 'bg-blue-50 text-blue-700 border-blue-200' :
-                                  isPast ? 'bg-green-50 text-green-700 border-green-200' :
-                                  'bg-gray-50 text-gray-600 border-gray-200'
-                                }
-                              >
-                                {appt.status}
-                              </Badge>
+                              <div className="flex items-center gap-2">
+                                <Badge
+                                  variant="outline"
+                                  className={
+                                    isUpcoming ? 'bg-blue-50 text-blue-700 border-blue-200' :
+                                    isPast ? 'bg-green-50 text-green-700 border-green-200' :
+                                    'bg-gray-50 text-gray-600 border-gray-200'
+                                  }
+                                >
+                                  {appt.status}
+                                </Badge>
+                                {!showHiddenAppointments && !isUpcoming && (
+                                  <Button
+                                    variant="ghost"
+                                    size="icon"
+                                    className="h-8 w-8 text-red-500 hover:text-red-700 hover:bg-red-50"
+                                    onClick={() => setDeleteApptConfirm(appt.id)}
+                                    title="Delete from dashboard"
+                                    aria-label="Delete appointment from dashboard"
+                                  >
+                                    <Trash2 className="h-4 w-4" />
+                                  </Button>
+                                )}
+                              </div>
                             </div>
                             {appt.recurrence_rule && appt.recurrence_rule !== 'none' && (
                               <p className="text-xs text-muted-foreground mt-1">
-                                ðŸ” Repeats {appt.recurrence_rule}
+                                Repeats: {appt.recurrence_rule}
                               </p>
                             )}
-                            {isUpcoming && !showHiddenAppointments && (
-                              <div className="flex gap-2 mt-3">
-                                <Button
-                                  size="sm"
-                                  variant="outline"
-                                  className="text-xs border-green-200 text-green-700 hover:bg-green-50"
-                                  onClick={() => {
-                                    appointmentService.updateStatus(appt.id, 'completed').then(updated => {
-                                      setAppointments(prev => prev.map(a => a.id === appt.id ? updated : a));
-                                      toast({ title: "Visit Completed", description: "Appointment marked as completed." });
-                                    }).catch(() => toast({ title: "Error", description: "Could not update status.", variant: "destructive" }));
-                                  }}
-                                >
-                                  <CheckCircle className="h-3 w-3 mr-1" />
-                                  Mark Completed
-                                </Button>
-                                <Button
-                                  size="sm"
-                                  variant="outline"
-                                  className="text-xs border-red-200 text-red-600 hover:bg-red-50"
-                                  onClick={() => {
-                                    appointmentService.updateStatus(appt.id, 'cancelled').then(updated => {
-                                      setAppointments(prev => prev.map(a => a.id === appt.id ? updated : a));
-                                      toast({ title: "Visit Cancelled", description: "Appointment has been cancelled." });
-                                    }).catch(() => toast({ title: "Error", description: "Could not update status.", variant: "destructive" }));
-                                  }}
-                                >
-                                  <CalendarX className="h-3 w-3 mr-1" />
-                                  Cancel
-                                </Button>
-                                {isWithin15Min(appt.created_at) && (
+                            {!showHiddenAppointments && (
+                              <div className="flex gap-2 mt-3 flex-wrap">
+                                {isUpcoming && (
                                   <>
                                     <Button
                                       size="sm"
                                       variant="outline"
-                                      className="text-xs border-blue-200 text-blue-700 hover:bg-blue-50"
+                                      className="text-xs border-green-200 text-green-700 hover:bg-green-50"
                                       onClick={() => {
-                                        setEditApptId(appt.id);
-                                        setEditApptForm({
-                                          scheduledTime: appt.scheduled_time ? new Date(appt.scheduled_time) : undefined,
-                                          notes: appt.notes || '',
-                                          appointmentType: appt.appointment_type || 'prenatal_checkup',
-                                        });
-                                        setEditApptOpen(true);
+                                        appointmentService.updateStatus(appt.id, 'completed').then(updated => {
+                                          setAppointments(prev => prev.map(a => a.id === appt.id ? updated : a));
+                                          toast({ title: "Visit Completed", description: "Appointment marked as completed." });
+                                        }).catch(() => toast({ title: "Error", description: "Could not update status.", variant: "destructive" }));
                                       }}
                                     >
-                                      Edit
+                                      <CheckCircle className="h-3 w-3 mr-1" />
+                                      Mark Completed
                                     </Button>
                                     <Button
                                       size="sm"
                                       variant="outline"
-                                      className="text-xs border-red-300 text-red-700 hover:bg-red-50"
-                                      onClick={() => setDeleteApptConfirm(appt.id)}
+                                      className="text-xs border-red-200 text-red-600 hover:bg-red-50"
+                                      onClick={() => {
+                                        appointmentService.updateStatus(appt.id, 'cancelled').then(updated => {
+                                          setAppointments(prev => prev.map(a => a.id === appt.id ? updated : a));
+                                          toast({ title: "Visit Cancelled", description: "Appointment has been cancelled." });
+                                        }).catch(() => toast({ title: "Error", description: "Could not update status.", variant: "destructive" }));
+                                      }}
                                     >
-                                      Hide
+                                      <CalendarX className="h-3 w-3 mr-1" />
+                                      Cancel
+                                    </Button>
+                                    <Button
+                                      size="sm"
+                                      variant="outline"
+                                      className="text-xs border-red-200 text-red-600 hover:bg-red-50"
+                                      onClick={() => setDeleteApptConfirm(appt.id)}
+                                      title="Delete from dashboard"
+                                    >
+                                      <Trash2 className="h-3 w-3 mr-1" />
+                                      Delete
                                     </Button>
                                   </>
+                                )}
+                                {isWithin15Min(appt.created_at) && (
+                                  <Button
+                                    size="sm"
+                                    variant="outline"
+                                    className="text-xs border-blue-200 text-blue-700 hover:bg-blue-50"
+                                    onClick={() => {
+                                      setEditApptId(appt.id);
+                                      setEditApptForm({
+                                        scheduledTime: appt.scheduled_time ? new Date(appt.scheduled_time) : undefined,
+                                        notes: appt.notes || '',
+                                        appointmentType: appt.appointment_type || 'prenatal_checkup',
+                                      });
+                                      setEditApptOpen(true);
+                                    }}
+                                  >
+                                    Edit
+                                  </Button>
                                 )}
                               </div>
                             )}
@@ -2040,6 +2195,7 @@ export function EnhancedCHWDashboard({ isFirstLogin = false }: CHWDashboardProps
                                     try {
                                       await appointmentService.restoreDeleted(appt.id);
                                       setHiddenAppointments(prev => prev.filter(a => a.id !== appt.id));
+                                      await refreshData();
                                       toast({ title: 'Appointment Restored' });
                                     } catch (err: unknown) {
                                       toast({ title: 'Error', description: (err as Error).message || 'Could not restore appointment.', variant: 'destructive' });
@@ -2067,7 +2223,7 @@ export function EnhancedCHWDashboard({ isFirstLogin = false }: CHWDashboardProps
                <div>
                   <h3 className="text-xl font-bold flex items-center gap-2">
                     {showHiddenEscalations ? (
-                      <><Clock className="h-5 w-5 text-blue-600" /> Recently Hidden Escalations</>
+                      <><Clock className="h-5 w-5 text-blue-600" /> Recently Deleted Escalations</>
                     ) : (
                       <><AlertTriangle className="h-5 w-5 text-red-600" /> Currently Escalated</>
                     )}
@@ -2109,7 +2265,7 @@ export function EnhancedCHWDashboard({ isFirstLogin = false }: CHWDashboardProps
                   <div className="bg-white p-3 rounded-full w-fit mx-auto shadow-sm mb-4">
                      {showHiddenEscalations ? <CalendarX className="h-8 w-8 text-muted-foreground" /> : <CheckCircle className="h-12 w-12 text-green-500" />}
                   </div>
-                  <h3 className="text-lg font-medium mb-2">{showHiddenEscalations ? "No Hidden Escalations" : "No Escalated Cases"}</h3>
+                  <h3 className="text-lg font-medium mb-2">{showHiddenEscalations ? "No Deleted Escalations" : "No Escalated Cases"}</h3>
                   <p className="text-muted-foreground">
                     {showHiddenEscalations ? "You don't have any cases in the recycle bin." : "All mothers are doing well. Great work!"}
                   </p>
@@ -2168,8 +2324,8 @@ export function EnhancedCHWDashboard({ isFirstLogin = false }: CHWDashboardProps
                               <MessageCircle className="h-4 w-4 mr-2" />
                               Contact Nurse
                             </Button>
-                            {isWithin15Min(caseItem.escalatedAt) && (
-                              <div className="flex gap-2 ml-auto">
+                            <div className="flex gap-2 ml-auto">
+                              {isWithin15Min(caseItem.escalatedAt) && (
                                 <Button
                                   size="sm"
                                   variant="outline"
@@ -2187,16 +2343,17 @@ export function EnhancedCHWDashboard({ isFirstLogin = false }: CHWDashboardProps
                                 >
                                   Edit
                                 </Button>
-                                <Button
-                                  size="sm"
-                                  variant="outline"
-                                  className="text-xs border-red-300 text-red-700 hover:bg-red-50"
-                                  onClick={() => setDeleteEscalConfirm(caseItem.id)}
-                                >
-                                  Delete
-                                </Button>
-                              </div>
-                            )}
+                              )}
+                              <Button
+                                variant="ghost"
+                                size="icon"
+                                className="h-8 w-8 text-red-500 hover:text-red-700 hover:bg-red-50"
+                                onClick={() => setDeleteEscalConfirm(caseItem.id)}
+                                title="Delete from dashboard"
+                              >
+                                <Trash2 className="h-4 w-4" />
+                              </Button>
+                            </div>
                           </>
                         )}
                       </div>
@@ -2228,8 +2385,8 @@ export function EnhancedCHWDashboard({ isFirstLogin = false }: CHWDashboardProps
                         <div className="flex items-center justify-between mt-3">
                           <div className="flex items-center gap-3 text-sm text-muted-foreground">
                             <span>{material.size}</span>
-                            {material.duration && <span>â€¢ {material.duration}</span>}
-                            <span>â€¢ {material.downloads} downloads</span>
+                            {material.duration && <span>| {material.duration}</span>}
+                            <span>| {material.downloads} downloads</span>
                           </div>
                           <div className="flex gap-2">
                             <Button size="sm" variant="outline">
