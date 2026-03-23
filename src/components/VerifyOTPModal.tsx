@@ -7,7 +7,7 @@ interface VerifyOTPModalProps {
   open: boolean;
   onOpenChange: (open: boolean) => void;
   onVerified: () => void; // Called after fade-out
-  onSubmit: (otp: string) => Promise<boolean>; // Return true on success, false/throw on error
+  onSubmit: (otp: string) => Promise<boolean | { success: boolean; error?: string } | null | undefined>; // Return true or successful object on success
   onResend: () => Promise<void> | void;
   phoneNumber?: string;
 }
@@ -38,15 +38,16 @@ export function VerifyOTPModal({ open, onOpenChange, onVerified, onSubmit, onRes
     try {
       setIsVerifying(true);
       const result = await onSubmit(otp);
-      if (result && typeof result === 'object' && 'success' in result) {
+      
+      if (result && typeof result === 'object') {
         // New format with detailed error handling
-        if (result.success) {
+        if ('success' in result && result.success) {
           onOpenChange(false);
           setTimeout(() => {
             onVerified();
           }, 220);
         } else {
-          setError(result.error || 'Invalid or expired code.');
+          setError((result as any).error || 'Invalid or expired code.');
         }
       } else if (result === true) {
         // Legacy boolean format
@@ -84,10 +85,15 @@ export function VerifyOTPModal({ open, onOpenChange, onVerified, onSubmit, onRes
         </DialogHeader>
 
         <div className="flex flex-col items-center gap-4">
-          <InputOTP maxLength={5} value={otp} onChange={(value) => setOtp(value.replace(/\D/g, '').slice(0, 5))}>
+          <InputOTP 
+            maxLength={5} 
+            value={otp} 
+            onChange={(value) => setOtp(value.replace(/\D/g, '').slice(0, 5))}
+            autoComplete="one-time-code"
+          >
             <InputOTPGroup>
               {[0, 1, 2, 3, 4].map((i) => (
-                <InputOTPSlot key={i} index={i} autoComplete="one-time-code" />
+                <InputOTPSlot key={i} index={i} />
               ))}
             </InputOTPGroup>
           </InputOTP>
