@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback, useRef } from "react";
+﻿import { useState, useEffect, useCallback, useRef } from "react";
 import { useNavigate } from "react-router-dom";
 import {
   AlertTriangle, MessageCircle, Phone, Clock, CheckCircle, User, FileText,
@@ -54,7 +54,7 @@ const mockEscalatedCases = [
     vitals: {
       bloodPressure: "150/95",
       heartRate: "88",
-      temperature: "37.2°C"
+      temperature: "37.2Â°C"
     }
   },
   {
@@ -76,7 +76,7 @@ const mockEscalatedCases = [
     vitals: {
       bloodPressure: "140/90",
       heartRate: "95",
-      temperature: "37.5°C"
+      temperature: "37.5Â°C"
     }
   },
 ];
@@ -127,7 +127,7 @@ const nurseResources = [
     category: "Critical Care",
     author: "Ministry of Health",
     date: "2024-01-15",
-    thumbnail: "🚨"
+    thumbnail: "ðŸš¨"
   },
   {
     id: 2,
@@ -136,7 +136,7 @@ const nurseResources = [
     category: "Guidelines",
     author: "WHO",
     date: "2024-01-10",
-    thumbnail: "📋"
+    thumbnail: "ðŸ“‹"
   },
   {
     id: 3,
@@ -146,7 +146,7 @@ const nurseResources = [
     author: "Dr. Sarah Johnson",
     date: "2024-02-01",
     duration: "25:30",
-    thumbnail: "🎥"
+    thumbnail: "ðŸŽ¥"
   },
   {
     id: 4,
@@ -155,7 +155,7 @@ const nurseResources = [
     category: "Emergency",
     author: "Ministry of Health",
     date: "2024-01-20",
-    thumbnail: "🩺"
+    thumbnail: "ðŸ©º"
   },
 ];
 
@@ -200,7 +200,10 @@ export function EnhancedNurseDashboard({ isFirstLogin = false }: NurseDashboardP
   const [realCHWAssignments, setRealCHWAssignments] = useState<Assignment[] | null>(null);
   // Appointments for the nurse
   const [nurseAppointments, setNurseAppointments] = useState<Appointment[]>([]);
+  const [hiddenNurseAppointments, setHiddenNurseAppointments] = useState<Appointment[]>([]);
   const [nurseAppointmentsLoading, setNurseAppointmentsLoading] = useState(false);
+  const [hiddenNurseAppointmentsLoading, setHiddenNurseAppointmentsLoading] = useState(false);
+  const [showHiddenNurseAppointments, setShowHiddenNurseAppointments] = useState(false);
   const [nurseAppointmentTab, setNurseAppointmentTab] = useState<'yours' | 'requested'>('yours');
   const [showNurseScheduleModal, setShowNurseScheduleModal] = useState(false);
   const [nurseScheduleForm, setNurseScheduleForm] = useState({
@@ -215,14 +218,14 @@ export function EnhancedNurseDashboard({ isFirstLogin = false }: NurseDashboardP
   // Mothers for selected CHW (cascading dropdown)
   const [mothersForSelectedChw, setMothersForSelectedChw] = useState<AssignedMother[]>([]);
   const [mothersLoading, setMothersLoading] = useState(false);
-  // 15-min CRUD – escalations
+  // 15-min CRUD â€“ escalations
   const [editEscalOpen, setEditEscalOpen] = useState(false);
   const [editEscalId, setEditEscalId] = useState<number | null>(null);
   const [editEscalForm, setEditEscalForm] = useState({ description: '', priority: 'high', notes: '', issueType: '' });
   const [editEscalSubmitting, setEditEscalSubmitting] = useState(false);
   const [deleteEscalConfirm, setDeleteEscalConfirm] = useState<number | null>(null);
   const [deleteEscalSubmitting, setDeleteEscalSubmitting] = useState(false);
-  // 15-min CRUD – appointments
+  // 15-min CRUD â€“ appointments
   const [editApptOpen, setEditApptOpen] = useState(false);
   const [editApptId, setEditApptId] = useState<number | null>(null);
   const [editApptForm, setEditApptForm] = useState({ scheduledTime: undefined as Date | undefined, notes: '', appointmentType: 'prenatal_checkup' });
@@ -260,7 +263,7 @@ export function EnhancedNurseDashboard({ isFirstLogin = false }: NurseDashboardP
       )
     : [];
 
-  // Filter cases — use real escalations when loaded, otherwise empty
+  // Filter cases â€” use real escalations when loaded, otherwise empty
   const allCases = realEscalations ?? [];
   const filteredCases = allCases.filter(caseItem => {
     const matchesSearch = caseItem.motherName.toLowerCase().includes(searchQuery.toLowerCase()) ||
@@ -288,15 +291,19 @@ export function EnhancedNurseDashboard({ isFirstLogin = false }: NurseDashboardP
   };
 
   // Appointment filtering: separate by creator
-  const nurseAppointmentsScheduledByMe = nurseAppointments.filter(
+  const sourceNurseAppointments = showHiddenNurseAppointments ? hiddenNurseAppointments : nurseAppointments;
+
+  const nurseAppointmentsScheduledByMe = sourceNurseAppointments.filter(
     appt => appt.created_by_user_id === user?.id
   );
   
-  const nurseAppointmentsRequestedByMother = nurseAppointments.filter(
+  const nurseAppointmentsRequestedByMother = sourceNurseAppointments.filter(
     appt => appt.created_by_user_id !== user?.id
   );
   
-  const displayedNurseAppointments = nurseAppointmentTab === 'yours' ? nurseAppointmentsScheduledByMe : nurseAppointmentsRequestedByMother;
+  const displayedNurseAppointments = showHiddenNurseAppointments
+    ? sourceNurseAppointments
+    : (nurseAppointmentTab === 'yours' ? nurseAppointmentsScheduledByMe : nurseAppointmentsRequestedByMother);
 
   const openWhatsApp = (phone: string) => {
     window.open(`https://wa.me/${phone.replace('+', '')}`, '_blank');
@@ -409,7 +416,7 @@ export function EnhancedNurseDashboard({ isFirstLogin = false }: NurseDashboardP
         recurrence_rule: nurseScheduleForm.recurrence !== "none" ? nurseScheduleForm.recurrence : undefined,
       });
       setNurseAppointments(prev => [appt, ...prev]);
-      toast({ title: "Appointment Scheduled ✓", description: `Visit on ${new Date(appt.scheduled_time).toLocaleString()}.` });
+      toast({ title: "Appointment Scheduled âœ“", description: `Visit on ${new Date(appt.scheduled_time).toLocaleString()}.` });
       setShowNurseScheduleModal(false);
       setNurseScheduleForm({ selectedChwId: "", motherId: "", scheduledTime: undefined, appointmentType: "prenatal_checkup", notes: "", recurrence: "none" });
       setMothersForSelectedChw([]);
@@ -419,6 +426,27 @@ export function EnhancedNurseDashboard({ isFirstLogin = false }: NurseDashboardP
       setNurseScheduleSubmitting(false);
     }
   };
+
+  const loadHiddenNurseAppointments = useCallback(async () => {
+    if (!user) return;
+    setHiddenNurseAppointmentsLoading(true);
+    try {
+      const apptResp = await appointmentService.list({
+        health_worker_id: user.id,
+        include_deleted: true,
+        deleted_only: true,
+      });
+      setHiddenNurseAppointments(apptResp.appointments);
+    } catch (err: unknown) {
+      toast({
+        title: 'Could not load deleted appointments',
+        description: (err as Error).message || 'Please try again.',
+        variant: 'destructive',
+      });
+    } finally {
+      setHiddenNurseAppointmentsLoading(false);
+    }
+  }, [user, toast]);
 
   // Fetch mothers when CHW selection changes (cascading dropdown)
   useEffect(() => {
@@ -506,11 +534,16 @@ export function EnhancedNurseDashboard({ isFirstLogin = false }: NurseDashboardP
   }, { enabled: nurseProfileId !== null });
   useSocket<Appointment>('appointment:updated', (appt) => setNurseAppointments(prev => prev.map(a => a.id === appt.id ? appt : a)), { enabled: nurseProfileId !== null });
   useSocket<{ id: number }>('appointment:deleted', ({ id }) => setNurseAppointments(prev => prev.filter(a => a.id !== id)), { enabled: nurseProfileId !== null });
+  useSocket<{ id: number; user_id: number }>('appointment:deleted', ({ id, user_id }) => {
+    if (user_id === user?.id) {
+      setNurseAppointments(prev => prev.filter(a => a.id !== id));
+    }
+  }, { enabled: nurseProfileId !== null });
   // Escalation payloads use the raw API shape; trigger a full refresh instead of direct state patch
   useSocket('escalation:created', () => refreshData(), { enabled: nurseProfileId !== null });
   useSocket('escalation:updated', () => refreshData(), { enabled: nurseProfileId !== null });
   useSocket('escalation:deleted', () => refreshData(), { enabled: nurseProfileId !== null });
-  // Assignment events — refresh to pick up changes to assigned mothers list
+  // Assignment events â€” refresh to pick up changes to assigned mothers list
   useSocket('assignment:created', () => refreshData(), { enabled: nurseProfileId !== null });
   useSocket('assignment:status_changed', () => refreshData(), { enabled: nurseProfileId !== null });
   useSocket('assignment:deleted', () => refreshData(), { enabled: nurseProfileId !== null });
@@ -520,7 +553,7 @@ export function EnhancedNurseDashboard({ isFirstLogin = false }: NurseDashboardP
     refreshData();
   }, { enabled: nurseProfileId !== null });
 
-  // Live notification feed — drives the Bell badge and dropdown
+  // Live notification feed â€” drives the Bell badge and dropdown
   useSocket('escalation:created', () => setNotifications(prev => [{ id: Date.now(), message: 'New escalation case from CHW', time: 'just now', read: false, type: 'critical' }, ...prev.slice(0, 19)]), { enabled: nurseProfileId !== null });
   useSocket('escalation:updated', () => setNotifications(prev => [{ id: Date.now(), message: 'Escalation case status updated', time: 'just now', read: false, type: 'update' }, ...prev.slice(0, 19)]), { enabled: nurseProfileId !== null });
   useSocket('appointment:created', () => setNotifications(prev => [{ id: Date.now(), message: 'New appointment scheduled', time: 'just now', read: false, type: 'info' }, ...prev.slice(0, 19)]), { enabled: nurseProfileId !== null });
@@ -712,7 +745,7 @@ export function EnhancedNurseDashboard({ isFirstLogin = false }: NurseDashboardP
                     <CardContent className="p-4 text-center">
                       <p className="text-xs text-amber-600 mb-1">Temperature</p>
                       <p className="text-2xl font-bold text-amber-700">{selectedCase.vitals.temperature}</p>
-                      <p className="text-xs text-amber-500">°C</p>
+                      <p className="text-xs text-amber-500">Â°C</p>
                     </CardContent>
                   </Card>
                 </div>
@@ -943,7 +976,7 @@ export function EnhancedNurseDashboard({ isFirstLogin = false }: NurseDashboardP
         </DialogContent>
       </Dialog>
 
-      {/* ── Edit Escalation Dialog (15-min window) ── */}
+      {/* â”€â”€ Edit Escalation Dialog (15-min window) â”€â”€ */}
       <Dialog open={editEscalOpen} onOpenChange={setEditEscalOpen}>
         <DialogContent className="max-w-md">
           <DialogHeader>
@@ -1028,7 +1061,7 @@ export function EnhancedNurseDashboard({ isFirstLogin = false }: NurseDashboardP
         </DialogContent>
       </Dialog>
 
-      {/* ── Delete Escalation Confirmation ── */}
+      {/* â”€â”€ Delete Escalation Confirmation â”€â”€ */}
       <Dialog open={deleteEscalConfirm !== null} onOpenChange={(o) => { if (!o) setDeleteEscalConfirm(null); }}>
         <DialogContent className="max-w-sm">
           <DialogHeader>
@@ -1064,7 +1097,7 @@ export function EnhancedNurseDashboard({ isFirstLogin = false }: NurseDashboardP
         </DialogContent>
       </Dialog>
 
-      {/* ── Edit Appointment Dialog (15-min window) ── */}
+      {/* â”€â”€ Edit Appointment Dialog (15-min window) â”€â”€ */}
       <Dialog open={editApptOpen} onOpenChange={setEditApptOpen}>
         <DialogContent className="max-w-md">
           <DialogHeader>
@@ -1132,14 +1165,14 @@ export function EnhancedNurseDashboard({ isFirstLogin = false }: NurseDashboardP
         </DialogContent>
       </Dialog>
 
-      {/* ── Delete Appointment Confirmation ── */}
+      {/* â”€â”€ Delete Appointment Confirmation â”€â”€ */}
       <Dialog open={deleteApptConfirm !== null} onOpenChange={(o) => { if (!o) setDeleteApptConfirm(null); }}>
         <DialogContent className="max-w-sm">
           <DialogHeader>
             <DialogTitle className="flex items-center gap-2 text-red-600">
-              <AlertCircle className="h-5 w-5" />Delete Appointment?
+              <AlertCircle className="h-5 w-5" />Remove Appointment From Your Dashboard?
             </DialogTitle>
-            <DialogDescription>This cannot be undone.</DialogDescription>
+            <DialogDescription>This only deletes it from your dashboard for you. It will remain in the system for other users.</DialogDescription>
           </DialogHeader>
           <div className="flex gap-3 pt-2">
             <Button
@@ -1150,7 +1183,7 @@ export function EnhancedNurseDashboard({ isFirstLogin = false }: NurseDashboardP
                 if (!deleteApptConfirm) return;
                 setDeleteApptSubmitting(true);
                 try {
-                  await appointmentService.delete(deleteApptConfirm);
+                  await appointmentService.softDelete(deleteApptConfirm, 'deleted_by_nurse_dashboard');
                   setNurseAppointments(prev => prev.filter(a => a.id !== deleteApptConfirm));
                   setDeleteApptConfirm(null);
                   toast({ title: "Appointment Deleted" });
@@ -1161,7 +1194,7 @@ export function EnhancedNurseDashboard({ isFirstLogin = false }: NurseDashboardP
                 }
               }}
             >
-              {deleteApptSubmitting ? <><Loader2 className="h-4 w-4 mr-2 animate-spin" />Deleting...</> : "Yes, Delete"}
+              {deleteApptSubmitting ? <><Loader2 className="h-4 w-4 mr-2 animate-spin" />Saving...</> : "Yes, Delete"}
             </Button>
             <Button variant="outline" className="flex-1" onClick={() => setDeleteApptConfirm(null)} disabled={deleteApptSubmitting}>Cancel</Button>
           </div>
@@ -1254,6 +1287,14 @@ export function EnhancedNurseDashboard({ isFirstLogin = false }: NurseDashboardP
                     <User className="mr-2 h-4 w-4" />
                     My Profile
                   </DropdownMenuItem>
+                  <DropdownMenuItem onClick={async () => {
+                    setActiveTab('appointments');
+                    setShowHiddenNurseAppointments(true);
+                    await loadHiddenNurseAppointments();
+                  }}>
+                    <Clock className="mr-2 h-4 w-4" />
+                    Recently Deleted Appointments (15 days)
+                  </DropdownMenuItem>
                   <DropdownMenuItem>
                     <Settings className="mr-2 h-4 w-4" />
                     Settings
@@ -1275,7 +1316,7 @@ export function EnhancedNurseDashboard({ isFirstLogin = false }: NurseDashboardP
         {/* Welcome Section */}
         <div className="mb-8">
           <h2 className="text-3xl font-bold text-foreground mb-2">
-            Welcome, Nurse {user?.first_name || 'Supervisor'}! 👋
+            Welcome, Nurse {user?.first_name || 'Supervisor'}! ðŸ‘‹
           </h2>
           <p className="text-muted-foreground">
             You have <span className="font-semibold text-red-600">
@@ -1407,7 +1448,7 @@ export function EnhancedNurseDashboard({ isFirstLogin = false }: NurseDashboardP
                               {getStatusBadge(caseItem.status)}
                             </div>
                             <p className="text-sm text-muted-foreground mt-1">
-                              {caseItem.weeksPregnant} weeks • {caseItem.location}
+                              {caseItem.weeksPregnant} weeks â€¢ {caseItem.location}
                             </p>
                           </div>
                           <Badge className={getPriorityColor(caseItem.priority)}>
@@ -1492,33 +1533,41 @@ export function EnhancedNurseDashboard({ isFirstLogin = false }: NurseDashboardP
           <TabsContent value="appointments" className="space-y-4">
             <div className="flex items-center justify-between mb-6">
               <div>
-                <h3 className="font-semibold text-lg">Scheduled Appointments</h3>
+                <h3 className="font-semibold text-lg">{showHiddenNurseAppointments ? 'Recently Deleted Appointments' : 'Scheduled Appointments'}</h3>
                 <p className="text-sm text-muted-foreground mt-1">{displayedNurseAppointments.length} appointment{displayedNurseAppointments.length !== 1 ? 's' : ''}</p>
               </div>
-              <Button
-                className="bg-purple-600 hover:bg-purple-700"
-                onClick={() => setShowNurseScheduleModal(true)}
-              >
-                <PlusCircle className="h-4 w-4 mr-2" />
-                Schedule Appointment
-              </Button>
+              {showHiddenNurseAppointments ? (
+                <Button variant="outline" onClick={() => setShowHiddenNurseAppointments(false)}>
+                  Back To Active Appointments
+                </Button>
+              ) : (
+                <Button
+                  className="bg-purple-600 hover:bg-purple-700"
+                  onClick={() => setShowNurseScheduleModal(true)}
+                >
+                  <PlusCircle className="h-4 w-4 mr-2" />
+                  Schedule Appointment
+                </Button>
+              )}
             </div>
 
             {/* Appointment Tab Selector */}
-            <Tabs value={nurseAppointmentTab} onValueChange={(val) => setNurseAppointmentTab(val as 'yours' | 'requested')} className="mb-6">
-              <TabsList className="grid w-full grid-cols-2">
-                <TabsTrigger value="yours" className="flex items-center gap-2">
-                  <CheckCircle className="h-4 w-4" />
-                  <span className="truncate">Scheduled by You ({nurseAppointmentsScheduledByMe.length})</span>
-                </TabsTrigger>
-                <TabsTrigger value="requested" className="flex items-center gap-2">
-                  <Calendar className="h-4 w-4" />
-                  <span className="truncate">Requested by CHW/Mother ({nurseAppointmentsRequestedByMother.length})</span>
-                </TabsTrigger>
-              </TabsList>
-            </Tabs>
+            {!showHiddenNurseAppointments && (
+              <Tabs value={nurseAppointmentTab} onValueChange={(val) => setNurseAppointmentTab(val as 'yours' | 'requested')} className="mb-6">
+                <TabsList className="grid w-full grid-cols-2">
+                  <TabsTrigger value="yours" className="flex items-center gap-2">
+                    <CheckCircle className="h-4 w-4" />
+                    <span className="truncate">Scheduled by You ({nurseAppointmentsScheduledByMe.length})</span>
+                  </TabsTrigger>
+                  <TabsTrigger value="requested" className="flex items-center gap-2">
+                    <Calendar className="h-4 w-4" />
+                    <span className="truncate">Requested by CHW/Mother ({nurseAppointmentsRequestedByMother.length})</span>
+                  </TabsTrigger>
+                </TabsList>
+              </Tabs>
+            )}
 
-            {nurseAppointmentsLoading ? (
+            {(showHiddenNurseAppointments ? hiddenNurseAppointmentsLoading : nurseAppointmentsLoading) ? (
               <Card className="p-8 text-center">
                 <div className="animate-spin h-8 w-8 border-4 border-purple-500 border-t-transparent rounded-full mx-auto mb-4" />
                 <p className="text-muted-foreground">Loading appointments...</p>
@@ -1566,7 +1615,7 @@ export function EnhancedNurseDashboard({ isFirstLogin = false }: NurseDashboardP
                                   {new Date(appt.scheduled_time).toLocaleString('en-KE', { dateStyle: 'medium', timeStyle: 'short' })}
                                 </p>
                                 {appt.recurrence_rule && appt.recurrence_rule !== 'none' && (
-                                  <p className="text-xs text-purple-600 mt-0.5">↻ {appt.recurrence_rule}</p>
+                                  <p className="text-xs text-purple-600 mt-0.5">â†» {appt.recurrence_rule}</p>
                                 )}
                                 {appt.notes && (
                                   <p className="text-xs text-muted-foreground mt-1 line-clamp-2">{appt.notes}</p>
@@ -1580,7 +1629,7 @@ export function EnhancedNurseDashboard({ isFirstLogin = false }: NurseDashboardP
                                 {appt.status}
                               </Badge>
                             </div>
-                            {isScheduled && (
+                            {isScheduled && !showHiddenNurseAppointments && (
                               <div className="flex gap-2 mt-3 flex-wrap">
                                 <Button
                                   size="sm"
@@ -1628,10 +1677,30 @@ export function EnhancedNurseDashboard({ isFirstLogin = false }: NurseDashboardP
                                       className="text-xs border-red-300 text-red-700 hover:bg-red-50"
                                       onClick={() => setDeleteApptConfirm(appt.id)}
                                     >
-                                      Delete
+                                      Hide
                                     </Button>
                                   </>
                                 )}
+                              </div>
+                            )}
+                            {showHiddenNurseAppointments && (
+                              <div className="flex gap-2 mt-3">
+                                <Button
+                                  size="sm"
+                                  variant="outline"
+                                  className="text-green-700 border-green-200 hover:bg-green-50"
+                                  onClick={async () => {
+                                    try {
+                                      await appointmentService.restoreDeleted(appt.id);
+                                      setHiddenNurseAppointments(prev => prev.filter(a => a.id !== appt.id));
+                                      toast({ title: 'Appointment Restored' });
+                                    } catch (err: unknown) {
+                                      toast({ title: 'Error', description: (err as Error).message || 'Could not restore appointment.', variant: 'destructive' });
+                                    }
+                                  }}
+                                >
+                                  Restore
+                                </Button>
                               </div>
                             )}
                           </div>
@@ -1736,11 +1805,11 @@ export function EnhancedNurseDashboard({ isFirstLogin = false }: NurseDashboardP
                         <div className="flex items-center justify-between mt-3">
                           <div className="text-sm text-muted-foreground">
                             <span>By {resource.author}</span>
-                            <span className="mx-2">•</span>
+                            <span className="mx-2">â€¢</span>
                             <span>{new Date(resource.date).toLocaleDateString()}</span>
                             {resource.duration && (
                               <>
-                                <span className="mx-2">•</span>
+                                <span className="mx-2">â€¢</span>
                                 <span>{resource.duration}</span>
                               </>
                             )}
@@ -1766,3 +1835,4 @@ export function EnhancedNurseDashboard({ isFirstLogin = false }: NurseDashboardP
     </div>
   );
 }
+

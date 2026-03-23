@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback, useRef } from "react";
+﻿import { useState, useEffect, useCallback, useRef } from "react";
 import { useNavigate } from "react-router-dom";
 import {
   Baby, MessageCircle, Phone, AlertCircle, BookOpen, CheckCircle,
@@ -24,6 +24,7 @@ import { uploadPhoto, getPhotoFileUrl, getMyPhoto } from "@/services/photoServic
 import { appointmentService, type Appointment } from "@/services/appointmentService";
 import { motherService } from "@/services/motherService";
 import { checkinService } from "@/services/checkinService";
+import { assignmentService } from "@/services/assignmentService";
 import { Textarea } from "@/components/ui/textarea";
 import { Input } from "@/components/ui/input";
 import { DateTimePicker } from "@/components/ui/datetime-picker";
@@ -41,7 +42,7 @@ const dailyNutritionTips = [
     description: "Start your day with iron-fortified oatmeal topped with sliced bananas and a handful of almonds.",
     calories: "350 kcal",
     nutrients: ["Iron", "Fiber", "Potassium"],
-    image: "🥣",
+    image: "ðŸ¥£",
     time: "7:00 AM"
   },
   {
@@ -51,7 +52,7 @@ const dailyNutritionTips = [
     description: "Calcium-rich Greek yogurt with berries and a drizzle of honey for sustained energy.",
     calories: "200 kcal",
     nutrients: ["Calcium", "Protein", "Antioxidants"],
-    image: "🥛",
+    image: "ðŸ¥›",
     time: "10:00 AM"
   },
   {
@@ -61,7 +62,7 @@ const dailyNutritionTips = [
     description: "Omega-3 rich salmon with quinoa and steamed vegetables for brain development.",
     calories: "450 kcal",
     nutrients: ["Omega-3", "Protein", "Folate"],
-    image: "🐟",
+    image: "ðŸŸ",
     time: "1:00 PM"
   },
   {
@@ -71,7 +72,7 @@ const dailyNutritionTips = [
     description: "Whole grain toast with mashed avocado and a sprinkle of chia seeds.",
     calories: "250 kcal",
     nutrients: ["Healthy Fats", "Fiber", "Vitamin E"],
-    image: "🥑",
+    image: "ðŸ¥‘",
     time: "4:00 PM"
   },
   {
@@ -81,18 +82,18 @@ const dailyNutritionTips = [
     description: "Protein-packed chicken breast with roasted sweet potatoes and green beans.",
     calories: "400 kcal",
     nutrients: ["Protein", "Vitamin A", "Iron"],
-    image: "🍗",
+    image: "ðŸ—",
     time: "7:00 PM"
   }
 ];
 
 // Mock reminders data
 const dailyReminders = [
-  { id: 1, title: "Take Prenatal Vitamins", time: "8:00 AM", completed: true, type: "medication", icon: "💊" },
-  { id: 2, title: "Drink 8 glasses of water", time: "Throughout day", completed: false, type: "hydration", icon: "💧" },
-  { id: 3, title: "30-minute walk", time: "5:00 PM", completed: false, type: "exercise", icon: "🚶‍♀️" },
-  { id: 4, title: "Daily check-in", time: "9:00 PM", completed: false, type: "health", icon: "✅" },
-  { id: 5, title: "Read pregnancy article", time: "Anytime", completed: false, type: "education", icon: "📚" },
+  { id: 1, title: "Take Prenatal Vitamins", time: "8:00 AM", completed: true, type: "medication", icon: "ðŸ’Š" },
+  { id: 2, title: "Drink 8 glasses of water", time: "Throughout day", completed: false, type: "hydration", icon: "ðŸ’§" },
+  { id: 3, title: "30-minute walk", time: "5:00 PM", completed: false, type: "exercise", icon: "ðŸš¶â€â™€ï¸" },
+  { id: 4, title: "Daily check-in", time: "9:00 PM", completed: false, type: "health", icon: "âœ…" },
+  { id: 5, title: "Read pregnancy article", time: "Anytime", completed: false, type: "education", icon: "ðŸ“š" },
 ];
 
 // Mock articles data
@@ -211,7 +212,10 @@ export function EnhancedMotherDashboard({ isFirstLogin = false }: MotherDashboar
   const [checkInSubmitting, setCheckInSubmitting] = useState(false);
   // Appointments state
   const [appointments, setAppointments] = useState<Appointment[]>([]);
+  const [hiddenAppointments, setHiddenAppointments] = useState<Appointment[]>([]);
   const [appointmentsLoading, setAppointmentsLoading] = useState(false);
+  const [hiddenAppointmentsLoading, setHiddenAppointmentsLoading] = useState(false);
+  const [showHiddenAppointments, setShowHiddenAppointments] = useState(false);
   // Mother appointment scheduling
   const [showMotherScheduleModal, setShowMotherScheduleModal] = useState(false);
   const [motherScheduleForm, setMotherScheduleForm] = useState({
@@ -223,13 +227,15 @@ export function EnhancedMotherDashboard({ isFirstLogin = false }: MotherDashboar
   const [deleteApptConfirm, setDeleteApptConfirm] = useState<number | null>(null);
   const [deleteApptSubmitting, setDeleteApptSubmitting] = useState(false);
   const motherProfileIdRef = useRef<number | null>(null);
+  // Assigned CHW's user_id â€” used when mother schedules an appointment
+  const [assignedCHWUserId, setAssignedCHWUserId] = useState<number | null>(null);
 
   // Real profile data
   const [profile, setProfile] = useState<{ due_date?: string } | null>(null);
 
   /**
    * Silently refresh appointments + motherProfileId every 15 s.
-   * No loading spinners — only the initial mount shows the spinner.
+   * No loading spinners â€” only the initial mount shows the spinner.
    */
   const refreshData = useCallback(async () => {
     if (!user?.id) return;
@@ -241,6 +247,27 @@ export function EnhancedMotherDashboard({ isFirstLogin = false }: MotherDashboar
     } catch { /* ignore */ }
   }, [user?.id]);
 
+  const loadHiddenAppointments = useCallback(async () => {
+    if (!user?.id) return;
+    setHiddenAppointmentsLoading(true);
+    try {
+      const resp = await appointmentService.list({
+        mother_id: user.id,
+        include_deleted: true,
+        deleted_only: true,
+      });
+      setHiddenAppointments(resp.appointments);
+    } catch (err: unknown) {
+      toast({
+        title: 'Could not load deleted appointments',
+        description: (err as Error).message || 'Please try again.',
+        variant: 'destructive',
+      });
+    } finally {
+      setHiddenAppointmentsLoading(false);
+    }
+  }, [user?.id, toast]);
+
   // WebSocket: real-time appointment updates
   const { connected } = useSocketStatus();
 
@@ -250,6 +277,11 @@ export function EnhancedMotherDashboard({ isFirstLogin = false }: MotherDashboar
   }, { enabled: !!user?.id });
   useSocket<Appointment>('appointment:updated', (appt) => setAppointments(prev => prev.map(a => a.id === appt.id ? appt : a)), { enabled: !!user?.id });
   useSocket<{ id: number }>('appointment:deleted', ({ id }) => setAppointments(prev => prev.filter(a => a.id !== id)), { enabled: !!user?.id });
+    useSocket<{ id: number; user_id: number }>('appointment:deleted', ({ id, user_id }) => {
+      if (user_id === user?.id) {
+        setAppointments(prev => prev.filter(a => a.id !== id));
+      }
+    }, { enabled: !!user?.id });
   useSocket('checkin:new', () => refreshData(), { enabled: !!user?.id });
   // Reconnect sync: replace state wholesale with the server snapshot
   useSocket<{ appointments?: Appointment[] }>('sync', (data) => {
@@ -266,13 +298,13 @@ export function EnhancedMotherDashboard({ isFirstLogin = false }: MotherDashboar
     try {
       const appt = await appointmentService.create({
         mother_id: user!.id,
-        health_worker_id: user!.id, // backend links to assigned CHW/nurse
+        health_worker_id: assignedCHWUserId ?? user!.id, // use fetched CHW user_id; fallback is a safe no-op handled by backend
         scheduled_time: motherScheduleForm.scheduledTime.toISOString(),
         appointment_type: motherScheduleForm.appointmentType,
         notes: motherScheduleForm.notes.trim() || undefined,
       });
       setAppointments(prev => [appt, ...prev]);
-      toast({ title: "Appointment Requested ✓", description: `Visit on ${new Date(appt.scheduled_time).toLocaleString()}.` });
+      toast({ title: "Appointment Requested âœ“", description: `Visit on ${new Date(appt.scheduled_time).toLocaleString()}.` });
       setShowMotherScheduleModal(false);
       setMotherScheduleForm({ scheduledTime: undefined, appointmentType: 'prenatal_checkup', notes: '' });
     } catch (err: unknown) {
@@ -343,7 +375,7 @@ export function EnhancedMotherDashboard({ isFirstLogin = false }: MotherDashboar
       setCheckInSelected(null);
       setCheckInComment('');
       toast({
-        title: checkInSelected === 'ok' ? "Check-in recorded ✓" : "Check-in Recorded",
+        title: checkInSelected === 'ok' ? "Check-in recorded âœ“" : "Check-in Recorded",
         description: checkInSelected === 'ok'
           ? "Great! Keep taking care of yourself."
           : "Your CHW has been notified and will contact you soon.",
@@ -365,7 +397,7 @@ export function EnhancedMotherDashboard({ isFirstLogin = false }: MotherDashboar
       setWaterIntake(prev => prev + 1);
       if (waterIntake + 1 === 8) {
         toast({
-          title: "Goal Reached! 🎉",
+          title: "Goal Reached! ðŸŽ‰",
           description: "You've reached your daily water intake goal!",
         });
       }
@@ -406,7 +438,17 @@ export function EnhancedMotherDashboard({ isFirstLogin = false }: MotherDashboar
         }
       } catch { /* ignore */ }
 
-      // Initial data load — show spinner for appointments
+      // Assigned CHW user_id (needed for correct appointment health_worker_id)
+      try {
+        if (user?.id) {
+          const chwData = await assignmentService.getAssignedCHWForMother(user.id);
+          if (chwData.assigned && chwData.chw?.user_id && isMounted) {
+            setAssignedCHWUserId(chwData.chw.user_id);
+          }
+        }
+      } catch { /* ignore */ }
+
+      // Initial data load â€” show spinner for appointments
       if (isMounted) setAppointmentsLoading(true);
       await refreshData();
       if (isMounted) setAppointmentsLoading(false);
@@ -493,9 +535,9 @@ export function EnhancedMotherDashboard({ isFirstLogin = false }: MotherDashboar
                 </DialogTitle>
                 <DialogDescription className="flex items-center gap-4 text-sm">
                   <span>By {selectedArticle.author}</span>
-                  <span>•</span>
+                  <span>â€¢</span>
                   <span>{selectedArticle.date}</span>
-                  <span>•</span>
+                  <span>â€¢</span>
                   <span className="flex items-center gap-1">
                     <Clock className="h-3 w-3" />
                     {selectedArticle.readTime}
@@ -557,7 +599,7 @@ export function EnhancedMotherDashboard({ isFirstLogin = false }: MotherDashboar
             </DialogDescription>
           </DialogHeader>
 
-          {/* Step 1 — choose response */}
+          {/* Step 1 â€” choose response */}
           <div className="grid grid-cols-2 gap-4 pt-4">
             <button
               onClick={() => setCheckInSelected('ok')}
@@ -599,11 +641,11 @@ export function EnhancedMotherDashboard({ isFirstLogin = false }: MotherDashboar
             </button>
           </div>
 
-          {/* Step 2 — optional comment + submit */}
+          {/* Step 2 â€” optional comment + submit */}
           {checkInSelected && (
             <div className="space-y-3 pt-2">
               <Textarea
-                placeholder="Add a note (optional) — describe how you feel..."
+                placeholder="Add a note (optional) â€” describe how you feel..."
                 value={checkInComment}
                 onChange={(e) => setCheckInComment(e.target.value)}
                 rows={3}
@@ -693,6 +735,14 @@ export function EnhancedMotherDashboard({ isFirstLogin = false }: MotherDashboar
                     <Camera className="mr-2 h-4 w-4" />
                     Update Photo
                   </DropdownMenuItem>
+                  <DropdownMenuItem onClick={async () => {
+                    setActiveTab('appointments');
+                    setShowHiddenAppointments(true);
+                    await loadHiddenAppointments();
+                  }}>
+                    <Clock className="mr-2 h-4 w-4" />
+                    Recently Deleted Appointments (15 days)
+                  </DropdownMenuItem>
                   <DropdownMenuSeparator />
                   <DropdownMenuItem onClick={logout} className="text-red-600">
                     <LogOut className="mr-2 h-4 w-4" />
@@ -714,7 +764,7 @@ export function EnhancedMotherDashboard({ isFirstLogin = false }: MotherDashboar
             <span className="text-muted-foreground">{greeting.text}</span>
           </div>
           <h2 className="text-3xl font-bold text-foreground mb-2">
-            {user?.first_name || 'Mom'}! 👋
+            {user?.first_name || 'Mom'}! ðŸ‘‹
           </h2>
           <p className="text-muted-foreground">
             You're doing amazing! Let's make today count for you and your baby.
@@ -952,7 +1002,7 @@ export function EnhancedMotherDashboard({ isFirstLogin = false }: MotherDashboar
                         <div className="flex items-center gap-2 text-xs text-muted-foreground">
                           <Clock className="h-3 w-3" />
                           {article.readTime}
-                          {article.duration && <span>• {article.duration}</span>}
+                          {article.duration && <span>â€¢ {article.duration}</span>}
                         </div>
                       </CardContent>
                     </Card>
@@ -967,90 +1017,97 @@ export function EnhancedMotherDashboard({ isFirstLogin = false }: MotherDashboar
           <TabsContent value="appointments" className="space-y-4">
             <div className="flex items-center justify-between">
               <div>
-                <h3 className="font-semibold text-lg">Your Appointments</h3>
-                <p className="text-sm text-muted-foreground">Scheduled visits with your health worker</p>
+                <h3 className="font-semibold text-lg">{showHiddenAppointments ? 'Recently Deleted Appointments' : 'Your Appointments'}</h3>
+                <p className="text-sm text-muted-foreground">{showHiddenAppointments ? 'Visible for up to 15 days, then auto-expire from this list' : 'Scheduled visits with your health worker'}</p>
               </div>
-              {/* Schedule Appointment Modal */}
-              <Dialog open={showMotherScheduleModal} onOpenChange={setShowMotherScheduleModal}>
-                <DialogTrigger asChild>
-                  <Button size="sm">
-                    <Plus className="h-4 w-4 mr-1" />
-                    Schedule
-                  </Button>
-                </DialogTrigger>
-                <DialogContent>
-                  <DialogHeader>
-                    <DialogTitle>Schedule an Appointment</DialogTitle>
-                    <DialogDescription>Request a visit with your health worker.</DialogDescription>
-                  </DialogHeader>
-                  <div className="space-y-4 py-2">
-                    <div className="space-y-2">
-                      <Label>Date & Time *</Label>
-                      <DateTimePicker
-                        date={motherScheduleForm.scheduledTime}
-                        setDate={(date) => setMotherScheduleForm(f => ({ ...f, scheduledTime: date }))}
-                      />
-                    </div>
-                    <div className="space-y-2">
-                      <Label>Appointment Type</Label>
-                      <Select
-                        value={motherScheduleForm.appointmentType}
-                        onValueChange={v => setMotherScheduleForm(f => ({ ...f, appointmentType: v }))}
-                      >
-                        <SelectTrigger><SelectValue /></SelectTrigger>
-                        <SelectContent>
-                          <SelectItem value="prenatal_checkup">Prenatal Checkup</SelectItem>
-                          <SelectItem value="home_visit">Home Visit</SelectItem>
-                          <SelectItem value="ultrasound">Ultrasound</SelectItem>
-                          <SelectItem value="lab_test">Lab Test</SelectItem>
-                          <SelectItem value="postnatal_care">Postnatal Care</SelectItem>
-                          <SelectItem value="other">Other</SelectItem>
-                        </SelectContent>
-                      </Select>
-                    </div>
-                    <div className="space-y-2">
-                      <Label>Notes (optional)</Label>
-                      <Textarea
-                        placeholder="Reason for the visit, any symptoms..."
-                        value={motherScheduleForm.notes}
-                        onChange={e => setMotherScheduleForm(f => ({ ...f, notes: e.target.value }))}
-                        rows={3}
-                      />
-                    </div>
-                    <Button className="w-full" onClick={handleMotherScheduleAppointment} disabled={motherScheduleSubmitting}>
-                      {motherScheduleSubmitting ? (
-                        <><Loader2 className="h-4 w-4 mr-2 animate-spin" />Scheduling...</>
-                      ) : (
-                        <><Calendar className="h-4 w-4 mr-2" />Confirm Appointment</>
-                      )}
+              {showHiddenAppointments ? (
+                <Button variant="outline" size="sm" onClick={() => setShowHiddenAppointments(false)}>
+                  Back To Active Appointments
+                </Button>
+              ) : (
+                <Dialog open={showMotherScheduleModal} onOpenChange={setShowMotherScheduleModal}>
+                  <DialogTrigger asChild>
+                    <Button size="sm">
+                      <Plus className="h-4 w-4 mr-1" />
+                      Schedule
                     </Button>
-                  </div>
-                </DialogContent>
-              </Dialog>
+                  </DialogTrigger>
+                  <DialogContent>
+                    <DialogHeader>
+                      <DialogTitle>Schedule an Appointment</DialogTitle>
+                      <DialogDescription>Request a visit with your health worker.</DialogDescription>
+                    </DialogHeader>
+                    <div className="space-y-4 py-2">
+                      <div className="space-y-2">
+                        <Label>Date & Time *</Label>
+                        <DateTimePicker
+                          date={motherScheduleForm.scheduledTime}
+                          setDate={(date) => setMotherScheduleForm(f => ({ ...f, scheduledTime: date }))}
+                        />
+                      </div>
+                      <div className="space-y-2">
+                        <Label>Appointment Type</Label>
+                        <Select
+                          value={motherScheduleForm.appointmentType}
+                          onValueChange={v => setMotherScheduleForm(f => ({ ...f, appointmentType: v }))}
+                        >
+                          <SelectTrigger><SelectValue /></SelectTrigger>
+                          <SelectContent>
+                            <SelectItem value="prenatal_checkup">Prenatal Checkup</SelectItem>
+                            <SelectItem value="home_visit">Home Visit</SelectItem>
+                            <SelectItem value="ultrasound">Ultrasound</SelectItem>
+                            <SelectItem value="lab_test">Lab Test</SelectItem>
+                            <SelectItem value="postnatal_care">Postnatal Care</SelectItem>
+                            <SelectItem value="other">Other</SelectItem>
+                          </SelectContent>
+                        </Select>
+                      </div>
+                      <div className="space-y-2">
+                        <Label>Notes (optional)</Label>
+                        <Textarea
+                          placeholder="Reason for the visit, any symptoms..."
+                          value={motherScheduleForm.notes}
+                          onChange={e => setMotherScheduleForm(f => ({ ...f, notes: e.target.value }))}
+                          rows={3}
+                        />
+                      </div>
+                      <Button className="w-full" onClick={handleMotherScheduleAppointment} disabled={motherScheduleSubmitting}>
+                        {motherScheduleSubmitting ? (
+                          <><Loader2 className="h-4 w-4 mr-2 animate-spin" />Scheduling...</>
+                        ) : (
+                          <><Calendar className="h-4 w-4 mr-2" />Confirm Appointment</>
+                        )}
+                      </Button>
+                    </div>
+                  </DialogContent>
+                </Dialog>
+              )}
             </div>
 
-            {appointmentsLoading ? (
+            {(showHiddenAppointments ? hiddenAppointmentsLoading : appointmentsLoading) ? (
               <div className="flex items-center justify-center py-12">
                 <Activity className="h-6 w-6 animate-spin text-muted-foreground mr-2" />
                 <span className="text-muted-foreground">Loading appointments...</span>
               </div>
-            ) : appointments.length === 0 ? (
-              /* Empty state — show mock demo appointment so UI never looks broken */
+            ) : ((showHiddenAppointments ? hiddenAppointments : appointments).length === 0) ? (
+              /* Empty state â€” show mock demo appointment so UI never looks broken */
               <div className="space-y-3">
                 <Card className="border-dashed border-2 border-primary/30 bg-primary/5">
                   <CardContent className="p-4 text-center">
                     <Calendar className="h-10 w-10 mx-auto mb-2 text-primary/50" />
                     <p className="text-sm text-muted-foreground">
-                      No upcoming appointments scheduled yet.
+                      {showHiddenAppointments ? 'No deleted appointments in the last 15 days.' : 'No upcoming appointments scheduled yet.'}
                     </p>
-                    <p className="text-xs text-muted-foreground mt-1">
-                      Your CHW or nurse will schedule visits for you.
-                    </p>
+                    {!showHiddenAppointments && (
+                      <p className="text-xs text-muted-foreground mt-1">
+                        Your CHW or nurse will schedule visits for you.
+                      </p>
+                    )}
                   </CardContent>
                 </Card>
 
                 {/* Demo appointment card */}
-                {[
+                {!showHiddenAppointments && [
                   {
                     id: "demo-1",
                     title: "Prenatal Checkup",
@@ -1093,7 +1150,7 @@ export function EnhancedMotherDashboard({ isFirstLogin = false }: MotherDashboar
                           </div>
                           {appt.notes && (
                             <p className="text-xs text-muted-foreground mt-2 bg-gray-50 p-2 rounded">
-                              📋 {appt.notes}
+                              ðŸ“‹ {appt.notes}
                             </p>
                           )}
                         </div>
@@ -1101,14 +1158,16 @@ export function EnhancedMotherDashboard({ isFirstLogin = false }: MotherDashboar
                     </CardContent>
                   </Card>
                 ))}
-                <p className="text-center text-xs text-muted-foreground italic">
-                  Sample appointments shown above — real appointments will appear here once scheduled.
-                </p>
+                {!showHiddenAppointments && (
+                  <p className="text-center text-xs text-muted-foreground italic">
+                    Sample appointments shown above â€” real appointments will appear here once scheduled.
+                  </p>
+                )}
               </div>
             ) : (
               /* Real appointments from API */
               <div className="space-y-3">
-                {appointments.map((appt) => {
+                {(showHiddenAppointments ? hiddenAppointments : appointments).map((appt) => {
                   const isScheduled = appt.status === 'scheduled';
                   const isCompleted = appt.status === 'completed';
                   const isCancelled = appt.status === 'canceled' || appt.status === 'cancelled';
@@ -1160,7 +1219,7 @@ export function EnhancedMotherDashboard({ isFirstLogin = false }: MotherDashboar
                                 >
                                   {appt.status}
                                 </Badge>
-                                {isScheduled && (
+                                {isScheduled && !showHiddenAppointments && (
                                   <Button
                                     variant="ghost"
                                     size="icon"
@@ -1170,19 +1229,37 @@ export function EnhancedMotherDashboard({ isFirstLogin = false }: MotherDashboar
                                     <Trash2 className="h-4 w-4" />
                                   </Button>
                                 )}
+                                {showHiddenAppointments && (
+                                  <Button
+                                    variant="outline"
+                                    size="sm"
+                                    className="h-7 text-xs border-green-200 text-green-700 hover:bg-green-50"
+                                    onClick={async () => {
+                                      try {
+                                        await appointmentService.restoreDeleted(appt.id);
+                                        setHiddenAppointments(prev => prev.filter(a => a.id !== appt.id));
+                                        toast({ title: 'Appointment Restored' });
+                                      } catch (err: unknown) {
+                                        toast({ title: 'Error', description: (err as Error).message || 'Could not restore appointment.', variant: 'destructive' });
+                                      }
+                                    }}
+                                  >
+                                    Restore
+                                  </Button>
+                                )}
                               </div>
                             </div>
                             {appt.notes && (
                               <p className="text-xs text-muted-foreground mt-2 bg-gray-50 p-2 rounded-md">
-                                📋 {appt.notes}
+                                ðŸ“‹ {appt.notes}
                               </p>
                             )}
                             <div className="flex flex-wrap items-center gap-2 mt-2">
                               {appt.escalated && (
-                                <Badge className="bg-red-100 text-red-700 text-xs">⚠ Escalated</Badge>
+                                <Badge className="bg-red-100 text-red-700 text-xs">âš  Escalated</Badge>
                               )}
                               {appt.recurrence_rule && appt.recurrence_rule !== 'none' && (
-                                <span className="text-xs text-purple-600">↺ {appt.recurrence_rule}</span>
+                                <span className="text-xs text-purple-600">â†º {appt.recurrence_rule}</span>
                               )}
                             </div>
                           </div>
@@ -1255,19 +1332,19 @@ export function EnhancedMotherDashboard({ isFirstLogin = false }: MotherDashboar
               <CardContent>
                 <ul className="space-y-2 text-sm">
                   <li className="flex items-start gap-2">
-                    <span className="text-green-500 mt-0.5">✓</span>
+                    <span className="text-green-500 mt-0.5">âœ“</span>
                     <span>Stay hydrated - aim for 8-10 glasses of water daily</span>
                   </li>
                   <li className="flex items-start gap-2">
-                    <span className="text-green-500 mt-0.5">✓</span>
+                    <span className="text-green-500 mt-0.5">âœ“</span>
                     <span>Include protein in every meal for baby's growth</span>
                   </li>
                   <li className="flex items-start gap-2">
-                    <span className="text-green-500 mt-0.5">✓</span>
+                    <span className="text-green-500 mt-0.5">âœ“</span>
                     <span>Choose whole grains over refined carbohydrates</span>
                   </li>
                   <li className="flex items-start gap-2">
-                    <span className="text-green-500 mt-0.5">✓</span>
+                    <span className="text-green-500 mt-0.5">âœ“</span>
                     <span>Take your prenatal vitamins with food</span>
                   </li>
                 </ul>
@@ -1346,7 +1423,7 @@ export function EnhancedMotherDashboard({ isFirstLogin = false }: MotherDashboar
                     <div className="flex items-center justify-between text-xs text-muted-foreground">
                       <div className="flex items-center gap-2">
                         <span>{article.author}</span>
-                        <span>•</span>
+                        <span>â€¢</span>
                         <span className="flex items-center gap-1">
                           <Clock className="h-3 w-3" />
                           {article.readTime}
@@ -1431,9 +1508,9 @@ export function EnhancedMotherDashboard({ isFirstLogin = false }: MotherDashboar
       <Dialog open={deleteApptConfirm !== null} onOpenChange={(o) => { if (!o) setDeleteApptConfirm(null); }}>
         <DialogContent className="max-w-sm">
           <DialogHeader>
-            <DialogTitle>Cancel Appointment?</DialogTitle>
+            <DialogTitle>Remove Appointment From Your Dashboard?</DialogTitle>
             <DialogDescription>
-              This will permanently remove the appointment. This action cannot be undone.
+              This only deletes it from your dashboard for you. It will remain in the system for other users.
             </DialogDescription>
           </DialogHeader>
           <div className="flex gap-3 mt-2">
@@ -1445,7 +1522,7 @@ export function EnhancedMotherDashboard({ isFirstLogin = false }: MotherDashboar
                 if (!deleteApptConfirm) return;
                 setDeleteApptSubmitting(true);
                 try {
-                  await appointmentService.delete(deleteApptConfirm);
+                  await appointmentService.softDelete(deleteApptConfirm, 'deleted_by_mother_dashboard');
                   setAppointments(prev => prev.filter(a => a.id !== deleteApptConfirm));
                   setDeleteApptConfirm(null);
                 } catch (err: unknown) {
@@ -1455,7 +1532,7 @@ export function EnhancedMotherDashboard({ isFirstLogin = false }: MotherDashboar
                 }
               }}
             >
-              {deleteApptSubmitting ? <><Loader2 className="h-4 w-4 mr-2 animate-spin" />Deleting...</> : 'Yes, Delete'}
+              {deleteApptSubmitting ? <><Loader2 className="h-4 w-4 mr-2 animate-spin" />Saving...</> : 'Yes, Delete'}
             </Button>
             <Button variant="outline" className="flex-1" onClick={() => setDeleteApptConfirm(null)} disabled={deleteApptSubmitting}>Cancel</Button>
           </div>
@@ -1464,3 +1541,4 @@ export function EnhancedMotherDashboard({ isFirstLogin = false }: MotherDashboar
     </div>
   );
 }
+

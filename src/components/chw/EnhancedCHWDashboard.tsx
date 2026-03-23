@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback, useRef } from "react";
+﻿import { useState, useEffect, useCallback, useRef } from "react";
 import { useNavigate } from "react-router-dom";
 import {
   Users, AlertTriangle, MessageCircle, Phone, Upload, Calendar, CheckCircle,
@@ -148,7 +148,7 @@ const educationalMaterials = [
     size: "2.3 MB",
     category: "Nutrition",
     downloads: 156,
-    thumbnail: "🥗"
+    thumbnail: "ðŸ¥—"
   },
   {
     id: 2,
@@ -157,7 +157,7 @@ const educationalMaterials = [
     size: "1.8 MB",
     category: "Safety",
     downloads: 234,
-    thumbnail: "⚠️"
+    thumbnail: "âš ï¸"
   },
   {
     id: 3,
@@ -166,7 +166,7 @@ const educationalMaterials = [
     size: "45 MB",
     category: "Wellness",
     downloads: 89,
-    thumbnail: "🧘‍♀️",
+    thumbnail: "ðŸ§˜â€â™€ï¸",
     duration: "12:30"
   },
   {
@@ -176,7 +176,7 @@ const educationalMaterials = [
     size: "3.1 MB",
     category: "Postpartum",
     downloads: 178,
-    thumbnail: "👶"
+    thumbnail: "ðŸ‘¶"
   },
   {
     id: 5,
@@ -185,7 +185,7 @@ const educationalMaterials = [
     size: "28 MB",
     category: "Breastfeeding",
     downloads: 267,
-    thumbnail: "🤱",
+    thumbnail: "ðŸ¤±",
     duration: "18:45"
   },
 ];
@@ -235,7 +235,10 @@ export function EnhancedCHWDashboard({ isFirstLogin = false }: CHWDashboardProps
   const [realMothers, setRealMothers] = useState<AssignedMother[] | null>(null);
   // Appointments
   const [appointments, setAppointments] = useState<Appointment[]>([]);
+  const [hiddenAppointments, setHiddenAppointments] = useState<Appointment[]>([]);
   const [appointmentsLoading, setAppointmentsLoading] = useState(false);
+  const [hiddenAppointmentsLoading, setHiddenAppointmentsLoading] = useState(false);
+  const [showHiddenAppointments, setShowHiddenAppointments] = useState(false);
   const [showScheduleModal, setShowScheduleModal] = useState(false);
   const [appointmentTab, setAppointmentTab] = useState<'yours' | 'requested'>('yours');
   const [scheduleForm, setScheduleForm] = useState({
@@ -251,14 +254,14 @@ export function EnhancedCHWDashboard({ isFirstLogin = false }: CHWDashboardProps
   const [checkInsLoading, setCheckInsLoading] = useState(false);
   const [checkInToEscalate, setCheckInToEscalate] = useState<CheckIn | null>(null);
   const [showEscalateFromCheckinDialog, setShowEscalateFromCheckinDialog] = useState(false);
-  // 15-min CRUD – appointments
+  // 15-min CRUD â€“ appointments
   const [editApptOpen, setEditApptOpen] = useState(false);
   const [editApptId, setEditApptId] = useState<number | null>(null);
   const [editApptForm, setEditApptForm] = useState({ scheduledTime: undefined as Date | undefined, notes: '', appointmentType: 'prenatal_checkup' });
   const [editApptSubmitting, setEditApptSubmitting] = useState(false);
   const [deleteApptConfirm, setDeleteApptConfirm] = useState<number | null>(null);
   const [deleteApptSubmitting, setDeleteApptSubmitting] = useState(false);
-  // 15-min CRUD – escalations
+  // 15-min CRUD â€“ escalations
   const [editEscalOpen, setEditEscalOpen] = useState(false);
   const [editEscalId, setEditEscalId] = useState<number | null>(null);
   const [editEscalForm, setEditEscalForm] = useState({ description: '', priority: 'high', notes: '', issueType: '' });
@@ -277,7 +280,7 @@ export function EnhancedCHWDashboard({ isFirstLogin = false }: CHWDashboardProps
     name: m.name,
     phone_number: m.phone ?? "",
     status: "ok" as "ok" | "not_ok" | "no_response",
-    last_check_in: m.assigned_at ? new Date(m.assigned_at).toLocaleDateString() : "—",
+    last_check_in: m.assigned_at ? new Date(m.assigned_at).toLocaleDateString() : "â€”",
     weeks_pregnant: 0,
     location: m.location ?? "Unknown",
     due_date: "",
@@ -335,15 +338,32 @@ export function EnhancedCHWDashboard({ isFirstLogin = false }: CHWDashboardProps
   };
 
   // Appointment filtering: separate by creator
-  const appointmentsScheduledByMe = appointments.filter(
+  const sourceAppointments = showHiddenAppointments ? hiddenAppointments : appointments;
+
+  const appointmentsScheduledByMe = sourceAppointments.filter(
     appt => appt.created_by_user_id === user?.id
   );
   
-  const appointmentsRequestedByMother = appointments.filter(
+  const appointmentsRequestedByMother = sourceAppointments.filter(
     appt => appt.created_by_user_id !== user?.id
   );
   
-  const displayedAppointments = appointmentTab === 'yours' ? appointmentsScheduledByMe : appointmentsRequestedByMother;
+  const displayedAppointments = showHiddenAppointments
+    ? sourceAppointments
+    : (appointmentTab === 'yours' ? appointmentsScheduledByMe : appointmentsRequestedByMother);
+
+  // Helper: Check if a mother has an active/pending escalation.
+  const hasActiveEscalation = (motherId: number): boolean => {
+    if (!realEscalations) return false;
+    return realEscalations.some(
+      e => e.motherId === motherId && (e.status === 'pending' || e.status === 'in_progress')
+    );
+  };
+
+  // Helper: Check if a specific check-in has already been escalated.
+  const isCheckInEscalated = (checkIn: CheckIn): boolean => {
+    return hasActiveEscalation(checkIn.mother_id);
+  };
 
   const handleEscalation = async () => {
     if (!escalationForm.motherId || !escalationForm.issueType || !escalationForm.description) {
@@ -395,7 +415,7 @@ export function EnhancedCHWDashboard({ isFirstLogin = false }: CHWDashboardProps
             ...(prev ?? []),
           ] as typeof mockEscalatedCases);
           toast({
-            title: "Case Escalated ✓",
+            title: "Case Escalated âœ“",
             description: `Case for ${created.mother_name} sent to nurse successfully.`,
           });
         } catch (err: unknown) {
@@ -464,6 +484,27 @@ export function EnhancedCHWDashboard({ isFirstLogin = false }: CHWDashboardProps
     }
   };
 
+  const loadHiddenAppointments = useCallback(async () => {
+    if (!user) return;
+    setHiddenAppointmentsLoading(true);
+    try {
+      const apptResp = await appointmentService.list({
+        health_worker_id: user.id,
+        include_deleted: true,
+        deleted_only: true,
+      });
+      setHiddenAppointments(apptResp.appointments);
+    } catch (err: unknown) {
+      toast({
+        title: 'Could not load deleted appointments',
+        description: (err as Error).message || 'Please try again.',
+        variant: 'destructive',
+      });
+    } finally {
+      setHiddenAppointmentsLoading(false);
+    }
+  }, [user, toast]);
+
   const markNotificationRead = (id: number) => {
     setNotifications(prev => prev.map(n => n.id === id ? { ...n, read: true } : n));
   };
@@ -528,12 +569,17 @@ export function EnhancedCHWDashboard({ isFirstLogin = false }: CHWDashboardProps
   }, { enabled: chwProfileId !== null });
   useSocket<Appointment>('appointment:updated', (appt) => setAppointments(prev => prev.map(a => a.id === appt.id ? appt : a)), { enabled: chwProfileId !== null });
   useSocket<{ id: number }>('appointment:deleted', ({ id }) => setAppointments(prev => prev.filter(a => a.id !== id)), { enabled: chwProfileId !== null });
+  useSocket<{ id: number; user_id: number }>('appointment:deleted', ({ id, user_id }) => {
+    if (user_id === user?.id) {
+      setAppointments(prev => prev.filter(a => a.id !== id));
+    }
+  }, { enabled: chwProfileId !== null });
   useSocket<CheckIn>('checkin:new', (ci) => setRecentCheckIns(prev => [ci, ...prev]), { enabled: chwProfileId !== null });
   // Escalation payloads use the raw API shape; trigger a full refresh instead of direct state patch
   useSocket('escalation:created', () => refreshData(), { enabled: chwProfileId !== null });
   useSocket('escalation:updated', () => refreshData(), { enabled: chwProfileId !== null });
   useSocket('escalation:deleted', () => refreshData(), { enabled: chwProfileId !== null });
-  // Assignment events — refresh to pick up changes to assigned mothers list
+  // Assignment events â€” refresh to pick up changes to assigned mothers list
   useSocket('assignment:created', () => refreshData(), { enabled: chwProfileId !== null });
   useSocket('assignment:status_changed', () => refreshData(), { enabled: chwProfileId !== null });
   useSocket('assignment:deleted', () => refreshData(), { enabled: chwProfileId !== null });
@@ -544,7 +590,7 @@ export function EnhancedCHWDashboard({ isFirstLogin = false }: CHWDashboardProps
     refreshData();
   }, { enabled: chwProfileId !== null });
 
-  // Live notification feed — drives the Bell badge and dropdown
+  // Live notification feed â€” drives the Bell badge and dropdown
   useSocket('escalation:created', () => setNotifications(prev => [{ id: Date.now(), message: 'New escalation case submitted', time: 'just now', read: false }, ...prev.slice(0, 19)]), { enabled: chwProfileId !== null });
   useSocket('assignment:created', () => setNotifications(prev => [{ id: Date.now(), message: 'New mother assigned to you', time: 'just now', read: false }, ...prev.slice(0, 19)]), { enabled: chwProfileId !== null });
   useSocket('assignment:status_changed', () => setNotifications(prev => [{ id: Date.now(), message: 'Assignment status changed', time: 'just now', read: false }, ...prev.slice(0, 19)]), { enabled: chwProfileId !== null });
@@ -684,7 +730,7 @@ export function EnhancedCHWDashboard({ isFirstLogin = false }: CHWDashboardProps
                     <DialogDescription className="flex items-center gap-2 mt-1">
                       <MapPin className="h-4 w-4" />
                       {selectedMother.location}
-                      <span>•</span>
+                      <span>â€¢</span>
                       <span>{selectedMother.phone_number}</span>
                     </DialogDescription>
                     <div className="flex items-center gap-2 mt-2">
@@ -872,10 +918,10 @@ export function EnhancedCHWDashboard({ isFirstLogin = false }: CHWDashboardProps
                   <SelectValue placeholder="Priority level" />
                 </SelectTrigger>
                 <SelectContent>
-                  <SelectItem value="critical">🔴 Critical</SelectItem>
-                  <SelectItem value="high">🟠 High</SelectItem>
-                  <SelectItem value="medium">🟡 Medium</SelectItem>
-                  <SelectItem value="low">🟢 Low</SelectItem>
+                  <SelectItem value="critical">ðŸ”´ Critical</SelectItem>
+                  <SelectItem value="high">ðŸŸ  High</SelectItem>
+                  <SelectItem value="medium">ðŸŸ¡ Medium</SelectItem>
+                  <SelectItem value="low">ðŸŸ¢ Low</SelectItem>
                 </SelectContent>
               </Select>
             </div>
@@ -891,9 +937,15 @@ export function EnhancedCHWDashboard({ isFirstLogin = false }: CHWDashboardProps
             </div>
           </div>
           <div className="flex gap-2">
-            <Button onClick={handleEscalation} className="flex-1" disabled={escalationSubmitting}>
+            <Button
+              onClick={handleEscalation}
+              className="flex-1"
+              disabled={escalationSubmitting || (escalationForm.motherId ? hasActiveEscalation(parseInt(escalationForm.motherId)) : false)}
+            >
               {escalationSubmitting ? (
                 <><Activity className="h-4 w-4 mr-2 animate-spin" />Submitting...</>
+              ) : hasActiveEscalation(escalationForm.motherId ? parseInt(escalationForm.motherId) : 0) ? (
+                <><CheckCircle className="h-4 w-4 mr-2" />Already Escalated</>
               ) : (
                 <><Upload className="h-4 w-4 mr-2" />Escalate Case</>
               )}
@@ -1062,7 +1114,7 @@ export function EnhancedCHWDashboard({ isFirstLogin = false }: CHWDashboardProps
         </DialogContent>
       </Dialog>
 
-      {/* ── Edit Appointment Dialog (15-min window) ── */}
+      {/* â”€â”€ Edit Appointment Dialog (15-min window) â”€â”€ */}
       <Dialog open={editApptOpen} onOpenChange={setEditApptOpen}>
         <DialogContent className="max-w-md">
           <DialogHeader>
@@ -1129,14 +1181,14 @@ export function EnhancedCHWDashboard({ isFirstLogin = false }: CHWDashboardProps
         </DialogContent>
       </Dialog>
 
-      {/* ── Delete Appointment Confirmation ── */}
+      {/* â”€â”€ Delete Appointment Confirmation â”€â”€ */}
       <Dialog open={deleteApptConfirm !== null} onOpenChange={(o) => { if (!o) setDeleteApptConfirm(null); }}>
         <DialogContent className="max-w-sm">
           <DialogHeader>
             <DialogTitle className="flex items-center gap-2 text-red-600">
-              <AlertCircle className="h-5 w-5" />Delete Appointment?
+              <AlertCircle className="h-5 w-5" />Remove Appointment From Your Dashboard?
             </DialogTitle>
-            <DialogDescription>This cannot be undone.</DialogDescription>
+            <DialogDescription>This only deletes it from your dashboard for you. It will remain in the system for other users.</DialogDescription>
           </DialogHeader>
           <div className="flex gap-3 pt-2">
             <Button
@@ -1147,7 +1199,7 @@ export function EnhancedCHWDashboard({ isFirstLogin = false }: CHWDashboardProps
                 if (!deleteApptConfirm) return;
                 setDeleteApptSubmitting(true);
                 try {
-                  await appointmentService.delete(deleteApptConfirm);
+                  await appointmentService.softDelete(deleteApptConfirm, 'deleted_by_chw_dashboard');
                   setAppointments(prev => prev.filter(a => a.id !== deleteApptConfirm));
                   setDeleteApptConfirm(null);
                   toast({ title: "Appointment Deleted" });
@@ -1158,14 +1210,14 @@ export function EnhancedCHWDashboard({ isFirstLogin = false }: CHWDashboardProps
                 }
               }}
             >
-              {deleteApptSubmitting ? <><Loader2 className="h-4 w-4 mr-2 animate-spin" />Deleting...</> : "Yes, Delete"}
+              {deleteApptSubmitting ? <><Loader2 className="h-4 w-4 mr-2 animate-spin" />Saving...</> : "Yes, Delete"}
             </Button>
             <Button variant="outline" className="flex-1" onClick={() => setDeleteApptConfirm(null)} disabled={deleteApptSubmitting}>Cancel</Button>
           </div>
         </DialogContent>
       </Dialog>
 
-      {/* ── Edit Escalation Dialog (15-min window) ── */}
+      {/* â”€â”€ Edit Escalation Dialog (15-min window) â”€â”€ */}
       <Dialog open={editEscalOpen} onOpenChange={setEditEscalOpen}>
         <DialogContent className="max-w-md">
           <DialogHeader>
@@ -1250,7 +1302,7 @@ export function EnhancedCHWDashboard({ isFirstLogin = false }: CHWDashboardProps
         </DialogContent>
       </Dialog>
 
-      {/* ── Delete Escalation Confirmation ── */}
+      {/* â”€â”€ Delete Escalation Confirmation â”€â”€ */}
       <Dialog open={deleteEscalConfirm !== null} onOpenChange={(o) => { if (!o) setDeleteEscalConfirm(null); }}>
         <DialogContent className="max-w-sm">
           <DialogHeader>
@@ -1367,6 +1419,14 @@ export function EnhancedCHWDashboard({ isFirstLogin = false }: CHWDashboardProps
                     <User className="mr-2 h-4 w-4" />
                     My Profile
                   </DropdownMenuItem>
+                  <DropdownMenuItem onClick={async () => {
+                    setActiveTab('appointments');
+                    setShowHiddenAppointments(true);
+                    await loadHiddenAppointments();
+                  }}>
+                    <Clock className="mr-2 h-4 w-4" />
+                    Recently Deleted Appointments (15 days)
+                  </DropdownMenuItem>
                   <DropdownMenuItem>
                     <Settings className="mr-2 h-4 w-4" />
                     Settings
@@ -1388,7 +1448,7 @@ export function EnhancedCHWDashboard({ isFirstLogin = false }: CHWDashboardProps
         {/* Welcome Section */}
         <div className="mb-8">
           <h2 className="text-3xl font-bold text-foreground mb-2">
-            Welcome back, {user?.first_name || 'CHW'}! 👋
+            Welcome back, {user?.first_name || 'CHW'}! ðŸ‘‹
           </h2>
           <p className="text-muted-foreground">
             You have <span className="font-semibold text-red-600">{mothersWithIssues.length} mothers</span> who need attention today.
@@ -1536,7 +1596,7 @@ export function EnhancedCHWDashboard({ isFirstLogin = false }: CHWDashboardProps
                         <div className="flex items-center gap-2 mt-2 text-xs text-muted-foreground">
                           <MapPin className="h-3 w-3" />
                           {mother.location}
-                          <span>•</span>
+                          <span>â€¢</span>
                           <Baby className="h-3 w-3" />
                           {mother.weeks_pregnant} weeks
                         </div>
@@ -1657,19 +1717,26 @@ export function EnhancedCHWDashboard({ isFirstLogin = false }: CHWDashboardProps
                             )}
                           </div>
                         </div>
-                        <div className="flex justify-end mt-3">
-                          <Button
-                            size="sm"
-                            variant="destructive"
-                            className="text-xs"
-                            onClick={() => {
-                              setCheckInToEscalate(ci);
-                              setShowEscalateFromCheckinDialog(true);
-                            }}
-                          >
-                            <AlertTriangle className="h-3 w-3 mr-1" />
-                            Escalate
-                          </Button>
+                        <div className="flex justify-end gap-2 mt-3">
+                          {isCheckInEscalated(ci) ? (
+                            <Badge variant="outline" className="bg-amber-50 text-amber-700 border-amber-300 flex items-center gap-1">
+                              <CheckCircle className="h-3 w-3" />
+                              Escalation Pending
+                            </Badge>
+                          ) : (
+                            <Button
+                              size="sm"
+                              variant="destructive"
+                              className="text-xs"
+                              onClick={() => {
+                                setCheckInToEscalate(ci);
+                                setShowEscalateFromCheckinDialog(true);
+                              }}
+                            >
+                              <AlertTriangle className="h-3 w-3 mr-1" />
+                              Escalate
+                            </Button>
+                          )}
                         </div>
                       </CardContent>
                     </Card>
@@ -1683,37 +1750,45 @@ export function EnhancedCHWDashboard({ isFirstLogin = false }: CHWDashboardProps
           <TabsContent value="appointments" className="space-y-4">
             <div className="flex items-center justify-between mb-6">
               <div>
-                <h3 className="font-semibold text-lg">Scheduled Appointments</h3>
+                <h3 className="font-semibold text-lg">{showHiddenAppointments ? 'Recently Deleted Appointments' : 'Scheduled Appointments'}</h3>
                 <p className="text-sm text-muted-foreground mt-1">
-                  {displayedAppointments.length > 0
+                  {(showHiddenAppointments ? hiddenAppointments : displayedAppointments).length > 0
                     ? `${displayedAppointments.filter(a => a.status === 'scheduled').length} upcoming visit(s)`
-                    : "No visits scheduled yet"}
+                    : (showHiddenAppointments ? 'No deleted appointments in the last 15 days' : 'No visits scheduled yet')}
                 </p>
               </div>
-              <Button
-                className="bg-blue-600 hover:bg-blue-700"
-                onClick={() => setShowScheduleModal(true)}
-              >
-                <PlusCircle className="h-4 w-4 mr-2" />
-                Schedule Visit
-              </Button>
+              {showHiddenAppointments ? (
+                <Button variant="outline" onClick={() => setShowHiddenAppointments(false)}>
+                  Back To Active Appointments
+                </Button>
+              ) : (
+                <Button
+                  className="bg-blue-600 hover:bg-blue-700"
+                  onClick={() => setShowScheduleModal(true)}
+                >
+                  <PlusCircle className="h-4 w-4 mr-2" />
+                  Schedule Visit
+                </Button>
+              )}
             </div>
 
             {/* Appointment Tab Selector */}
-            <Tabs value={appointmentTab} onValueChange={(val) => setAppointmentTab(val as 'yours' | 'requested')} className="mb-6">
-              <TabsList className="grid w-full grid-cols-2">
-                <TabsTrigger value="yours" className="flex items-center gap-2">
-                  <CheckCircle className="h-4 w-4" />
-                  <span className="truncate">Scheduled by You ({appointmentsScheduledByMe.length})</span>
-                </TabsTrigger>
-                <TabsTrigger value="requested" className="flex items-center gap-2">
-                  <Calendar className="h-4 w-4" />
-                  <span className="truncate">Requested by Mother ({appointmentsRequestedByMother.length})</span>
-                </TabsTrigger>
-              </TabsList>
-            </Tabs>
+            {!showHiddenAppointments && (
+              <Tabs value={appointmentTab} onValueChange={(val) => setAppointmentTab(val as 'yours' | 'requested')} className="mb-6">
+                <TabsList className="grid w-full grid-cols-2">
+                  <TabsTrigger value="yours" className="flex items-center gap-2">
+                    <CheckCircle className="h-4 w-4" />
+                    <span className="truncate">Scheduled by You ({appointmentsScheduledByMe.length})</span>
+                  </TabsTrigger>
+                  <TabsTrigger value="requested" className="flex items-center gap-2">
+                    <Calendar className="h-4 w-4" />
+                    <span className="truncate">Requested by Mother ({appointmentsRequestedByMother.length})</span>
+                  </TabsTrigger>
+                </TabsList>
+              </Tabs>
+            )}
 
-            {appointmentsLoading ? (
+            {(showHiddenAppointments ? hiddenAppointmentsLoading : appointmentsLoading) ? (
               <div className="flex items-center justify-center py-12">
                 <Activity className="h-6 w-6 animate-spin text-muted-foreground mr-2" />
                 <span className="text-muted-foreground">Loading appointments...</span>
@@ -1788,10 +1863,10 @@ export function EnhancedCHWDashboard({ isFirstLogin = false }: CHWDashboardProps
                             </div>
                             {appt.recurrence_rule && appt.recurrence_rule !== 'none' && (
                               <p className="text-xs text-muted-foreground mt-1">
-                                🔁 Repeats {appt.recurrence_rule}
+                                ðŸ” Repeats {appt.recurrence_rule}
                               </p>
                             )}
-                            {isUpcoming && (
+                            {isUpcoming && !showHiddenAppointments && (
                               <div className="flex gap-2 mt-3">
                                 <Button
                                   size="sm"
@@ -1845,10 +1920,30 @@ export function EnhancedCHWDashboard({ isFirstLogin = false }: CHWDashboardProps
                                       className="text-xs border-red-300 text-red-700 hover:bg-red-50"
                                       onClick={() => setDeleteApptConfirm(appt.id)}
                                     >
-                                      Delete
+                                      Hide
                                     </Button>
                                   </>
                                 )}
+                              </div>
+                            )}
+                            {showHiddenAppointments && (
+                              <div className="flex gap-2 mt-3">
+                                <Button
+                                  size="sm"
+                                  variant="outline"
+                                  className="text-xs border-green-200 text-green-700 hover:bg-green-50"
+                                  onClick={async () => {
+                                    try {
+                                      await appointmentService.restoreDeleted(appt.id);
+                                      setHiddenAppointments(prev => prev.filter(a => a.id !== appt.id));
+                                      toast({ title: 'Appointment Restored' });
+                                    } catch (err: unknown) {
+                                      toast({ title: 'Error', description: (err as Error).message || 'Could not restore appointment.', variant: 'destructive' });
+                                    }
+                                  }}
+                                >
+                                  Restore
+                                </Button>
                               </div>
                             )}
                           </div>
@@ -1974,8 +2069,8 @@ export function EnhancedCHWDashboard({ isFirstLogin = false }: CHWDashboardProps
                         <div className="flex items-center justify-between mt-3">
                           <div className="flex items-center gap-3 text-sm text-muted-foreground">
                             <span>{material.size}</span>
-                            {material.duration && <span>• {material.duration}</span>}
-                            <span>• {material.downloads} downloads</span>
+                            {material.duration && <span>â€¢ {material.duration}</span>}
+                            <span>â€¢ {material.downloads} downloads</span>
                           </div>
                           <div className="flex gap-2">
                             <Button size="sm" variant="outline">
@@ -1998,3 +2093,4 @@ export function EnhancedCHWDashboard({ isFirstLogin = false }: CHWDashboardProps
     </div>
   );
 }
+

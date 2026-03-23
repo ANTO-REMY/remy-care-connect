@@ -1,14 +1,14 @@
-/**
+﻿/**
  * ModernMotherDashboard.tsx
  *
  * A GK-dashboard-inspired redesign of the mothers' view.
  * Color scheme  : dark charcoal/teal sidebar + bright teal accent (#14b8a6)
  * Charts        : pure SVG (no extra libraries)
  * Data source   : same real endpoints as EnhancedMotherDashboard
- *   • GET /mothers/me
- *   • GET /mothers/:id/checkins
- *   • GET /appointments?mother_id=:id
- *   • GET /photos/me   (profile photo)
+ *   â€¢ GET /mothers/me
+ *   â€¢ GET /mothers/:id/checkins
+ *   â€¢ GET /appointments?mother_id=:id
+ *   â€¢ GET /photos/me   (profile photo)
  *
  * Route         : /dashboard/mother/modern   (separate; existing route untouched)
  */
@@ -26,6 +26,7 @@ import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from "@/components/ui/dialog";
+import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuLabel, DropdownMenuSeparator, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
 import { Textarea } from "@/components/ui/textarea";
 import { useAuth } from "@/contexts/AuthContext";
 import { useToast } from "@/hooks/use-toast";
@@ -39,13 +40,13 @@ import { DateTimePicker } from "@/components/ui/datetime-picker";
 import { Label } from "@/components/ui/label";
 import { Input } from "@/components/ui/input";
 
-// ─── colour tokens (inline so we don't touch tailwind.config) ───────────────
+// â”€â”€â”€ colour tokens (inline so we don't touch tailwind.config) â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 const SIDEBAR_BG   = "#0d2b2b";
 const SIDEBAR_HOVER = "#163f3f";
 const TEAL_ACC     = "#14b8a6";
 const PAGE_BG      = "#f0f7f6";
 
-// ─── helpers ─────────────────────────────────────────────────────────────────
+// â”€â”€â”€ helpers â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 function pregnancyWeekAndDays(dueDateStr: string): { week: number; daysLeft: number } {
   const due  = new Date(dueDateStr);
   const today = new Date();
@@ -61,7 +62,7 @@ function formatTime(iso: string) {
   return new Date(iso).toLocaleTimeString("en-KE", { hour: "2-digit", minute: "2-digit" });
 }
 
-// ─── SVG pie chart ────────────────────────────────────────────────────────────
+// â”€â”€â”€ SVG pie chart â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 interface PieSlice { label: string; value: number; color: string }
 function PieChart({ slices, size = 160 }: { slices: PieSlice[]; size?: number }) {
   const total = slices.reduce((s, sl) => s + sl.value, 0);
@@ -100,7 +101,7 @@ function PieChart({ slices, size = 160 }: { slices: PieSlice[]; size?: number })
   );
 }
 
-// ─── SVG line / area chart ────────────────────────────────────────────────────
+// â”€â”€â”€ SVG line / area chart â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 interface LinePoint { label: string; value: number }
 function LineChart({ points, width = 480, height = 160, color = TEAL_ACC }: {
   points: LinePoint[]; width?: number; height?: number; color?: string;
@@ -158,7 +159,7 @@ function LineChart({ points, width = 480, height = 160, color = TEAL_ACC }: {
   );
 }
 
-// ─── Navigation items ─────────────────────────────────────────────────────────
+// â”€â”€â”€ Navigation items â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 const NAV_ITEMS = [
   { id: "overview",      icon: LayoutDashboard, label: "Dashboard" },
   { id: "appointments",  icon: Calendar,        label: "Appointments" },
@@ -169,7 +170,7 @@ const NAV_ITEMS = [
 
 type NavId = (typeof NAV_ITEMS)[number]["id"];
 
-// ─── Status badge ─────────────────────────────────────────────────────────────
+// â”€â”€â”€ Status badge â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 function StatusBadge({ status }: { status: string }) {
   const map: Record<string, { label: string; cls: string }> = {
     scheduled:  { label: "Scheduled",  cls: "bg-teal-50 text-teal-700 border border-teal-200" },
@@ -182,37 +183,40 @@ function StatusBadge({ status }: { status: string }) {
   return <span className={`inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium ${s.cls}`}>{s.label}</span>;
 }
 
-// ─── The main component ───────────────────────────────────────────────────────
+// â”€â”€â”€ The main component â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 export function ModernMotherDashboard() {
   const { user, logout } = useAuth();
   const { toast } = useToast();
   const navigate = useNavigate();
 
-  // ── sidebar & nav ──
+  // â”€â”€ sidebar & nav â”€â”€
   const [sidebarOpen, setSidebarOpen]   = useState(true);
   const [activeNav, setActiveNav]       = useState<NavId>("overview");
 
-  // ── profile & photo ──
+  // â”€â”€ profile & photo â”€â”€
   const [profileImage, setProfileImage] = useState<string | null>(null);
   const [profile, setProfile]           = useState<{ due_date?: string; id?: number } | null>(null);
   const [motherProfileId, setMotherProfileId] = useState<number | null>(null);
   const motherProfileIdRef = useRef<number | null>(null);
 
-  // ── appointments ──
+  // â”€â”€ appointments â”€â”€
   const [appointments, setAppointments] = useState<Appointment[]>([]);
+  const [hiddenAppointments, setHiddenAppointments] = useState<Appointment[]>([]);
   const [apptLoading, setApptLoading]   = useState(false);
+  const [hiddenApptLoading, setHiddenApptLoading] = useState(false);
+  const [showHiddenApptsDialog, setShowHiddenApptsDialog] = useState(false);
 
-  // ── check-ins ──
+  // â”€â”€ check-ins â”€â”€
   const [checkins, setCheckins]         = useState<CheckIn[]>([]);
   const [checkinsLoading, setCheckinsLoading] = useState(false);
 
-  // ── check-in modal ──
+  // â”€â”€ check-in modal â”€â”€
   const [showCheckInModal, setShowCheckInModal]   = useState(false);
   const [checkInSelected, setCheckInSelected]     = useState<"ok" | "not_ok" | null>(null);
   const [checkInComment, setCheckInComment]       = useState("");
   const [checkInSubmitting, setCheckInSubmitting] = useState(false);
 
-  // ── schedule appointment modal ──
+  // â”€â”€ schedule appointment modal â”€â”€
   const [showScheduleModal, setShowScheduleModal] = useState(false);
   const [scheduleForm, setScheduleForm]           = useState({
     scheduledTime: undefined as Date | undefined,
@@ -221,25 +225,25 @@ export function ModernMotherDashboard() {
   });
   const [scheduleSubmitting, setScheduleSubmitting] = useState(false);
 
-  // ── photo upload ──
+  // â”€â”€ photo upload â”€â”€
   const [showPhotoUpload, setShowPhotoUpload] = useState(false);
 
-  // ── notifications ──
+  // â”€â”€ notifications â”€â”€
   const [notifCount, setNotifCount] = useState(0);
 
-  // ── derived pregnancy data ────────────────────────────────────────────────
+  // â”€â”€ derived pregnancy data â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
   const { week: pregnancyWeek, daysLeft } = profile?.due_date
     ? pregnancyWeekAndDays(profile.due_date)
     : { week: 0, daysLeft: 0 };
 
-  // ── stat counts ─────────────────────────────────────────────────────────
+  // â”€â”€ stat counts â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
   const totalAppts      = appointments.length;
   const scheduledAppts  = appointments.filter(a => a.status === "scheduled").length;
   const totalCheckins   = checkins.length;
   const okCheckins      = checkins.filter(c => c.response === "ok").length;
   const notOkCheckins   = totalCheckins - okCheckins;
 
-  // ── chart data: last 7 days of check-ins ──────────────────────────────────
+  // â”€â”€ chart data: last 7 days of check-ins â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
   const checkinTrendPoints: LinePoint[] = (() => {
     const days: { label: string; value: number }[] = [];
     for (let i = 6; i >= 0; i--) {
@@ -258,7 +262,7 @@ export function ModernMotherDashboard() {
     { label: "Needs Support", value: notOkCheckins, color: "#f43f5e" },
   ];
 
-  // ── data loading ─────────────────────────────────────────────────────────
+  // â”€â”€ data loading â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
   const refreshData = useCallback(async () => {
     if (!user?.id) return;
     try {
@@ -283,6 +287,11 @@ export function ModernMotherDashboard() {
   }, { enabled: !!user?.id });
   useSocket<Appointment>('appointment:updated', (appt) => setAppointments(prev => prev.map(a => a.id === appt.id ? appt : a)), { enabled: !!user?.id });
   useSocket<{ id: number }>('appointment:deleted', ({ id }) => setAppointments(prev => prev.filter(a => a.id !== id)), { enabled: !!user?.id });
+  useSocket<{ id: number; user_id: number }>('appointment:deleted', ({ id, user_id }) => {
+    if (user_id === user?.id) {
+      setAppointments(prev => prev.filter(a => a.id !== id));
+    }
+  }, { enabled: !!user?.id });
   useSocket<CheckIn>('checkin:new', (ci) => {
     // Avoid duplicates: only add if not already present (by ID)
     setCheckins(prev => prev.some(c => c.id === ci.id) ? prev : [ci, ...prev]);
@@ -324,14 +333,14 @@ export function ModernMotherDashboard() {
     setNotifCount(appointments.filter(a => a.status === "scheduled").length);
   }, [appointments]);
 
-  // ── handlers ──────────────────────────────────────────────────────────────
+  // â”€â”€ handlers â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
   const handlePhotoUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (!file) return;
     try {
       const meta = await uploadPhoto(file);
       setProfileImage(getPhotoFileUrl(meta.file_url));
-      toast({ title: "Photo updated ✓" });
+      toast({ title: "Photo updated âœ“" });
       setShowPhotoUpload(false);
     } catch (err: unknown) {
       toast({ title: "Upload failed", description: (err as Error).message, variant: "destructive" });
@@ -352,7 +361,7 @@ export function ModernMotherDashboard() {
       setCheckInSelected(null);
       setCheckInComment("");
       toast({
-        title: checkInSelected === "ok" ? "Check-in recorded ✓" : "Check-in recorded",
+        title: checkInSelected === "ok" ? "Check-in recorded âœ“" : "Check-in recorded",
         description: checkInSelected === "ok"
           ? "Keep taking care of yourself!"
           : "Your CHW has been notified.",
@@ -379,7 +388,7 @@ export function ModernMotherDashboard() {
         notes: scheduleForm.notes.trim() || undefined,
       });
       setAppointments(prev => [appt, ...prev]);
-      toast({ title: "Appointment requested ✓", description: formatDate(appt.scheduled_time) });
+      toast({ title: "Appointment requested âœ“", description: formatDate(appt.scheduled_time) });
       setShowScheduleModal(false);
       setScheduleForm({ scheduledTime: undefined, appointmentType: "prenatal_checkup", notes: "" });
     } catch (err: unknown) {
@@ -389,12 +398,30 @@ export function ModernMotherDashboard() {
     }
   };
 
-  // ── recent 5 appointments ─────────────────────────────────────────────────
+  const openHiddenAppointments = async () => {
+    if (!user?.id) return;
+    setHiddenApptLoading(true);
+    setShowHiddenApptsDialog(true);
+    try {
+      const resp = await appointmentService.list({
+        mother_id: user.id,
+        include_deleted: true,
+        deleted_only: true,
+      });
+      setHiddenAppointments(resp.appointments);
+    } catch (err: unknown) {
+      toast({ title: 'Error', description: (err as Error).message || 'Could not load deleted appointments.', variant: 'destructive' });
+    } finally {
+      setHiddenApptLoading(false);
+    }
+  };
+
+  // â”€â”€ recent 5 appointments â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
   const recentAppts = [...appointments]
     .sort((a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime())
     .slice(0, 5);
 
-  // ── recent check-ins for table ────────────────────────────────────────────
+  // â”€â”€ recent check-ins for table â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
   const recentCheckins = checkins.slice(0, 6);
 
   const greeting = (() => {
@@ -404,11 +431,11 @@ export function ModernMotherDashboard() {
     return "Good evening";
   })();
 
-  // ── render ────────────────────────────────────────────────────────────────
+  // â”€â”€ render â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
   return (
     <div className="flex h-screen overflow-hidden" style={{ background: PAGE_BG }}>
 
-      {/* ── SIDEBAR ─────────────────────────────────────────────────────── */}
+      {/* â”€â”€ SIDEBAR â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€ */}
       <aside
         className={`flex-shrink-0 flex flex-col transition-all duration-300 ${sidebarOpen ? "w-56" : "w-16"}`}
         style={{ background: SIDEBAR_BG }}
@@ -477,16 +504,16 @@ export function ModernMotherDashboard() {
         </div>
       </aside>
 
-      {/* ── MAIN AREA ──────────────────────────────────────────────────── */}
+      {/* â”€â”€ MAIN AREA â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€ */}
       <div className="flex-1 flex flex-col min-w-0 overflow-hidden">
 
-        {/* ── TOP HEADER ─────────────────────────────────────────────── */}
+        {/* â”€â”€ TOP HEADER â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€ */}
         <header className="flex-shrink-0 bg-white border-b border-gray-200 px-6 py-3 flex items-center gap-4">
           {/* Search */}
           <div className="flex-1 max-w-sm relative">
             <input
               type="text"
-              placeholder="Search…"
+              placeholder="Searchâ€¦"
               className="w-full pl-9 pr-3 py-1.5 text-sm rounded-lg border border-gray-200 bg-gray-50 focus:outline-none focus:border-teal-400 focus:ring-2 focus:ring-teal-100"
             />
             <svg className="absolute left-2.5 top-2 h-4 w-4 text-gray-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
@@ -505,36 +532,58 @@ export function ModernMotherDashboard() {
               )}
             </button>
 
-            {/* User avatar */}
-            <button
-              onClick={() => navigate("/dashboard/mother/profile")}
-              className="flex items-center gap-2 hover:bg-gray-50 rounded-lg px-2 py-1 transition-colors"
-            >
-              <Avatar className="h-8 w-8 ring-2" style={{ "--tw-ring-color": TEAL_ACC } as React.CSSProperties}>
-                <AvatarImage src={profileImage ?? undefined} />
-                <AvatarFallback style={{ background: TEAL_ACC }} className="text-white text-sm font-semibold">
-                  {user?.first_name?.[0]?.toUpperCase() ?? "M"}
-                </AvatarFallback>
-              </Avatar>
-              <div className="hidden sm:block text-left">
-                <p className="text-sm font-semibold text-gray-800 leading-none">
-                  {user?.first_name} {user?.last_name}
-                </p>
-                <p className="text-[11px] text-gray-400 mt-0.5">Mother</p>
-              </div>
-              <ChevronDown className="h-3.5 w-3.5 text-gray-400 hidden sm:block" />
-            </button>
+            {/* User avatar / options */}
+            <DropdownMenu>
+              <DropdownMenuTrigger asChild>
+                <button className="flex items-center gap-2 hover:bg-gray-50 rounded-lg px-2 py-1 transition-colors">
+                  <Avatar className="h-8 w-8 ring-2" style={{ "--tw-ring-color": TEAL_ACC } as React.CSSProperties}>
+                    <AvatarImage src={profileImage ?? undefined} />
+                    <AvatarFallback style={{ background: TEAL_ACC }} className="text-white text-sm font-semibold">
+                      {user?.first_name?.[0]?.toUpperCase() ?? "M"}
+                    </AvatarFallback>
+                  </Avatar>
+                  <div className="hidden sm:block text-left">
+                    <p className="text-sm font-semibold text-gray-800 leading-none">
+                      {user?.first_name} {user?.last_name}
+                    </p>
+                    <p className="text-[11px] text-gray-400 mt-0.5">Mother</p>
+                  </div>
+                  <ChevronDown className="h-3.5 w-3.5 text-gray-400 hidden sm:block" />
+                </button>
+              </DropdownMenuTrigger>
+              <DropdownMenuContent align="end" className="w-64">
+                <DropdownMenuLabel>{user?.first_name} {user?.last_name}</DropdownMenuLabel>
+                <DropdownMenuSeparator />
+                <DropdownMenuItem onClick={() => navigate('/dashboard/mother/profile')}>
+                  <User className="h-4 w-4 mr-2" />
+                  My Profile
+                </DropdownMenuItem>
+                <DropdownMenuItem onClick={() => setShowPhotoUpload(true)}>
+                  <Camera className="h-4 w-4 mr-2" />
+                  Update Photo
+                </DropdownMenuItem>
+                <DropdownMenuItem onClick={openHiddenAppointments}>
+                  <Clock className="h-4 w-4 mr-2" />
+                  Recently Deleted Appointments (15 days)
+                </DropdownMenuItem>
+                <DropdownMenuSeparator />
+                <DropdownMenuItem onClick={logout} className="text-red-600">
+                  <LogOut className="h-4 w-4 mr-2" />
+                  Log out
+                </DropdownMenuItem>
+              </DropdownMenuContent>
+            </DropdownMenu>
           </div>
         </header>
 
-        {/* ── SCROLLABLE CONTENT ──────────────────────────────────────── */}
+        {/* â”€â”€ SCROLLABLE CONTENT â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€ */}
         <main className="flex-1 overflow-y-auto p-6 space-y-6">
 
           {/* Page heading */}
           <div className="flex items-center justify-between">
             <div>
               <h2 className="text-xl font-bold text-gray-900">
-                {greeting}, {user?.first_name ?? "Mama"} 👋
+                {greeting}, {user?.first_name ?? "Mama"} ðŸ‘‹
               </h2>
               <p className="text-sm text-gray-500 mt-0.5">
                 {new Date().toLocaleDateString("en-KE", { weekday: "long", day: "numeric", month: "long", year: "numeric" })}
@@ -560,12 +609,12 @@ export function ModernMotherDashboard() {
             </div>
           </div>
 
-          {/* ── STAT CARDS ──────────────────────────────────────────── */}
+          {/* â”€â”€ STAT CARDS â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€ */}
           <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
             {/* Total Appointments */}
             <StatCard
               label="Total Appointments"
-              value={apptLoading ? "—" : String(totalAppts)}
+              value={apptLoading ? "â€”" : String(totalAppts)}
               sub={`${scheduledAppts} upcoming`}
               trend="up"
               icon={<Calendar className="h-5 w-5 text-white" />}
@@ -574,7 +623,7 @@ export function ModernMotherDashboard() {
             {/* Check-ins */}
             <StatCard
               label="Check-ins (30 days)"
-              value={checkinsLoading ? "—" : String(totalCheckins)}
+              value={checkinsLoading ? "â€”" : String(totalCheckins)}
               sub={`${okCheckins} feeling good`}
               trend="up"
               icon={<ClipboardList className="h-5 w-5 text-white" />}
@@ -583,7 +632,7 @@ export function ModernMotherDashboard() {
             {/* Pregnancy Week */}
             <StatCard
               label="Pregnancy Week"
-              value={pregnancyWeek > 0 ? `Week ${pregnancyWeek}` : "—"}
+              value={pregnancyWeek > 0 ? `Week ${pregnancyWeek}` : "â€”"}
               sub={`of 40 weeks`}
               trend="neutral"
               icon={<Baby className="h-5 w-5 text-white" />}
@@ -592,7 +641,7 @@ export function ModernMotherDashboard() {
             {/* Days to Due Date */}
             <StatCard
               label="Days to Due Date"
-              value={daysLeft > 0 ? String(daysLeft) : "—"}
+              value={daysLeft > 0 ? String(daysLeft) : "â€”"}
               sub={profile?.due_date ? formatDate(profile.due_date) : "Not set"}
               trend={daysLeft < 30 ? "warn" : "neutral"}
               icon={<Activity className="h-5 w-5 text-white" />}
@@ -600,10 +649,10 @@ export function ModernMotherDashboard() {
             />
           </div>
 
-          {/* ── CHARTS ROW ──────────────────────────────────────────── */}
+          {/* â”€â”€ CHARTS ROW â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€ */}
           <div className="grid grid-cols-1 lg:grid-cols-3 gap-4">
 
-            {/* Line chart – check-in trend */}
+            {/* Line chart â€“ check-in trend */}
             <div className="lg:col-span-2 bg-white rounded-2xl shadow-sm border border-gray-100 p-5">
               <div className="flex items-center justify-between mb-4">
                 <div>
@@ -620,7 +669,7 @@ export function ModernMotherDashboard() {
               </div>
             </div>
 
-            {/* Pie chart – check-in distribution */}
+            {/* Pie chart â€“ check-in distribution */}
             <div className="bg-white rounded-2xl shadow-sm border border-gray-100 p-5">
               <div className="mb-4">
                 <h3 className="font-semibold text-gray-800">Wellness Distribution</h3>
@@ -650,7 +699,7 @@ export function ModernMotherDashboard() {
             </div>
           </div>
 
-          {/* ── APPOINTMENTS TABLE + RECENT CHECK-INS ────────────────── */}
+          {/* â”€â”€ APPOINTMENTS TABLE + RECENT CHECK-INS â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€ */}
           <div className="grid grid-cols-1 lg:grid-cols-5 gap-4">
 
             {/* Appointments table */}
@@ -682,6 +731,7 @@ export function ModernMotherDashboard() {
                       <th className="text-left px-3 py-2.5 text-xs font-semibold text-gray-500 uppercase tracking-wide">Date</th>
                       <th className="text-left px-3 py-2.5 text-xs font-semibold text-gray-500 uppercase tracking-wide">Time</th>
                       <th className="text-center px-3 py-2.5 text-xs font-semibold text-gray-500 uppercase tracking-wide">Status</th>
+                      <th className="text-right px-5 py-2.5 text-xs font-semibold text-gray-500 uppercase tracking-wide">Action</th>
                     </tr>
                   </thead>
                   <tbody>
@@ -693,6 +743,24 @@ export function ModernMotherDashboard() {
                         <td className="px-3 py-3 text-gray-500 whitespace-nowrap">{formatDate(a.scheduled_time)}</td>
                         <td className="px-3 py-3 text-gray-500 whitespace-nowrap">{formatTime(a.scheduled_time)}</td>
                         <td className="px-3 py-3 text-center"><StatusBadge status={a.status} /></td>
+                        <td className="px-5 py-3 text-right">
+                          <Button
+                            size="sm"
+                            variant="outline"
+                            className="h-7 px-2 text-xs"
+                            onClick={async () => {
+                              try {
+                                await appointmentService.softDelete(a.id, 'deleted_by_modern_mother_dashboard');
+                                setAppointments(prev => prev.filter(ap => ap.id !== a.id));
+                                toast({ title: 'Appointment Deleted' });
+                              } catch (err: unknown) {
+                                toast({ title: 'Error', description: (err as Error)?.message ?? 'Could not delete appointment.', variant: 'destructive' });
+                              }
+                            }}
+                          >
+                            Hide
+                          </Button>
+                        </td>
                       </tr>
                     ))}
                   </tbody>
@@ -750,7 +818,7 @@ export function ModernMotherDashboard() {
             </div>
           </div>
 
-          {/* ── QUICK ACTIONS STRIP ─────────────────────────────────── */}
+          {/* â”€â”€ QUICK ACTIONS STRIP â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€ */}
           <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
             {[
               { label: "Daily Check-in",         icon: <Heart className="h-5 w-5" />,        accent: TEAL_ACC,  action: () => setShowCheckInModal(true) },
@@ -775,7 +843,7 @@ export function ModernMotherDashboard() {
         </main>
       </div>
 
-      {/* ── MODALS ────────────────────────────────────────────────────────── */}
+      {/* â”€â”€ MODALS â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€ */}
 
       {/* Daily Check-in Modal */}
       <Dialog open={showCheckInModal} onOpenChange={(o) => { setShowCheckInModal(o); if (!o) { setCheckInSelected(null); setCheckInComment(""); } }}>
@@ -811,7 +879,7 @@ export function ModernMotherDashboard() {
           {checkInSelected && (
             <div className="space-y-3 pt-2">
               <Textarea
-                placeholder="Add a note (optional)…"
+                placeholder="Add a note (optional)â€¦"
                 value={checkInComment}
                 onChange={e => setCheckInComment(e.target.value)}
                 rows={3}
@@ -824,7 +892,7 @@ export function ModernMotherDashboard() {
                 style={{ background: checkInSelected === "ok" ? TEAL_ACC : "#f43f5e" }}
               >
                 {checkInSubmitting
-                  ? <><Loader2 className="h-4 w-4 mr-2 animate-spin" />Submitting…</>
+                  ? <><Loader2 className="h-4 w-4 mr-2 animate-spin" />Submittingâ€¦</>
                   : <><CheckCircle className="h-4 w-4 mr-2" />Submit Check-in</>
                 }
               </Button>
@@ -865,7 +933,7 @@ export function ModernMotherDashboard() {
             <div className="space-y-1.5">
               <Label>Notes <span className="text-gray-400">(optional)</span></Label>
               <Textarea
-                placeholder="Describe your concern…"
+                placeholder="Describe your concernâ€¦"
                 value={scheduleForm.notes}
                 onChange={e => setScheduleForm(f => ({ ...f, notes: e.target.value }))}
                 rows={3}
@@ -879,11 +947,57 @@ export function ModernMotherDashboard() {
               style={{ background: TEAL_ACC }}
             >
               {scheduleSubmitting
-                ? <><Loader2 className="h-4 w-4 mr-2 animate-spin" />Booking…</>
+                ? <><Loader2 className="h-4 w-4 mr-2 animate-spin" />Bookingâ€¦</>
                 : "Confirm Appointment"
               }
             </Button>
           </div>
+        </DialogContent>
+      </Dialog>
+
+      {/* Deleted Appointments Dialog */}
+      <Dialog open={showHiddenApptsDialog} onOpenChange={setShowHiddenApptsDialog}>
+        <DialogContent className="max-w-2xl">
+          <DialogHeader>
+            <DialogTitle>Recently Deleted Appointments</DialogTitle>
+            <DialogDescription>Appointments deleted from your dashboard in the last 15 days. You can restore them here.</DialogDescription>
+          </DialogHeader>
+          {hiddenApptLoading ? (
+            <div className="flex items-center justify-center py-10">
+              <Loader2 className="h-5 w-5 animate-spin text-gray-400" />
+            </div>
+          ) : hiddenAppointments.length === 0 ? (
+            <p className="text-sm text-muted-foreground py-8 text-center">No deleted appointments found.</p>
+          ) : (
+            <div className="space-y-3 max-h-[55vh] overflow-y-auto pr-1">
+              {hiddenAppointments.map((appt) => (
+                <div key={appt.id} className="border rounded-lg p-3 flex items-start justify-between gap-3">
+                  <div>
+                    <p className="font-medium capitalize">{(appt.appointment_type ?? 'appointment').replace(/_/g, ' ')}</p>
+                    <p className="text-sm text-muted-foreground mt-1">
+                      {new Date(appt.scheduled_time).toLocaleString('en-KE', { dateStyle: 'medium', timeStyle: 'short' })}
+                    </p>
+                  </div>
+                  <Button
+                    size="sm"
+                    variant="outline"
+                    className="text-green-700 border-green-200 hover:bg-green-50"
+                    onClick={async () => {
+                      try {
+                        await appointmentService.restoreDeleted(appt.id);
+                        setHiddenAppointments(prev => prev.filter(a => a.id !== appt.id));
+                        toast({ title: 'Appointment Restored' });
+                      } catch (err: unknown) {
+                        toast({ title: 'Error', description: (err as Error).message || 'Could not restore appointment.', variant: 'destructive' });
+                      }
+                    }}
+                  >
+                    Restore
+                  </Button>
+                </div>
+              ))}
+            </div>
+          )}
         </DialogContent>
       </Dialog>
 
@@ -914,7 +1028,7 @@ export function ModernMotherDashboard() {
   );
 }
 
-// ─── StatCard sub-component ───────────────────────────────────────────────────
+// â”€â”€â”€ StatCard sub-component â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 interface StatCardProps {
   label: string;
   value: string;
@@ -944,3 +1058,4 @@ function StatCard({ label, value, sub, trend, icon, accent }: StatCardProps) {
     </div>
   );
 }
+

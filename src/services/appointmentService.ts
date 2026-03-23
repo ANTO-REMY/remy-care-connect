@@ -5,7 +5,7 @@
 
 import { apiClient } from '@/lib/apiClient';
 
-export type AppointmentStatus = 'scheduled' | 'completed' | 'canceled' | 'cancelled' | 'rescheduled';
+export type AppointmentStatus = 'scheduled' | 'completed' | 'canceled' | 'cancelled';
 
 export interface Appointment {
   id: number;
@@ -48,6 +48,10 @@ export interface AppointmentFilters {
   status?: AppointmentStatus;
   from?: string;   // ISO 8601
   to?: string;     // ISO 8601
+  include_deleted?: boolean;
+  deleted_only?: boolean;
+  include_hidden?: boolean;
+  hidden_only?: boolean;
 }
 
 class AppointmentService {
@@ -67,6 +71,10 @@ class AppointmentService {
     if (filters?.status)           params.set('status',            filters.status);
     if (filters?.from)             params.set('from',              filters.from);
     if (filters?.to)               params.set('to',                filters.to);
+    if (typeof filters?.include_deleted === 'boolean') params.set('include_deleted', String(filters.include_deleted));
+    if (typeof filters?.deleted_only === 'boolean') params.set('deleted_only', String(filters.deleted_only));
+    if (typeof filters?.include_hidden === 'boolean') params.set('include_hidden', String(filters.include_hidden));
+    if (typeof filters?.hidden_only === 'boolean') params.set('hidden_only', String(filters.hidden_only));
     const qs = params.toString();
     return apiClient.get<AppointmentListResponse>(`/appointments${qs ? `?${qs}` : ''}`);
   }
@@ -89,6 +97,28 @@ class AppointmentService {
   /** Delete an appointment */
   async delete(id: number): Promise<{ message: string }> {
     return apiClient.delete<{ message: string }>(`/appointments/${id}`);
+  }
+
+  /** Delete appointment from current user's dashboard only (non-destructive) */
+  async softDelete(id: number, reason?: string): Promise<{ message: string; appointment_id: number }> {
+    return apiClient.post<{ message: string; appointment_id: number }>(`/appointments/${id}/delete`, {
+      reason,
+    });
+  }
+
+  /** Restore a previously deleted appointment for current user */
+  async restoreDeleted(id: number): Promise<{ message: string; appointment_id: number }> {
+    return apiClient.delete<{ message: string; appointment_id: number }>(`/appointments/${id}/delete`);
+  }
+
+  /** Backward-compatible alias */
+  async hide(id: number, reason?: string): Promise<{ message: string; appointment_id: number }> {
+    return this.softDelete(id, reason);
+  }
+
+  /** Backward-compatible alias */
+  async unhide(id: number): Promise<{ message: string; appointment_id: number }> {
+    return this.restoreDeleted(id);
   }
 
   /** Convenience: get upcoming appointments for a mother */

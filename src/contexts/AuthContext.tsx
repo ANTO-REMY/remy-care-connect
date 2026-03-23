@@ -157,7 +157,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     setIsAuthenticated(false);
     setIsFirstLogin(false);
     // Always send user back to the main app entry
-    window.location.href = "http://localhost:8080";
+    window.location.href = "/";
   };
 
   return (
