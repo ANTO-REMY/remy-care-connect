@@ -61,6 +61,7 @@ export interface LoginResponse {
     email?: string;
     name: string;
     role: string;
+    profile_id?: number;
   };
 }
 
@@ -176,6 +177,7 @@ class AuthService {
       phone_number: string;
       name: string;
       role: string;
+      profile_id?: number;
       is_verified: boolean;
     }>('/auth/profile');
 
@@ -192,6 +194,7 @@ class AuthService {
       first_name,
       last_name,
       role: data.role,
+      profile_id: data.profile_id,
     };
   }
 

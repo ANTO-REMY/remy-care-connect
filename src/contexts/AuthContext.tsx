@@ -10,6 +10,7 @@ export interface User {
   email?: string;
   name: string; // kept for backward compat — equals first_name + ' ' + last_name
   role: 'mother' | 'chw' | 'nurse';
+  profile_id?: number; // ID of the Mother, CHW, or Nurse profile record
 }
 
 interface AuthContextType {

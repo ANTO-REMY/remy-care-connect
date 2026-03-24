@@ -33,6 +33,7 @@ import { chwService } from "@/services/chwService";
 import { apiClient } from "@/lib/apiClient";
 import { checkinService, type CheckIn } from "@/services/checkinService";
 import { useSocket, useSocketStatus, joinProfileRoom } from "@/hooks/useSocket";
+import { ConnectionBanner } from "@/components/ConnectionBanner";
 
 // Mock data for mothers
 const mockMothers = [
@@ -658,7 +659,6 @@ export function EnhancedCHWDashboard({ isFirstLogin = false }: CHWDashboardProps
     setAppointments(prev => prev.some(a => a.id === appt.id) ? prev : [appt, ...prev]);
   }, { enabled: chwProfileId !== null });
   useSocket<Appointment>('appointment:updated', (appt) => setAppointments(prev => prev.map(a => a.id === appt.id ? appt : a)), { enabled: chwProfileId !== null });
-  useSocket<{ id: number }>('appointment:deleted', ({ id }) => setAppointments(prev => prev.filter(a => a.id !== id)), { enabled: chwProfileId !== null });
   useSocket<{ id: number; user_id: number }>('appointment:deleted', ({ id, user_id }) => {
     if (user_id === user?.id) {
       setAppointments(prev => prev.filter(a => a.id !== id));
@@ -1477,6 +1477,7 @@ export function EnhancedCHWDashboard({ isFirstLogin = false }: CHWDashboardProps
       </Dialog>
 
       {/* Header */}
+      <ConnectionBanner />
       <header className="sticky top-0 z-50 bg-white/80 backdrop-blur-md border-b">
         <div className="max-w-7xl mx-auto px-4 sm:px-6">
           <div className="flex items-center justify-between h-16">
@@ -2019,11 +2020,11 @@ export function EnhancedCHWDashboard({ isFirstLogin = false }: CHWDashboardProps
                 <TabsList className="grid w-full grid-cols-2">
                   <TabsTrigger value="yours" className="flex items-center gap-2">
                     <CheckCircle className="h-4 w-4" />
-                    <span className="truncate">Scheduled by You ({appointmentsScheduledByMe.length})</span>
+                    <span className="truncate">Your Appointments ({appointmentsScheduledByMe.length})</span>
                   </TabsTrigger>
                   <TabsTrigger value="requested" className="flex items-center gap-2">
                     <Calendar className="h-4 w-4" />
-                    <span className="truncate">Requested by Mother ({appointmentsRequestedByMother.length})</span>
+                    <span className="truncate">Mother Requests ({appointmentsRequestedByMother.length})</span>
                   </TabsTrigger>
                 </TabsList>
               </Tabs>

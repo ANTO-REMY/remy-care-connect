@@ -68,11 +68,16 @@ export function SocketProvider({ children }: { children: ReactNode }) {
       // On reconnect (not the first connect), request a full sync
       // so the client catches up on events missed while disconnected.
       if (wasConnectedRef.current) {
+        const profileId = (user as Record<string, unknown>).profile_id as number ?? null;
         s.emit('request_sync', {
           role: user.role,
           user_id: user.id,
-          profile_id: (user as Record<string, unknown>).profile_id as number ?? null,
+          profile_id: profileId,
         });
+        // Re-join profile-specific rooms after reconnect
+        if (profileId) {
+          s.emit('join_rooms', { profile_id: profileId });
+        }
       }
       wasConnectedRef.current = true;
     };

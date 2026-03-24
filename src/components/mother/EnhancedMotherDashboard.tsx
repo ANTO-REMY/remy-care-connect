@@ -31,6 +31,7 @@ import { DateTimePicker } from "@/components/ui/datetime-picker";
 import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { useSocket, useSocketStatus } from "@/hooks/useSocket";
+import { ConnectionBanner } from "@/components/ConnectionBanner";
 import { PregnancyJourneyTracker } from "./PregnancyJourneyTracker";
 
 // Mock data for daily insights
@@ -216,6 +217,7 @@ export function EnhancedMotherDashboard({ isFirstLogin = false }: MotherDashboar
   const [appointmentsLoading, setAppointmentsLoading] = useState(false);
   const [hiddenAppointmentsLoading, setHiddenAppointmentsLoading] = useState(false);
   const [showHiddenAppointments, setShowHiddenAppointments] = useState(false);
+  const [apptTab, setApptTab] = useState<'yours' | 'chw'>('yours');
   // Mother appointment scheduling
   const [showMotherScheduleModal, setShowMotherScheduleModal] = useState(false);
   const [motherScheduleForm, setMotherScheduleForm] = useState({
@@ -276,17 +278,54 @@ export function EnhancedMotherDashboard({ isFirstLogin = false }: MotherDashboar
     setAppointments(prev => prev.some(a => a.id === appt.id) ? prev : [appt, ...prev]);
   }, { enabled: !!user?.id });
   useSocket<Appointment>('appointment:updated', (appt) => setAppointments(prev => prev.map(a => a.id === appt.id ? appt : a)), { enabled: !!user?.id });
-  useSocket<{ id: number }>('appointment:deleted', ({ id }) => setAppointments(prev => prev.filter(a => a.id !== id)), { enabled: !!user?.id });
-    useSocket<{ id: number; user_id: number }>('appointment:deleted', ({ id, user_id }) => {
-      if (user_id === user?.id) {
-        setAppointments(prev => prev.filter(a => a.id !== id));
-      }
-    }, { enabled: !!user?.id });
+  useSocket<{ id: number; user_id: number }>('appointment:deleted', ({ id, user_id }) => {
+    if (user_id === user?.id) {
+      setAppointments(prev => prev.filter(a => a.id !== id));
+    }
+  }, { enabled: !!user?.id });
   useSocket('checkin:new', () => refreshData(), { enabled: !!user?.id });
   // Reconnect sync: replace state wholesale with the server snapshot
   useSocket<{ appointments?: Appointment[] }>('sync', (data) => {
     if (data.appointments) setAppointments(data.appointments);
   }, { enabled: !!user?.id });
+
+  // Escalation notifications
+  useSocket('escalation:created', () => {
+    toast({
+      title: '📋 Case Escalated',
+      description: 'Your case has been sent to a nurse for review.',
+      variant: 'default',
+    });
+  }, { enabled: !!user?.id });
+
+  useSocket<{ message?: string; status?: string }>('escalation:status_changed', (data) => {
+    const status = data.status || 'updated';
+    let description = `Your case status is now: ${status}`;
+    if (status === 'in_progress') {
+      description = 'Your case is now being reviewed.';
+    } else if (status === 'resolved') {
+      description = 'Your case has been resolved.';
+    } else if (status === 'rejected') {
+      description = 'Your case was not proceeded with.';
+    }
+    toast({
+      title: '📊 Case Status Update',
+      description,
+      variant: status === 'resolved' ? 'default' : 'default',
+    });
+  }, { enabled: !!user?.id });
+
+  // Appointment filtering: separate by creator
+  const sourceAppointments = showHiddenAppointments ? hiddenAppointments : appointments;
+  const apptsByMother = sourceAppointments.filter(
+    appt => appt.created_by_user_id === user?.id
+  );
+  const apptsByChw = sourceAppointments.filter(
+    appt => appt.created_by_user_id !== user?.id
+  );
+  const displayedAppointments = showHiddenAppointments
+    ? sourceAppointments
+    : (apptTab === 'yours' ? apptsByMother : apptsByChw);
 
   /** Mother schedules an appointment with their assigned health worker */
   const handleMotherScheduleAppointment = async () => {
@@ -673,6 +712,7 @@ export function EnhancedMotherDashboard({ isFirstLogin = false }: MotherDashboar
 
       {/* Header */}
       <header className="sticky top-0 z-50 bg-white/80 backdrop-blur-md border-b">
+        <ConnectionBanner />
         <div className="max-w-7xl mx-auto px-4 sm:px-6">
           <div className="flex items-center justify-between h-16">
             <div className="flex items-center gap-3">
@@ -1084,22 +1124,37 @@ export function EnhancedMotherDashboard({ isFirstLogin = false }: MotherDashboar
               )}
             </div>
 
+            {!showHiddenAppointments && (
+              <Tabs value={apptTab} onValueChange={(val) => setApptTab(val as 'yours' | 'chw')} className="mb-4">
+                <TabsList className="grid w-full grid-cols-2">
+                  <TabsTrigger value="yours" className="flex items-center gap-2">
+                    <CheckCircle className="h-4 w-4" />
+                    <span className="truncate">Your Requests ({apptsByMother.length})</span>
+                  </TabsTrigger>
+                  <TabsTrigger value="chw" className="flex items-center gap-2">
+                    <Calendar className="h-4 w-4" />
+                    <span className="truncate">CHW Scheduled ({apptsByChw.length})</span>
+                  </TabsTrigger>
+                </TabsList>
+              </Tabs>
+            )}
+
             {(showHiddenAppointments ? hiddenAppointmentsLoading : appointmentsLoading) ? (
               <div className="flex items-center justify-center py-12">
                 <Activity className="h-6 w-6 animate-spin text-muted-foreground mr-2" />
                 <span className="text-muted-foreground">Loading appointments...</span>
               </div>
-            ) : ((showHiddenAppointments ? hiddenAppointments : appointments).length === 0) ? (
+            ) : (displayedAppointments.length === 0) ? (
               <div className="space-y-3">
                 <Card className="border-dashed border-2 border-primary/30 bg-primary/5">
                   <CardContent className="p-4 text-center">
                     <Calendar className="h-10 w-10 mx-auto mb-2 text-primary/50" />
                     <p className="text-sm text-muted-foreground">
-                      {showHiddenAppointments ? 'No deleted appointments in the last 15 days.' : 'No upcoming appointments scheduled yet.'}
+                      {showHiddenAppointments ? 'No deleted appointments in the last 15 days.' : (apptTab === 'yours' ? 'You haven\'t requested any appointments yet.' : 'Your CHW hasn\'t scheduled any visits yet.')}
                     </p>
-                    {!showHiddenAppointments && (
+                    {!showHiddenAppointments && apptTab === 'yours' && (
                       <p className="text-xs text-muted-foreground mt-1">
-                        Your CHW or nurse will schedule visits for you.
+                        Use the Schedule button to request a visit.
                       </p>
                     )}
                   </CardContent>
@@ -1108,7 +1163,7 @@ export function EnhancedMotherDashboard({ isFirstLogin = false }: MotherDashboar
             ) : (
               /* Real appointments from API */
               <div className="space-y-3">
-                {(showHiddenAppointments ? hiddenAppointments : appointments).map((appt) => {
+                {displayedAppointments.map((appt) => {
                   const isScheduled = appt.status === 'scheduled';
                   const isCompleted = appt.status === 'completed';
                   const isCancelled = appt.status === 'canceled' || appt.status === 'cancelled';

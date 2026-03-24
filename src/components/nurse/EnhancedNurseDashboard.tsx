@@ -32,6 +32,7 @@ import { assignmentService, type Assignment, type AssignedMother } from "@/servi
 import { appointmentService, type Appointment } from "@/services/appointmentService";
 import { nurseService } from "@/services/nurseService";
 import { useSocket, useSocketStatus, joinProfileRoom } from "@/hooks/useSocket";
+import { ConnectionBanner } from "@/components/ConnectionBanner";
 
 // Mock data for escalated cases
 const mockEscalatedCases = [
@@ -301,13 +302,14 @@ export function EnhancedNurseDashboard({ isFirstLogin = false }: NurseDashboardP
     appt => appt.created_by_user_id === user?.id
   );
   
-  const nurseAppointmentsRequestedByMother = sourceNurseAppointments.filter(
-    appt => appt.created_by_user_id !== user?.id
+  // CHW-only filter: health_worker is nurse, NOT created by nurse, NOT created by mother
+  const nurseAppointmentsByChw = sourceNurseAppointments.filter(
+    appt => appt.health_worker_id === user?.id && appt.created_by_user_id !== user?.id && appt.created_by_user_id !== appt.mother_id
   );
   
   const displayedNurseAppointments = showHiddenNurseAppointments
     ? sourceNurseAppointments
-    : (nurseAppointmentTab === 'yours' ? nurseAppointmentsScheduledByMe : nurseAppointmentsRequestedByMother);
+    : (nurseAppointmentTab === 'yours' ? nurseAppointmentsScheduledByMe : nurseAppointmentsByChw);
 
   const openWhatsApp = (phone: string) => {
     window.open(`https://wa.me/${phone.replace('+', '')}`, '_blank');
@@ -598,7 +600,6 @@ export function EnhancedNurseDashboard({ isFirstLogin = false }: NurseDashboardP
     setNurseAppointments(prev => prev.some(a => a.id === appt.id) ? prev : [appt, ...prev]);
   }, { enabled: nurseProfileId !== null });
   useSocket<Appointment>('appointment:updated', (appt) => setNurseAppointments(prev => prev.map(a => a.id === appt.id ? appt : a)), { enabled: nurseProfileId !== null });
-  useSocket<{ id: number }>('appointment:deleted', ({ id }) => setNurseAppointments(prev => prev.filter(a => a.id !== id)), { enabled: nurseProfileId !== null });
   useSocket<{ id: number; user_id: number }>('appointment:deleted', ({ id, user_id }) => {
     if (user_id === user?.id) {
       setNurseAppointments(prev => prev.filter(a => a.id !== id));
@@ -1268,6 +1269,7 @@ export function EnhancedNurseDashboard({ isFirstLogin = false }: NurseDashboardP
 
       {/* Header */}
       <header className="sticky top-0 z-50 bg-white/80 backdrop-blur-md border-b">
+        <ConnectionBanner />
         <div className="max-w-7xl mx-auto px-4 sm:px-6">
           <div className="flex items-center justify-between h-16">
             <div className="flex items-center gap-3 flex-1">
@@ -1711,11 +1713,11 @@ export function EnhancedNurseDashboard({ isFirstLogin = false }: NurseDashboardP
                 <TabsList className="grid w-full grid-cols-2">
                   <TabsTrigger value="yours" className="flex items-center gap-2">
                     <CheckCircle className="h-4 w-4" />
-                    <span className="truncate">Scheduled by You ({nurseAppointmentsScheduledByMe.length})</span>
+                    <span className="truncate">Your Appointments ({nurseAppointmentsScheduledByMe.length})</span>
                   </TabsTrigger>
                   <TabsTrigger value="requested" className="flex items-center gap-2">
                     <Calendar className="h-4 w-4" />
-                    <span className="truncate">Requested by CHW/Mother ({nurseAppointmentsRequestedByMother.length})</span>
+                    <span className="truncate">CHW Requests ({nurseAppointmentsByChw.length})</span>
                   </TabsTrigger>
                 </TabsList>
               </Tabs>
