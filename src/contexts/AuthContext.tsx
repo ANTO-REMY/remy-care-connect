@@ -1,6 +1,7 @@
 /* eslint-disable react-refresh/only-export-components */
 import React, { createContext, useContext, useState, useEffect } from 'react';
 import { authService, type LoginRequest, type RegisterRequest } from '@/services/authService';
+import { initFirebaseMessaging, unregisterDeviceToken } from '@/lib/firebaseClient';
 
 export interface User {
   id: number;
@@ -95,6 +96,14 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       // Set first-login flag for ALL roles (each role has its own onboarding)
       setIsFirstLogin(authService.isFirstLogin(typedUser.id));
 
+      // Best-effort: initialise FCM and register this device token after login.
+      // If the user denies permission, the rest of login still succeeds.
+      try {
+        await initFirebaseMessaging();
+      } catch (e) {
+        console.warn('[FCM] initFirebaseMessaging failed:', e);
+      }
+
       console.log('💾 User state updated successfully');
       return { success: true, role: response.user.role };
     } catch (error: unknown) {
@@ -153,12 +162,24 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   };
 
   const logout = () => {
-    authService.logout();
-    setUser(null);
-    setIsAuthenticated(false);
-    setIsFirstLogin(false);
-    // Always send user back to the main app entry
-    window.location.href = "/";
+    const fcmToken = sessionStorage.getItem('fcm_token');
+
+    (async () => {
+      if (!fcmToken) return;
+
+      // Don't let logout hang indefinitely on network.
+      await Promise.race([
+        unregisterDeviceToken(fcmToken),
+        new Promise((resolve) => setTimeout(resolve, 500)),
+      ]);
+    })().finally(() => {
+      authService.logout();
+      setUser(null);
+      setIsAuthenticated(false);
+      setIsFirstLogin(false);
+      // Always send user back to the main app entry
+      window.location.href = "/";
+    });
   };
 
   return (
