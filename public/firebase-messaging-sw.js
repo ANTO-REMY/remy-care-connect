@@ -11,12 +11,12 @@ importScripts('https://www.gstatic.com/firebasejs/9.23.0/firebase-messaging-comp
 // service workers cannot import from Vite's build-time environment).
 // Replace the placeholder values with your real Firebase project config.
 firebase.initializeApp({
-  apiKey: 'YOUR_FIREBASE_API_KEY',
-  authDomain: 'YOUR_PROJECT_ID.firebaseapp.com',
-  projectId: 'YOUR_PROJECT_ID',
-  storageBucket: 'YOUR_PROJECT_ID.appspot.com',
-  messagingSenderId: 'YOUR_SENDER_ID',
-  appId: 'YOUR_WEB_APP_ID',
+  apiKey: 'AIzaSyCjTLPxJultPBOBKmzWZI5BDq4A1VPIwo0',
+  authDomain: 'remy-care-connect.firebaseapp.com',
+  projectId: 'remy-care-connect',
+  storageBucket: 'remy-care-connect.firebasestorage.app',
+  messagingSenderId: '937274471764',
+  appId: '1:937274471764:web:3a74d98969973bf27c84c1',
 });
 
 const messaging = firebase.messaging();
