@@ -664,7 +664,7 @@ export function EnhancedCHWDashboard({ isFirstLogin = false }: CHWDashboardProps
       setAppointments(prev => prev.filter(a => a.id !== id));
     }
   }, { enabled: chwProfileId !== null });
-  useSocket<CheckIn>('checkin:new', (ci) => setRecentCheckIns(prev => [ci, ...prev]), { enabled: chwProfileId !== null });
+  useSocket<CheckIn>('checkin:new', (ci) => setRecentCheckIns(prev => prev.some(c => c.id === ci.id) ? prev : [ci, ...prev]), { enabled: chwProfileId !== null });
   useSocket<{ id: number; user_id: number }>('checkin:deleted', ({ id, user_id }) => {
     if (user_id === user?.id) {
       setRecentCheckIns(prev => prev.filter(ci => ci.id !== id));
