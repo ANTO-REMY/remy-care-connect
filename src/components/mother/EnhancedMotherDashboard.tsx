@@ -279,7 +279,7 @@ export function EnhancedMotherDashboard({ isFirstLogin = false }: MotherDashboar
   const refreshNotifications = useCallback(async () => {
     if (!user) return;
     try {
-      const resp = await notificationService.list(20);
+      const resp = await notificationService.list(20, true);
       setNotifications(resp.notifications);
       setUnreadNotificationCount(resp.unread_count);
     } catch {
@@ -300,7 +300,7 @@ export function EnhancedMotherDashboard({ isFirstLogin = false }: MotherDashboar
   const markAllNotificationsRead = async () => {
     try {
       await notificationService.markAllRead();
-      setNotifications(prev => prev.map(n => ({ ...n, is_read: true })));
+      setNotifications([]);
       setUnreadNotificationCount(0);
     } catch {
       // ignore

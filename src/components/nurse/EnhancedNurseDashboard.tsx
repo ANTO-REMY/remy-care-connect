@@ -549,7 +549,7 @@ export function EnhancedNurseDashboard({ isFirstLogin = false }: NurseDashboardP
   const refreshNotifications = useCallback(async () => {
     if (!user) return;
     try {
-      const resp = await notificationService.list(20);
+      const resp = await notificationService.list(20, true);
       setNotifications(resp.notifications);
       setUnreadNotificationCount(resp.unread_count);
     } catch {
@@ -570,7 +570,7 @@ export function EnhancedNurseDashboard({ isFirstLogin = false }: NurseDashboardP
   const markAllNotificationsRead = async () => {
     try {
       await notificationService.markAllRead();
-      setNotifications(prev => prev.map(n => ({ ...n, is_read: true })));
+      setNotifications([]);
       setUnreadNotificationCount(0);
     } catch {
       // ignore
