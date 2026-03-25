@@ -116,7 +116,7 @@ export function DateTimePicker({
         </Button>
       </PopoverTrigger>
       <PopoverContent
-        className="w-auto p-0 rounded-2xl shadow-2xl overflow-hidden border-slate-200/60 font-['Quicksand',sans-serif] bg-white"
+        className="w-auto p-0 rounded-2xl shadow-2xl border-slate-200/60 font-['Quicksand',sans-serif] bg-white"
         align="start"
       >
         <div className="bg-gradient-to-b from-slate-50/50 to-white">
@@ -125,6 +125,7 @@ export function DateTimePicker({
             selected={selectedDate}
             onSelect={handleDateSelect}
             initialFocus
+            disabled={(date) => date < new Date(new Date().setHours(0, 0, 0, 0))}
             className="p-4 pointer-events-auto bg-transparent"
           />
         </div>
