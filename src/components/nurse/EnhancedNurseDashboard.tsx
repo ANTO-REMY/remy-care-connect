@@ -31,6 +31,7 @@ import { escalationService, type Escalation as RealEscalation } from "@/services
 import { assignmentService, type Assignment, type AssignedMother } from "@/services/assignmentService";
 import { appointmentService, type Appointment } from "@/services/appointmentService";
 import { nurseService } from "@/services/nurseService";
+import { notificationService, type UserNotification } from "@/services/notificationService";
 import { useSocket, useSocketStatus, joinProfileRoom } from "@/hooks/useSocket";
 import { ConnectionBanner } from "@/components/ConnectionBanner";
 
@@ -191,7 +192,8 @@ export function EnhancedNurseDashboard({ isFirstLogin = false }: NurseDashboardP
   const [statusFilter, setStatusFilter] = useState<string>("all");
   const [priorityFilter, setPriorityFilter] = useState<string>("all");
   const [activeTab, setActiveTab] = useState("cases");
-  const [notifications, setNotifications] = useState<{ id: number; message: string; time: string; read: boolean; type: string }[]>([]);
+  const [notifications, setNotifications] = useState<UserNotification[]>([]);
+  const [unreadNotificationCount, setUnreadNotificationCount] = useState(0);
   const [caseNotes, setCaseNotes] = useState("");
   // Real-data state (populated from API; mock data used as initial fallback)
   const [nurseProfileId, setNurseProfileId] = useState<number | null>(null);
@@ -421,7 +423,7 @@ export function EnhancedNurseDashboard({ isFirstLogin = false }: NurseDashboardP
         notes: nurseScheduleForm.notes.trim() || undefined,
         recurrence_rule: nurseScheduleForm.recurrence !== "none" ? nurseScheduleForm.recurrence : undefined,
       });
-      setNurseAppointments(prev => [appt, ...prev]);
+      setNurseAppointments(prev => prev.some(a => a.id === appt.id) ? prev : [appt, ...prev]);
       toast({ title: "Appointment Scheduled", description: `Visit on ${new Date(appt.scheduled_time).toLocaleString()}.` });
       setShowNurseScheduleModal(false);
       setNurseScheduleForm({ selectedChwId: "", motherId: "", scheduledTime: undefined, appointmentType: "prenatal_checkup", notes: "", recurrence: "none" });
@@ -495,25 +497,25 @@ export function EnhancedNurseDashboard({ isFirstLogin = false }: NurseDashboardP
       // Re-fetch active escalations
       if (nurseProfileId) {
         const resp = await escalationService.list({ nurse_id: nurseProfileId });
-        setRealEscalations(resp.escalations.map((e: {
-          id: string;
-          mother_name: string;
-          chw_name: string;
-          case_description: string;
-          priority: string;
-          status: string;
-        }) => ({
-          ...e,
+        const mapped = resp.escalations.map((e) => ({
           id: e.id,
+          motherId: e.mother_id ?? 0,
           motherName: e.mother_name,
+          motherPhone: "",
+          motherAvatar: "",
           chwName: e.chw_name,
+          chwPhone: "",
           issue: e.case_description,
           issueType: e.issue_type ?? e.case_description,
           escalatedAt: e.created_at,
-          status: e.status,
-          priority: e.priority,
-          notes: e.notes ?? '',
-        })));
+          status: e.status as "pending" | "in_progress" | "resolved",
+          priority: e.priority as "low" | "medium" | "high" | "critical",
+          notes: e.notes ?? "",
+          weeksPregnant: 0,
+          location: "",
+          vitals: { bloodPressure: "---", heartRate: "---", temperature: "---" },
+        }));
+        setRealEscalations(mapped as typeof mockEscalatedCases);
       }
       setShowHiddenNurseEscalations(false);
       toast({ title: "Escalation Restored", description: "This case is back in your active view." });
@@ -544,8 +546,35 @@ export function EnhancedNurseDashboard({ isFirstLogin = false }: NurseDashboardP
     return () => { cancelled = true; };
   }, [nurseScheduleForm.selectedChwId]);
 
-  const markNotificationRead = (id: number) => {
-    setNotifications(prev => prev.map(n => n.id === id ? { ...n, read: true } : n));
+  const refreshNotifications = useCallback(async () => {
+    if (!user) return;
+    try {
+      const resp = await notificationService.list(20);
+      setNotifications(resp.notifications);
+      setUnreadNotificationCount(resp.unread_count);
+    } catch {
+      // ignore
+    }
+  }, [user]);
+
+  const markNotificationRead = async (id: number) => {
+    try {
+      const resp = await notificationService.markRead(id);
+      setNotifications(prev => prev.map(n => n.id === id ? { ...n, is_read: true } : n));
+      setUnreadNotificationCount(resp.unread_count);
+    } catch {
+      // ignore
+    }
+  };
+
+  const markAllNotificationsRead = async () => {
+    try {
+      await notificationService.markAllRead();
+      setNotifications(prev => prev.map(n => ({ ...n, is_read: true })));
+      setUnreadNotificationCount(0);
+    } catch {
+      // ignore
+    }
   };
 
   /**
@@ -626,10 +655,12 @@ export function EnhancedNurseDashboard({ isFirstLogin = false }: NurseDashboardP
     refreshData();
   }, { enabled: nurseProfileId !== null });
 
-  // Live notification feed â€” drives the Bell badge and dropdown
-  useSocket('escalation:created', () => setNotifications(prev => [{ id: Date.now(), message: 'New escalation case from CHW', time: 'just now', read: false, type: 'critical' }, ...prev.slice(0, 19)]), { enabled: nurseProfileId !== null });
-  useSocket('escalation:updated', () => setNotifications(prev => [{ id: Date.now(), message: 'Escalation case status updated', time: 'just now', read: false, type: 'update' }, ...prev.slice(0, 19)]), { enabled: nurseProfileId !== null });
-  useSocket('appointment:created', () => setNotifications(prev => [{ id: Date.now(), message: 'New appointment scheduled', time: 'just now', read: false, type: 'info' }, ...prev.slice(0, 19)]), { enabled: nurseProfileId !== null });
+  // Persisted notification inbox refresh events
+  useSocket('notification:new', () => refreshNotifications(), { enabled: nurseProfileId !== null });
+  useSocket('escalation:created', () => refreshNotifications(), { enabled: nurseProfileId !== null });
+  useSocket('escalation:updated', () => refreshNotifications(), { enabled: nurseProfileId !== null });
+  useSocket('appointment:created', () => refreshNotifications(), { enabled: nurseProfileId !== null });
+  useSocket('appointment:updated', () => refreshNotifications(), { enabled: nurseProfileId !== null });
 
   // One-time setup: photo, nurse profile, then initial data load
   useEffect(() => {
@@ -652,10 +683,11 @@ export function EnhancedNurseDashboard({ isFirstLogin = false }: NurseDashboardP
       // Initial data load (shows loading spinner)
       if (isMounted) setNurseAppointmentsLoading(true);
       await refreshData();
+      await refreshNotifications();
       if (isMounted) setNurseAppointmentsLoading(false);
     })();
     return () => { isMounted = false; };
-  }, [refreshData]);
+  }, [refreshData, refreshNotifications]);
 
   const handlePhotoUpload = async (event: React.ChangeEvent<HTMLInputElement>) => {
     const file = event.target.files?.[0];
@@ -1305,29 +1337,38 @@ export function EnhancedNurseDashboard({ isFirstLogin = false }: NurseDashboardP
                 <DropdownMenuTrigger asChild>
                   <Button variant="ghost" size="icon" className="relative">
                     <Bell className="h-5 w-5" />
-                    {notifications.some(n => !n.read) && (
+                    {unreadNotificationCount > 0 && (
                       <span className="absolute -top-1 -right-1 h-4 w-4 bg-red-500 rounded-full text-[10px] text-white flex items-center justify-center">
-                        {notifications.filter(n => !n.read).length}
+                        {unreadNotificationCount}
                       </span>
                     )}
                   </Button>
                 </DropdownMenuTrigger>
                 <DropdownMenuContent align="end" className="w-80">
-                  <DropdownMenuLabel>Notifications</DropdownMenuLabel>
+                  <DropdownMenuLabel className="flex items-center justify-between">
+                    <span>Notifications</span>
+                    {unreadNotificationCount > 0 && (
+                      <Button variant="ghost" size="sm" className="h-6 px-2 text-xs" onClick={markAllNotificationsRead}>
+                        Mark all read
+                      </Button>
+                    )}
+                  </DropdownMenuLabel>
                   <DropdownMenuSeparator />
+                  {notifications.length === 0 && (
+                    <DropdownMenuItem className="text-muted-foreground">No notifications yet</DropdownMenuItem>
+                  )}
                   {notifications.map((notification) => (
                     <DropdownMenuItem
                       key={notification.id}
-                      className={`flex flex-col items-start p-3 ${!notification.read ? 'bg-red-50' : ''}`}
-                      onClick={() => markNotificationRead(notification.id)}
+                      className={`flex flex-col items-start p-3 ${!notification.is_read ? 'bg-red-50' : ''}`}
+                      onClick={async () => {
+                        await markNotificationRead(notification.id);
+                        if (notification.url) navigate(notification.url);
+                      }}
                     >
-                      <div className="flex items-center gap-2">
-                        {notification.type === 'critical' && <AlertTriangle className="h-4 w-4 text-red-500" />}
-                        {notification.type === 'update' && <Activity className="h-4 w-4 text-blue-500" />}
-                        {notification.type === 'info' && <FileText className="h-4 w-4 text-gray-500" />}
-                        <span className="text-sm">{notification.message}</span>
-                      </div>
-                      <span className="text-xs text-muted-foreground ml-6">{notification.time}</span>
+                      <span className="text-sm font-medium">{notification.title}</span>
+                      <span className="text-sm">{notification.message}</span>
+                      <span className="text-xs text-muted-foreground">{new Date(notification.created_at).toLocaleString()}</span>
                     </DropdownMenuItem>
                   ))}
                 </DropdownMenuContent>
@@ -1773,7 +1814,10 @@ export function EnhancedNurseDashboard({ isFirstLogin = false }: NurseDashboardP
                           <div className="flex-1">
                             <div className="flex items-start justify-between gap-2">
                               <div>
-                                <p className="font-medium capitalize">{appt.appointment_type?.replace(/_/g, ' ')}</p>
+                                <p className="font-medium capitalize">
+                                  {appt.mother_name ? `${appt.mother_name} - ` : ''}
+                                  {appt.appointment_type?.replace(/_/g, ' ') || 'Consultation'}
+                                </p>
                                 <p className="text-sm text-muted-foreground">
                                   {new Date(appt.scheduled_time).toLocaleString('en-KE', { dateStyle: 'medium', timeStyle: 'short' })}
                                 </p>
@@ -1804,8 +1848,13 @@ export function EnhancedNurseDashboard({ isFirstLogin = false }: NurseDashboardP
                             {appt.recurrence_rule && appt.recurrence_rule !== 'none' && (
                               <p className="text-xs text-purple-600 mt-1">Repeats: {appt.recurrence_rule}</p>
                             )}
+                            {appt.creator_name && nurseAppointmentTab === 'requested' && (
+                              <p className="text-xs text-blue-600 mt-1">
+                                Requested by: {appt.creator_name} {appt.creator_role ? `(${appt.creator_role.toUpperCase()})` : ''}
+                              </p>
+                            )}
                             {appt.notes && (
-                              <p className="text-xs text-muted-foreground mt-1 line-clamp-2">{appt.notes}</p>
+                              <p className="text-sm text-muted-foreground mt-1 line-clamp-2">{appt.notes}</p>
                             )}
 
                             {!showHiddenNurseAppointments && (

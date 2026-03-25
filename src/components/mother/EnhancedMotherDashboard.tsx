@@ -25,6 +25,7 @@ import { appointmentService, type Appointment } from "@/services/appointmentServ
 import { motherService } from "@/services/motherService";
 import { checkinService } from "@/services/checkinService";
 import { assignmentService } from "@/services/assignmentService";
+import { notificationService, type UserNotification } from "@/services/notificationService";
 import { Textarea } from "@/components/ui/textarea";
 import { Input } from "@/components/ui/input";
 import { DateTimePicker } from "@/components/ui/datetime-picker";
@@ -228,6 +229,8 @@ export function EnhancedMotherDashboard({ isFirstLogin = false }: MotherDashboar
   const [motherScheduleSubmitting, setMotherScheduleSubmitting] = useState(false);
   const [deleteApptConfirm, setDeleteApptConfirm] = useState<number | null>(null);
   const [deleteApptSubmitting, setDeleteApptSubmitting] = useState(false);
+  const [notifications, setNotifications] = useState<UserNotification[]>([]);
+  const [unreadNotificationCount, setUnreadNotificationCount] = useState(0);
   const motherProfileIdRef = useRef<number | null>(null);
   // Assigned CHW's user_id â€” used when mother schedules an appointment
   const [assignedCHWUserId, setAssignedCHWUserId] = useState<number | null>(null);
@@ -273,17 +276,54 @@ export function EnhancedMotherDashboard({ isFirstLogin = false }: MotherDashboar
   // WebSocket: real-time appointment updates
   const { connected } = useSocketStatus();
 
+  const refreshNotifications = useCallback(async () => {
+    if (!user) return;
+    try {
+      const resp = await notificationService.list(20);
+      setNotifications(resp.notifications);
+      setUnreadNotificationCount(resp.unread_count);
+    } catch {
+      // ignore
+    }
+  }, [user]);
+
+  const markNotificationRead = async (id: number) => {
+    try {
+      const resp = await notificationService.markRead(id);
+      setNotifications(prev => prev.map(n => n.id === id ? { ...n, is_read: true } : n));
+      setUnreadNotificationCount(resp.unread_count);
+    } catch {
+      // ignore
+    }
+  };
+
+  const markAllNotificationsRead = async () => {
+    try {
+      await notificationService.markAllRead();
+      setNotifications(prev => prev.map(n => ({ ...n, is_read: true })));
+      setUnreadNotificationCount(0);
+    } catch {
+      // ignore
+    }
+  };
+
   useSocket<Appointment>('appointment:created', (appt) => {
     // Avoid duplicates: only add if not already present (by ID)
     setAppointments(prev => prev.some(a => a.id === appt.id) ? prev : [appt, ...prev]);
+    refreshNotifications();
   }, { enabled: !!user?.id });
-  useSocket<Appointment>('appointment:updated', (appt) => setAppointments(prev => prev.map(a => a.id === appt.id ? appt : a)), { enabled: !!user?.id });
+  useSocket<Appointment>('appointment:updated', (appt) => {
+    setAppointments(prev => prev.map(a => a.id === appt.id ? appt : a));
+    refreshNotifications();
+  }, { enabled: !!user?.id });
   useSocket<{ id: number; user_id: number }>('appointment:deleted', ({ id, user_id }) => {
     if (user_id === user?.id) {
       setAppointments(prev => prev.filter(a => a.id !== id));
+      refreshNotifications();
     }
   }, { enabled: !!user?.id });
   useSocket('checkin:new', () => refreshData(), { enabled: !!user?.id });
+  useSocket('notification:new', () => refreshNotifications(), { enabled: !!user?.id });
   // Reconnect sync: replace state wholesale with the server snapshot
   useSocket<{ appointments?: Appointment[] }>('sync', (data) => {
     if (data.appointments) setAppointments(data.appointments);
@@ -291,6 +331,7 @@ export function EnhancedMotherDashboard({ isFirstLogin = false }: MotherDashboar
 
   // Escalation notifications
   useSocket('escalation:created', () => {
+    refreshNotifications();
     toast({
       title: '📋 Case Escalated',
       description: 'Your case has been sent to a nurse for review.',
@@ -299,6 +340,7 @@ export function EnhancedMotherDashboard({ isFirstLogin = false }: MotherDashboar
   }, { enabled: !!user?.id });
 
   useSocket<{ message?: string; status?: string }>('escalation:status_changed', (data) => {
+    refreshNotifications();
     const status = data.status || 'updated';
     let description = `Your case status is now: ${status}`;
     if (status === 'in_progress') {
@@ -314,6 +356,10 @@ export function EnhancedMotherDashboard({ isFirstLogin = false }: MotherDashboar
       variant: status === 'resolved' ? 'default' : 'default',
     });
   }, { enabled: !!user?.id });
+
+  useEffect(() => {
+    refreshNotifications();
+  }, [refreshNotifications]);
 
   // Appointment filtering: separate by creator
   const sourceAppointments = showHiddenAppointments ? hiddenAppointments : appointments;
@@ -342,7 +388,7 @@ export function EnhancedMotherDashboard({ isFirstLogin = false }: MotherDashboar
         appointment_type: motherScheduleForm.appointmentType,
         notes: motherScheduleForm.notes.trim() || undefined,
       });
-      setAppointments(prev => [appt, ...prev]);
+      setAppointments(prev => prev.some(a => a.id === appt.id) ? prev : [appt, ...prev]);
       toast({ title: "Appointment Requested", description: `Visit on ${new Date(appt.scheduled_time).toLocaleString()}.` });
       setShowMotherScheduleModal(false);
       setMotherScheduleForm({ scheduledTime: undefined, appointmentType: 'prenatal_checkup', notes: '' });
@@ -736,17 +782,46 @@ export function EnhancedMotherDashboard({ isFirstLogin = false }: MotherDashboar
             </div>
 
             <div className="flex items-center gap-3">
-              <Button
-                variant="ghost"
-                size="icon"
-                className="relative"
-                onClick={() => setActiveTab("reminders")}
-              >
-                <Bell className="h-5 w-5" />
-                <span className="absolute -top-1 -right-1 h-4 w-4 bg-red-500 rounded-full text-[10px] text-white flex items-center justify-center">
-                  {reminders.filter(r => !r.completed).length}
-                </span>
-              </Button>
+              <DropdownMenu>
+                <DropdownMenuTrigger asChild>
+                  <Button variant="ghost" size="icon" className="relative">
+                    <Bell className="h-5 w-5" />
+                    {unreadNotificationCount > 0 && (
+                      <span className="absolute -top-1 -right-1 h-4 w-4 bg-red-500 rounded-full text-[10px] text-white flex items-center justify-center">
+                        {unreadNotificationCount}
+                      </span>
+                    )}
+                  </Button>
+                </DropdownMenuTrigger>
+                <DropdownMenuContent align="end" className="w-80">
+                  <DropdownMenuLabel className="flex items-center justify-between">
+                    <span>Notifications</span>
+                    {unreadNotificationCount > 0 && (
+                      <Button variant="ghost" size="sm" className="h-6 px-2 text-xs" onClick={markAllNotificationsRead}>
+                        Mark all read
+                      </Button>
+                    )}
+                  </DropdownMenuLabel>
+                  <DropdownMenuSeparator />
+                  {notifications.length === 0 && (
+                    <DropdownMenuItem className="text-muted-foreground">No notifications yet</DropdownMenuItem>
+                  )}
+                  {notifications.map((notification) => (
+                    <DropdownMenuItem
+                      key={notification.id}
+                      className={`flex flex-col items-start p-3 ${!notification.is_read ? 'bg-pink-50' : ''}`}
+                      onClick={async () => {
+                        await markNotificationRead(notification.id);
+                        if (notification.url) navigate(notification.url);
+                      }}
+                    >
+                      <span className="text-sm font-medium">{notification.title}</span>
+                      <span className="text-sm">{notification.message}</span>
+                      <span className="text-xs text-muted-foreground">{new Date(notification.created_at).toLocaleString()}</span>
+                    </DropdownMenuItem>
+                  ))}
+                </DropdownMenuContent>
+              </DropdownMenu>
 
               <DropdownMenu>
                 <DropdownMenuTrigger asChild>
@@ -1129,7 +1204,7 @@ export function EnhancedMotherDashboard({ isFirstLogin = false }: MotherDashboar
                   </TabsTrigger>
                   <TabsTrigger value="chw" className="flex items-center gap-2">
                     <Calendar className="h-4 w-4" />
-                    <span className="truncate">CHW Scheduled ({apptsByChw.length})</span>
+                    <span className="truncate">Health Worker Appointments ({apptsByChw.length})</span>
                   </TabsTrigger>
                 </TabsList>
               </Tabs>
@@ -1146,7 +1221,7 @@ export function EnhancedMotherDashboard({ isFirstLogin = false }: MotherDashboar
                   <CardContent className="p-4 text-center">
                     <Calendar className="h-10 w-10 mx-auto mb-2 text-primary/50" />
                     <p className="text-sm text-muted-foreground">
-                      {showHiddenAppointments ? 'No deleted appointments in the last 15 days.' : (apptTab === 'yours' ? 'You haven\'t requested any appointments yet.' : 'Your CHW hasn\'t scheduled any visits yet.')}
+                      {showHiddenAppointments ? 'No deleted appointments in the last 15 days.' : (apptTab === 'yours' ? 'You haven\'t requested any appointments yet.' : 'No Health Worker appointments scheduled yet.')}
                     </p>
                     {!showHiddenAppointments && apptTab === 'yours' && (
                       <p className="text-xs text-muted-foreground mt-1">
@@ -1186,6 +1261,11 @@ export function EnhancedMotherDashboard({ isFirstLogin = false }: MotherDashboar
                                     ? appt.appointment_type.replace(/_/g, ' ')
                                     : 'Scheduled Appointment'}
                                 </h4>
+                                {apptTab === 'chw' && (
+                                  <div className="text-sm font-semibold text-primary/80 mt-0.5">
+                                    {appt.creator_name ? `${appt.creator_name} - ${appt.creator_role ? appt.creator_role.toUpperCase() : 'HW'}` : 'Health Worker'}
+                                  </div>
+                                )}
                                 <div className="flex items-center gap-1 mt-1 text-sm text-muted-foreground">
                                   <Clock className="h-3 w-3" />
                                   <span>

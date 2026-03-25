@@ -28,7 +28,7 @@ let _socket: Socket | null = null;
  * the connection without a separate handshake message.
  */
 export function getSocket(): Socket {
-  if (_socket?.connected) return _socket;
+  if (_socket) return _socket;
 
   const token = sessionStorage.getItem('access_token') ?? '';
 

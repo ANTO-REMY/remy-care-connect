@@ -32,6 +32,7 @@ import { appointmentService, type Appointment } from "@/services/appointmentServ
 import { chwService } from "@/services/chwService";
 import { apiClient } from "@/lib/apiClient";
 import { checkinService, type CheckIn } from "@/services/checkinService";
+import { notificationService, type UserNotification } from "@/services/notificationService";
 import { useSocket, useSocketStatus, joinProfileRoom } from "@/hooks/useSocket";
 import { ConnectionBanner } from "@/components/ConnectionBanner";
 
@@ -250,6 +251,7 @@ export function EnhancedCHWDashboard({ isFirstLogin = false }: CHWDashboardProps
     appointmentType: "prenatal_checkup",
     notes: "",
     recurrence: "none",
+    nurseUserId: undefined as number | undefined,
   });
   const [scheduleSubmitting, setScheduleSubmitting] = useState(false);
   // Live check-in feed
@@ -279,7 +281,8 @@ export function EnhancedCHWDashboard({ isFirstLogin = false }: CHWDashboardProps
   const [hiddenEscalations, setHiddenEscalations] = useState<typeof mockEscalatedCases>([]);
   const [hiddenEscalationsLoading, setHiddenEscalationsLoading] = useState(false);
   const [showHiddenEscalations, setShowHiddenEscalations] = useState(false);
-  const [notifications, setNotifications] = useState<{ id: number; message: string; time: string; read: boolean }[]>([]);
+  const [notifications, setNotifications] = useState<UserNotification[]>([]);
+  const [unreadNotificationCount, setUnreadNotificationCount] = useState(0);
 
   // Ref keeps the latest chwProfileId available inside the polling callback
   const chwProfileIdRef = useRef<number | null>(null);
@@ -498,19 +501,19 @@ export function EnhancedCHWDashboard({ isFirstLogin = false }: CHWDashboardProps
       const motherUserId = (motherEntry as Record<string, unknown>)?.user_id as number ?? parseInt(scheduleForm.motherId);
       const appt = await appointmentService.create({
         mother_id: motherUserId,
-        health_worker_id: user!.id,
+        health_worker_id: scheduleForm.nurseUserId || user!.id,
         scheduled_time: scheduleForm.scheduledTime.toISOString(),
         appointment_type: scheduleForm.appointmentType,
         notes: scheduleForm.notes.trim() || undefined,
         recurrence_rule: scheduleForm.recurrence !== "none" ? scheduleForm.recurrence : undefined,
       });
-      setAppointments(prev => [appt, ...prev]);
+      setAppointments(prev => prev.some(a => a.id === appt.id) ? prev : [appt, ...prev]);
       toast({
         title: "Appointment Scheduled \u2713",
         description: `Visit for ${motherEntry?.name ?? "mother"} on ${new Date(appt.scheduled_time).toLocaleString()}.`,
       });
       setShowScheduleModal(false);
-      setScheduleForm({ motherId: "", scheduledTime: undefined, appointmentType: "prenatal_checkup", notes: "", recurrence: "none" });
+      setScheduleForm({ motherId: "", scheduledTime: undefined, appointmentType: "prenatal_checkup", notes: "", recurrence: "none", nurseUserId: undefined });
     } catch (err: unknown) {
       toast({
         title: "Scheduling Failed",
@@ -584,8 +587,35 @@ export function EnhancedCHWDashboard({ isFirstLogin = false }: CHWDashboardProps
     }
   }, [toast]);
 
-   const markNotificationRead = (id: number) => {
-    setNotifications(prev => prev.map(n => n.id === id ? { ...n, read: true } : n));
+  const refreshNotifications = useCallback(async () => {
+    if (!user) return;
+    try {
+      const resp = await notificationService.list(20);
+      setNotifications(resp.notifications);
+      setUnreadNotificationCount(resp.unread_count);
+    } catch {
+      // ignore notification fetch errors to avoid blocking dashboard
+    }
+  }, [user]);
+
+  const markNotificationRead = async (id: number) => {
+    try {
+      const resp = await notificationService.markRead(id);
+      setNotifications(prev => prev.map(n => n.id === id ? { ...n, is_read: true } : n));
+      setUnreadNotificationCount(resp.unread_count);
+    } catch {
+      // ignore
+    }
+  };
+
+  const markAllNotificationsRead = async () => {
+    try {
+      await notificationService.markAllRead();
+      setNotifications(prev => prev.map(n => ({ ...n, is_read: true })));
+      setUnreadNotificationCount(0);
+    } catch {
+      // ignore
+    }
   };
 
   /**
@@ -618,8 +648,9 @@ export function EnhancedCHWDashboard({ isFirstLogin = false }: CHWDashboardProps
         status: e.status as "pending" | "in_progress" | "resolved" | "rejected",
         priority: e.priority as "low" | "medium" | "high" | "critical",
         notes: e.notes ?? "",
+        nurseUserId: e.nurse_user_id,
       }));
-      setRealEscalations(mapped as typeof mockEscalatedCases);
+      setRealEscalations(mapped as any);
     } catch { /* ignore */ }
 
     // Assigned mothers
@@ -721,12 +752,15 @@ export function EnhancedCHWDashboard({ isFirstLogin = false }: CHWDashboardProps
     refreshData();
   }, { enabled: chwProfileId !== null });
 
-  // Live notification feed â€” drives the Bell badge and dropdown
-  useSocket('escalation:created', () => setNotifications(prev => [{ id: Date.now(), message: 'New escalation case submitted', time: 'just now', read: false }, ...prev.slice(0, 19)]), { enabled: chwProfileId !== null });
-  useSocket('assignment:created', () => setNotifications(prev => [{ id: Date.now(), message: 'New mother assigned to you', time: 'just now', read: false }, ...prev.slice(0, 19)]), { enabled: chwProfileId !== null });
-  useSocket('assignment:status_changed', () => setNotifications(prev => [{ id: Date.now(), message: 'Assignment status changed', time: 'just now', read: false }, ...prev.slice(0, 19)]), { enabled: chwProfileId !== null });
-  useSocket<{ mother_name?: string }>('checkin:new', (ci) => setNotifications(prev => [{ id: Date.now(), message: `Check-in received${ci.mother_name ? ` from ${ci.mother_name}` : ''}`, time: 'just now', read: false }, ...prev.slice(0, 19)]), { enabled: chwProfileId !== null });
-  useSocket('appointment:created', () => setNotifications(prev => [{ id: Date.now(), message: 'New appointment scheduled', time: 'just now', read: false }, ...prev.slice(0, 19)]), { enabled: chwProfileId !== null });
+  // Persisted notification inbox refresh events
+  useSocket('notification:new', () => refreshNotifications(), { enabled: chwProfileId !== null });
+  useSocket('escalation:created', () => refreshNotifications(), { enabled: chwProfileId !== null });
+  useSocket('escalation:updated', () => refreshNotifications(), { enabled: chwProfileId !== null });
+  useSocket('appointment:created', () => refreshNotifications(), { enabled: chwProfileId !== null });
+  useSocket('appointment:updated', () => refreshNotifications(), { enabled: chwProfileId !== null });
+  useSocket('assignment:created', () => refreshNotifications(), { enabled: chwProfileId !== null });
+  useSocket('assignment:status_changed', () => refreshNotifications(), { enabled: chwProfileId !== null });
+  useSocket('checkin:new', () => refreshNotifications(), { enabled: chwProfileId !== null });
 
   // One-time setup: photo, CHW profile, nurses list, then initial data load
   useEffect(() => {
@@ -759,13 +793,14 @@ export function EnhancedCHWDashboard({ isFirstLogin = false }: CHWDashboardProps
         setAppointmentsLoading(true);
       }
       await refreshData();
+      await refreshNotifications();
       if (isMounted) {
         setCheckInsLoading(false);
         setAppointmentsLoading(false);
       }
     })();
     return () => { isMounted = false; };
-  }, [refreshData]);
+  }, [refreshData, refreshNotifications]);
 
   const handlePhotoUpload = async (event: React.ChangeEvent<HTMLInputElement>) => {
     const file = event.target.files?.[0];
@@ -1542,24 +1577,38 @@ export function EnhancedCHWDashboard({ isFirstLogin = false }: CHWDashboardProps
                 <DropdownMenuTrigger asChild>
                   <Button variant="ghost" size="icon" className="relative">
                     <Bell className="h-5 w-5" />
-                    {notifications.some(n => !n.read) && (
+                    {unreadNotificationCount > 0 && (
                       <span className="absolute -top-1 -right-1 h-4 w-4 bg-red-500 rounded-full text-[10px] text-white flex items-center justify-center">
-                        {notifications.filter(n => !n.read).length}
+                        {unreadNotificationCount}
                       </span>
                     )}
                   </Button>
                 </DropdownMenuTrigger>
                 <DropdownMenuContent align="end" className="w-80">
-                  <DropdownMenuLabel>Notifications</DropdownMenuLabel>
+                  <DropdownMenuLabel className="flex items-center justify-between">
+                    <span>Notifications</span>
+                    {unreadNotificationCount > 0 && (
+                      <Button variant="ghost" size="sm" className="h-6 px-2 text-xs" onClick={markAllNotificationsRead}>
+                        Mark all read
+                      </Button>
+                    )}
+                  </DropdownMenuLabel>
                   <DropdownMenuSeparator />
+                  {notifications.length === 0 && (
+                    <DropdownMenuItem className="text-muted-foreground">No notifications yet</DropdownMenuItem>
+                  )}
                   {notifications.map((notification) => (
                     <DropdownMenuItem
                       key={notification.id}
-                      className={`flex flex-col items-start p-3 ${!notification.read ? 'bg-blue-50' : ''}`}
-                      onClick={() => markNotificationRead(notification.id)}
+                      className={`flex flex-col items-start p-3 ${!notification.is_read ? 'bg-blue-50' : ''}`}
+                      onClick={async () => {
+                        await markNotificationRead(notification.id);
+                        if (notification.url) navigate(notification.url);
+                      }}
                     >
+                      <span className="text-sm font-medium">{notification.title}</span>
                       <span className="text-sm">{notification.message}</span>
-                      <span className="text-xs text-muted-foreground">{notification.time}</span>
+                      <span className="text-xs text-muted-foreground">{new Date(notification.created_at).toLocaleString()}</span>
                     </DropdownMenuItem>
                   ))}
                 </DropdownMenuContent>
@@ -2121,6 +2170,7 @@ export function EnhancedCHWDashboard({ isFirstLogin = false }: CHWDashboardProps
                             <div className="flex items-start justify-between gap-2">
                               <div>
                                 <p className="font-medium text-base">
+                                  {appt.mother_name ? `${appt.mother_name} - ` : ''}
                                   {appt.notes?.slice(0, 50) || "Scheduled Visit"}
                                 </p>
                                 <p className="text-sm text-muted-foreground mt-0.5">
@@ -2360,9 +2410,24 @@ export function EnhancedCHWDashboard({ isFirstLogin = false }: CHWDashboardProps
                               <Stethoscope className="h-4 w-4 mr-2" />
                               View Full Case
                             </Button>
-                            <Button variant="outline">
-                              <MessageCircle className="h-4 w-4 mr-2" />
-                              Contact Nurse
+                            <Button
+                              variant="outline"
+                              onClick={() => {
+                                const motherEntry = displayMothers.find(m => m.name === caseItem.motherName);
+                                const mId = motherEntry ? String(motherEntry.id) : "";
+                                setScheduleForm({
+                                  motherId: mId,
+                                  scheduledTime: undefined,
+                                  appointmentType: "consultation",
+                                  recurrence: "none",
+                                  notes: `Regarding Escalation: ${caseItem.issueType} - ${caseItem.notes}`,
+                                  nurseUserId: (caseItem as any).nurseUserId
+                                });
+                                setShowScheduleModal(true);
+                              }}
+                            >
+                              <CalendarCheck className="h-4 w-4 mr-2" />
+                              Book with Nurse
                             </Button>
                             <div className="flex gap-2 ml-auto">
                               {isWithin15Min(caseItem.escalatedAt) && (

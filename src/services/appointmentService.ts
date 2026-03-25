@@ -12,6 +12,10 @@ export interface Appointment {
   mother_id: number;
   health_worker_id: number;
   created_by_user_id: number | null;
+  mother_name?: string | null;
+  hw_name?: string | null;
+  creator_name?: string | null;
+  creator_role?: string | null;
   scheduled_time: string;      // ISO 8601
   appointment_type: string | null;
   recurrence_rule: string | null;

@@ -14,6 +14,9 @@
  */
 
 import { apiClient } from '@/lib/apiClient';
+import { toast } from '@/hooks/use-toast';
+import { ToastAction } from '@/components/ui/toast';
+import { createElement } from 'react';
 import { initializeApp, type FirebaseApp } from 'firebase/app';
 import {
   getMessaging,
@@ -26,6 +29,8 @@ import {
 let firebaseApp: FirebaseApp | null = null;
 let messaging: Messaging | null = null;
 let initialised = false;
+const FCM_TOAST_DEDUPE_WINDOW_MS = 8000;
+const recentForegroundToastKeys = new Map<string, number>();
 
 /**
  * Initialise Firebase Messaging, request permission, obtain FCM token,
@@ -105,7 +110,47 @@ export async function initFirebaseMessaging(): Promise<string | null> {
 
     onMessage(messaging, (payload) => {
       console.log('[FCM] Foreground message:', payload);
-      // TODO: integrate with in-app toast system if desired
+      const title = payload.notification?.title || 'Remy Care Connect';
+      const body = payload.notification?.body || 'You have a new update.';
+      const event = payload.data?.event;
+      const url = payload.data?.url;
+      const entityId = payload.data?.entity_id || '';
+
+      const dedupeKey = `${event || 'eventless'}|${entityId}|${title}|${body}`;
+      const now = Date.now();
+      const lastShown = recentForegroundToastKeys.get(dedupeKey) || 0;
+      if (now - lastShown < FCM_TOAST_DEDUPE_WINDOW_MS) {
+        return;
+      }
+      recentForegroundToastKeys.set(dedupeKey, now);
+
+      // Keep map size bounded by dropping stale entries on each message.
+      for (const [key, ts] of recentForegroundToastKeys.entries()) {
+        if (now - ts > FCM_TOAST_DEDUPE_WINDOW_MS) {
+          recentForegroundToastKeys.delete(key);
+        }
+      }
+
+      toast({
+        title,
+        description: event ? `${body} (${event})` : body,
+        action: url
+          ? createElement(
+            ToastAction,
+            {
+              altText: 'Open notification destination',
+              onClick: () => {
+                window.location.assign(url);
+              },
+            },
+            'Open',
+          )
+          : undefined,
+      });
+
+      if (url) {
+        console.debug(`[FCM] Notification target URL: ${url}`);
+      }
     });
 
     initialised = true;

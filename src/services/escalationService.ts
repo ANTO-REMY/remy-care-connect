@@ -13,6 +13,7 @@ export interface Escalation {
   chw_id: number;
   chw_name: string;
   nurse_id: number;
+  nurse_user_id?: number;
   nurse_name: string;
   mother_id: number | null;
   checkin_id: number | null;

@@ -387,7 +387,7 @@ export function ModernMotherDashboard() {
         appointment_type: scheduleForm.appointmentType,
         notes: scheduleForm.notes.trim() || undefined,
       });
-      setAppointments(prev => [appt, ...prev]);
+      setAppointments(prev => prev.some(a => a.id === appt.id) ? prev : [appt, ...prev]);
       toast({ title: "Appointment requested", description: formatDate(appt.scheduled_time) });
       setShowScheduleModal(false);
       setScheduleForm({ scheduledTime: undefined, appointmentType: "prenatal_checkup", notes: "" });
@@ -738,7 +738,12 @@ export function ModernMotherDashboard() {
                     {recentAppts.map((a, i) => (
                       <tr key={a.id} className={`border-t border-gray-50 hover:bg-gray-50/60 transition-colors ${i % 2 === 0 ? "" : "bg-gray-50/30"}`}>
                         <td className="px-5 py-3 font-medium text-gray-700 truncate max-w-[140px]">
-                          {(a.appointment_type ?? "Visit").replace(/_/g, " ").replace(/\b\w/g, c => c.toUpperCase())}
+                          <div>{(a.appointment_type ?? "Visit").replace(/_/g, " ").replace(/\b\w/g, c => c.toUpperCase())}</div>
+                          {a.created_by_user_id !== user?.id && (
+                            <div className="text-xs text-teal-600 mt-0.5 font-semibold">
+                              {a.creator_name ? `${a.creator_name} - ${a.creator_role ? a.creator_role.toUpperCase() : 'HW'}` : 'Health Worker'}
+                            </div>
+                          )}
                         </td>
                         <td className="px-3 py-3 text-gray-500 whitespace-nowrap">{formatDate(a.scheduled_time)}</td>
                         <td className="px-3 py-3 text-gray-500 whitespace-nowrap">{formatTime(a.scheduled_time)}</td>
