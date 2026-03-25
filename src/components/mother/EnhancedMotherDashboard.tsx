@@ -493,7 +493,7 @@ export function EnhancedMotherDashboard({ isFirstLogin = false }: MotherDashboar
       if (isMounted) setAppointmentsLoading(false);
     })();
     return () => { isMounted = false; };
-  }, [refreshData]);
+  }, [refreshData, user?.id]);
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-pink-50 via-white to-purple-50">

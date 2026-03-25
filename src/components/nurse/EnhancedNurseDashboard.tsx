@@ -495,7 +495,14 @@ export function EnhancedNurseDashboard({ isFirstLogin = false }: NurseDashboardP
       // Re-fetch active escalations
       if (nurseProfileId) {
         const resp = await escalationService.list({ nurse_id: nurseProfileId });
-        setRealEscalations(resp.escalations.map((e: any) => ({
+        setRealEscalations(resp.escalations.map((e: {
+          id: string;
+          mother_name: string;
+          chw_name: string;
+          case_description: string;
+          priority: string;
+          status: string;
+        }) => ({
           ...e,
           id: e.id,
           motherName: e.mother_name,

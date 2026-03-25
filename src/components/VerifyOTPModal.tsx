@@ -47,7 +47,7 @@ export function VerifyOTPModal({ open, onOpenChange, onVerified, onSubmit, onRes
             onVerified();
           }, 220);
         } else {
-          setError((result as any).error || 'Invalid or expired code.');
+          setError((result as { error?: string }).error || 'Invalid or expired code.');
         }
       } else if (result === true) {
         // Legacy boolean format
