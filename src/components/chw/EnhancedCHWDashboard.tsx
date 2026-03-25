@@ -130,6 +130,7 @@ const mockEscalatedCases = [
   {
     id: 1,
     motherId: 2,
+    checkInId: null,
     motherName: "Grace Akinyi",
     issue: "Severe headaches and vision problems",
     issueType: "preeclampsia",
@@ -221,6 +222,7 @@ export function EnhancedCHWDashboard({ isFirstLogin = false }: CHWDashboardProps
   const [showEscalationModal, setShowEscalationModal] = useState(false);
   const [escalationForm, setEscalationForm] = useState({
     motherId: "",
+    checkInId: "",
     nurseId: "",
     issueType: "",
     description: "",
@@ -257,6 +259,7 @@ export function EnhancedCHWDashboard({ isFirstLogin = false }: CHWDashboardProps
   const [hiddenCheckInsLoading, setHiddenCheckInsLoading] = useState(false);
   const [showHiddenCheckIns, setShowHiddenCheckIns] = useState(false);
   const [checkInToEscalate, setCheckInToEscalate] = useState<CheckIn | null>(null);
+  const [optimisticEscalatedCheckInIds, setOptimisticEscalatedCheckInIds] = useState<number[]>([]);
   const [showEscalateFromCheckinDialog, setShowEscalateFromCheckinDialog] = useState(false);
   // 15-min CRUD â€“ appointments
   const [editApptOpen, setEditApptOpen] = useState(false);
@@ -370,9 +373,16 @@ export function EnhancedCHWDashboard({ isFirstLogin = false }: CHWDashboardProps
     );
   };
 
+  const hasActiveEscalationForCheckIn = (checkInId: number): boolean => {
+    const fromServer = (realEscalations ?? []).some(
+      e => e.checkInId === checkInId && (e.status === 'pending' || e.status === 'in_progress')
+    );
+    return fromServer || optimisticEscalatedCheckInIds.includes(checkInId);
+  };
+
   // Helper: Check if a specific check-in has already been escalated.
   const isCheckInEscalated = (checkIn: CheckIn): boolean => {
-    return hasActiveEscalation(checkIn.mother_id);
+    return hasActiveEscalationForCheckIn(checkIn.id);
   };
 
   const handleEscalation = async () => {
@@ -381,6 +391,17 @@ export function EnhancedCHWDashboard({ isFirstLogin = false }: CHWDashboardProps
         title: "Missing Information",
         description: "Please fill in all required fields before escalating.",
         variant: "destructive",
+      });
+      return;
+    }
+
+    const selectedCheckInId = escalationForm.checkInId
+      ? parseInt(escalationForm.checkInId)
+      : (checkInToEscalate?.id ?? null);
+    if (selectedCheckInId && hasActiveEscalationForCheckIn(selectedCheckInId)) {
+      toast({
+        title: "Already Escalated",
+        description: "This check-in has already been escalated.",
       });
       return;
     }
@@ -405,15 +426,18 @@ export function EnhancedCHWDashboard({ isFirstLogin = false }: CHWDashboardProps
             chw_id: chwProfileId,
             nurse_id: nurseId,
             mother_id: parseInt(escalationForm.motherId),
+            checkin_id: selectedCheckInId ?? undefined,
             case_description: escalationForm.description,
             issue_type: escalationForm.issueType,
             priority: escalationForm.priority,
           });
+          const effectiveCheckInId = created.checkin_id ?? selectedCheckInId;
           // Add to local real escalations list
           setRealEscalations((prev) => [
             {
               id: created.id,
               motherId: created.mother_id ?? 0,
+              checkInId: effectiveCheckInId,
               motherName: created.mother_name,
               issue: created.case_description,
               issueType: created.issue_type ?? created.case_description,
@@ -424,6 +448,9 @@ export function EnhancedCHWDashboard({ isFirstLogin = false }: CHWDashboardProps
             },
             ...(prev ?? []),
           ] as typeof mockEscalatedCases);
+          if (effectiveCheckInId) {
+            setOptimisticEscalatedCheckInIds(prev => prev.includes(effectiveCheckInId) ? prev : [...prev, effectiveCheckInId]);
+          }
           toast({
             title: "Case Escalated",
             description: `Case for ${created.mother_name} sent to nurse successfully.`,
@@ -447,7 +474,8 @@ export function EnhancedCHWDashboard({ isFirstLogin = false }: CHWDashboardProps
     }
 
     setShowEscalationModal(false);
-    setEscalationForm({ motherId: "", nurseId: "", issueType: "", description: "", priority: "high" });
+    setCheckInToEscalate(null);
+    setEscalationForm({ motherId: "", checkInId: "", nurseId: "", issueType: "", description: "", priority: "high" });
   };
 
   const handleMotherClick = (mother: typeof displayMothers[0]) => {
@@ -539,6 +567,7 @@ export function EnhancedCHWDashboard({ isFirstLogin = false }: CHWDashboardProps
       const mapped = resp.escalations.map((e) => ({
         id: e.id,
         motherId: e.mother_id ?? 0,
+        checkInId: e.checkin_id,
         motherName: e.mother_name,
         issue: e.case_description,
         issueType: e.issue_type ?? e.case_description,
@@ -581,6 +610,7 @@ export function EnhancedCHWDashboard({ isFirstLogin = false }: CHWDashboardProps
       const mapped = escalResp.escalations.map((e) => ({
         id: e.id,
         motherId: e.mother_id ?? 0,
+        checkInId: e.checkin_id,
         motherName: e.mother_name,
         issue: e.case_description,
         issueType: e.issue_type ?? e.case_description,
@@ -1041,11 +1071,15 @@ export function EnhancedCHWDashboard({ isFirstLogin = false }: CHWDashboardProps
             <Button
               onClick={handleEscalation}
               className="flex-1"
-              disabled={escalationSubmitting || (escalationForm.motherId ? hasActiveEscalation(parseInt(escalationForm.motherId)) : false)}
+              disabled={escalationSubmitting || (escalationForm.checkInId
+                ? hasActiveEscalationForCheckIn(parseInt(escalationForm.checkInId))
+                : (escalationForm.motherId ? hasActiveEscalation(parseInt(escalationForm.motherId)) : false))}
             >
               {escalationSubmitting ? (
                 <><Activity className="h-4 w-4 mr-2 animate-spin" />Submitting...</>
-              ) : hasActiveEscalation(escalationForm.motherId ? parseInt(escalationForm.motherId) : 0) ? (
+              ) : (escalationForm.checkInId
+                ? hasActiveEscalationForCheckIn(parseInt(escalationForm.checkInId))
+                : hasActiveEscalation(escalationForm.motherId ? parseInt(escalationForm.motherId) : 0)) ? (
                 <><CheckCircle className="h-4 w-4 mr-2" />Already Escalated</>
               ) : (
                 <><Upload className="h-4 w-4 mr-2" />Escalate Case</>
@@ -1191,6 +1225,7 @@ export function EnhancedCHWDashboard({ isFirstLogin = false }: CHWDashboardProps
                   setEscalationForm(prev => ({
                     ...prev,
                     motherId: String(checkInToEscalate.mother_id),
+                    checkInId: String(checkInToEscalate.id),
                     description: checkInToEscalate.comment
                       ? `Check-in concern: ${checkInToEscalate.comment}`
                       : `Mother reported feeling ${checkInToEscalate.response === 'not_ok' ? 'unwell' : 'concern raised by CHW'} on ${new Date(checkInToEscalate.created_at).toLocaleDateString()}`,
@@ -1707,7 +1742,11 @@ export function EnhancedCHWDashboard({ isFirstLogin = false }: CHWDashboardProps
               </Select>
               <Button
                 variant="destructive"
-                onClick={() => setShowEscalationModal(true)}
+                onClick={() => {
+                  setCheckInToEscalate(null);
+                  setEscalationForm(prev => ({ ...prev, checkInId: "" }));
+                  setShowEscalationModal(true);
+                }}
               >
                 <Upload className="h-4 w-4 mr-2" />
                 Escalate Case

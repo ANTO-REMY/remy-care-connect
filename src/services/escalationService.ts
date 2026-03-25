@@ -15,6 +15,7 @@ export interface Escalation {
   nurse_id: number;
   nurse_name: string;
   mother_id: number | null;
+  checkin_id: number | null;
   mother_name: string;
   case_description: string;
   issue_type: string | null;
@@ -29,6 +30,7 @@ export interface CreateEscalationRequest {
   chw_id: number;
   nurse_id: number;
   mother_id: number;
+  checkin_id?: number;
   case_description: string;
   issue_type?: string;
   notes?: string;
