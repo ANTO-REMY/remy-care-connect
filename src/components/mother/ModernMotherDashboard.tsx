@@ -1,4 +1,4 @@
-﻿/**
+/**
  * ModernMotherDashboard.tsx
  *
  * A GK-dashboard-inspired redesign of the mothers' view.
@@ -583,7 +583,7 @@ export function ModernMotherDashboard() {
           <div className="flex items-center justify-between">
             <div>
               <h2 className="text-xl font-bold text-gray-900">
-                {greeting}, {user?.first_name ?? "Mama"} ðŸ‘‹
+                Hello <span className="capitalize">{user?.first_name?.toLowerCase() || 'Mama'}</span>
               </h2>
               <p className="text-sm text-gray-500 mt-0.5">
                 {new Date().toLocaleDateString("en-KE", { weekday: "long", day: "numeric", month: "long", year: "numeric" })}

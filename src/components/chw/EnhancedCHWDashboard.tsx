@@ -1630,7 +1630,7 @@ export function EnhancedCHWDashboard({ isFirstLogin = false }: CHWDashboardProps
         {/* Welcome Section */}
         <div className="mb-8">
           <h2 className="text-3xl font-bold text-foreground mb-2">
-            Welcome back, {user?.first_name || 'CHW'}! ðŸ‘‹
+            Hello <span className="capitalize">{user?.first_name?.toLowerCase() || 'CHW'}</span>
           </h2>
           <p className="text-muted-foreground">
             You have <span className="font-semibold text-red-600">{mothersWithIssues.length} mothers</span> who need attention today.

@@ -203,7 +203,7 @@ export function MotherDashboard() {
             <div className="flex items-center gap-3">
               <Baby className="h-6 w-6 sm:h-8 sm:w-8 flex-shrink-0" />
               <div className="min-w-0">
-                <div className="text-lg sm:text-xl md:text-2xl font-semibold break-words">Welcome back, {user?.name || 'Mother'}!</div>
+                <div className="text-lg sm:text-xl md:text-2xl font-semibold break-words">Hello <span className="capitalize">{user?.first_name?.toLowerCase() || user?.name?.split(' ')[0].toLowerCase() || 'Mother'}</span></div>
                 <div className="text-primary-foreground/80 text-sm sm:text-base">
                   {motherProfile?.location || 'Your maternal health journey'}
                 </div>

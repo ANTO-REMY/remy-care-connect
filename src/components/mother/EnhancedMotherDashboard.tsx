@@ -1,4 +1,4 @@
-﻿import { useState, useEffect, useCallback, useRef } from "react";
+import { useState, useEffect, useCallback, useRef } from "react";
 import { useNavigate } from "react-router-dom";
 import {
   Baby, MessageCircle, Phone, AlertCircle, BookOpen, CheckCircle,
@@ -799,12 +799,8 @@ export function EnhancedMotherDashboard({ isFirstLogin = false }: MotherDashboar
       <main className="max-w-7xl mx-auto px-4 sm:px-6 py-6">
         {/* Welcome Section */}
         <div className="mb-8">
-          <div className="flex items-center gap-2 mb-2">
-            <GreetingIcon className="h-5 w-5 text-amber-500" />
-            <span className="text-muted-foreground">{greeting.text}</span>
-          </div>
           <h2 className="text-3xl font-bold text-foreground mb-2">
-            {user?.first_name || 'Mom'}!
+            Hello <span className="capitalize">{user?.first_name?.toLowerCase() || 'Mom'}</span>
           </h2>
           <p className="text-muted-foreground">
             You're doing amazing! Let's make today count for you and your baby.

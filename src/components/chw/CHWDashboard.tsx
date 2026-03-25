@@ -162,7 +162,7 @@ export function CHWDashboard() {
             </Button>
             <Users className="h-8 w-8" />
             <div className="min-w-0">
-              <div className="text-2xl font-semibold">Welcome, {currentCHW?.name || user?.name}</div>
+              <div className="text-2xl font-semibold">Hello <span className="capitalize">{(currentCHW?.first_name || currentCHW?.name?.split(' ')[0] || user?.first_name || user?.name?.split(' ')[0])?.toLowerCase() || 'CHW'}</span></div>
               <div className="text-primary-foreground/80">
                 Community Health Worker Dashboard
               </div>

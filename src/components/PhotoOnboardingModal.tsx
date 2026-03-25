@@ -1,4 +1,4 @@
-﻿/**
+/**
  * PhotoOnboardingModal â€” optional photo upload shown on first login for CHW and Nurse.
  *
  * Photo is optional â€” â€œSkip for Nowâ€ completes onboarding without uploading.
@@ -91,7 +91,7 @@ export default function PhotoOnboardingModal({
             >
                 <DialogHeader>
                     <DialogTitle className="text-center text-xl">
-                        Welcome, {user?.first_name ?? roleName}! ðŸ‘‹
+                        Hello <span className="capitalize">{user?.first_name?.toLowerCase() || roleName}</span>
                     </DialogTitle>
                     <DialogDescription className="text-center">
                         Add a profile photo so mothers and colleagues can recognise you.

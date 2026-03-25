@@ -1398,7 +1398,7 @@ export function EnhancedNurseDashboard({ isFirstLogin = false }: NurseDashboardP
         {/* Welcome Section */}
         <div className="mb-8">
           <h2 className="text-3xl font-bold text-foreground mb-2">
-            Welcome, Nurse {user?.first_name || 'Supervisor'}! ðŸ‘‹
+            Hello <span className="capitalize">{user?.first_name?.toLowerCase() || 'Supervisor'}</span>
           </h2>
           <p className="text-muted-foreground">
             You have <span className="font-semibold text-red-600">

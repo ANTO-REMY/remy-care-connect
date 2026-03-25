@@ -116,72 +116,75 @@ export function DateTimePicker({
         </Button>
       </PopoverTrigger>
       <PopoverContent
-        className="w-auto p-0 rounded-2xl shadow-2xl border-slate-200/60 font-['Quicksand',sans-serif] bg-white"
+        className="w-auto p-0 rounded-2xl shadow-2xl border-slate-200/60 font-['Quicksand',sans-serif] bg-white flex flex-col sm:flex-row overflow-hidden"
         align="start"
+        sideOffset={8}
       >
-        <div className="bg-gradient-to-b from-slate-50/50 to-white">
+        <div className="bg-gradient-to-b from-slate-50/50 to-white sm:border-r border-slate-100">
           <Calendar
             mode="single"
             selected={selectedDate}
             onSelect={handleDateSelect}
             initialFocus
             disabled={(date) => date < new Date(new Date().setHours(0, 0, 0, 0))}
-            className="p-4 pointer-events-auto bg-transparent"
+            className="p-3 pointer-events-auto bg-transparent"
           />
         </div>
         
-        <div className="p-4 border-t border-slate-100 bg-slate-50/30 flex flex-col gap-3 relative">
-          <div className="absolute inset-0 bg-gradient-to-b from-black/[0.02] pointer-events-none to-transparent h-4"></div>
-          
-          <div className="flex items-center gap-2 justify-center relative z-10">
+        <div className="p-3 sm:p-4 bg-slate-50/30 flex flex-col justify-center gap-3 relative min-w-[160px]">
+          <div className="flex items-center gap-2 justify-center relative z-10 sm:mt-0 mt-2">
             <Clock className="w-4 h-4 text-emerald-500" />
-            <span className="text-[12px] font-bold text-slate-500 uppercase tracking-widest">Select Time</span>
+            <span className="text-[11px] font-bold text-slate-500 uppercase tracking-widest">Select Time</span>
           </div>
           
-          <div className="flex items-center gap-2.5 justify-center relative z-10 pb-1">
-            <Select
-              value={current12Hour}
-              onValueChange={(v) => handleTimeSelect("hour12", v)}
-              disabled={!selectedDate}
-            >
-              <SelectTrigger className="w-[75px] h-10 bg-white border-slate-200 focus:ring-emerald-500/30 font-bold text-lg text-slate-700 rounded-xl shadow-sm z-50">
-                <SelectValue placeholder="HH" />
-              </SelectTrigger>
-              <SelectContent position="popper" className="max-h-[220px] z-[100] rounded-xl font-['Quicksand',sans-serif]">
-                {Array.from({ length: 12 }).map((_, i) => {
-                  const h = (i + 1).toString().padStart(2, "0");
-                  return <SelectItem key={h} value={h} className="cursor-pointer font-bold text-base py-2">{h}</SelectItem>;
-                })}
-              </SelectContent>
-            </Select>
-            <span className="text-slate-400 font-bold text-xl mb-1">:</span>
-            <Select
-              value={currentMinute}
-              onValueChange={(v) => handleTimeSelect("minute", v)}
-              disabled={!selectedDate}
-            >
-              <SelectTrigger className="w-[75px] h-10 bg-white border-slate-200 focus:ring-emerald-500/30 font-bold text-lg text-slate-700 rounded-xl shadow-sm z-50">
-                <SelectValue placeholder="MM" />
-              </SelectTrigger>
-              <SelectContent position="popper" className="max-h-[220px] z-[100] rounded-xl font-['Quicksand',sans-serif]">
-                {Array.from({ length: 60 }).map((_, i) => {
-                  const m = i.toString().padStart(2, "0");
-                  return <SelectItem key={m} value={m} className="cursor-pointer font-bold text-base py-2">{m}</SelectItem>;
-                })}
-              </SelectContent>
-            </Select>
+          <div className="flex flex-col gap-2.5 relative z-10 w-full">
+            <div className="flex justify-center gap-1.5 items-center">
+              <Select
+                value={current12Hour}
+                onValueChange={(v) => handleTimeSelect("hour12", v)}
+                disabled={!selectedDate}
+              >
+                <SelectTrigger className="w-[65px] h-9 bg-white border-slate-200 focus:ring-emerald-500/30 font-bold text-base text-slate-700 rounded-xl shadow-sm z-50">
+                  <SelectValue placeholder="HH" />
+                </SelectTrigger>
+                <SelectContent position="popper" className="max-h-[220px] z-[100] rounded-xl font-['Quicksand',sans-serif]">
+                  {Array.from({ length: 12 }).map((_, i) => {
+                    const h = (i + 1).toString().padStart(2, "0");
+                    return <SelectItem key={h} value={h} className="cursor-pointer font-bold text-[15px] py-1.5">{h}</SelectItem>;
+                  })}
+                </SelectContent>
+              </Select>
+              
+              <span className="text-slate-400 font-bold text-lg mb-0.5">:</span>
+              
+              <Select
+                value={currentMinute}
+                onValueChange={(v) => handleTimeSelect("minute", v)}
+                disabled={!selectedDate}
+              >
+                <SelectTrigger className="w-[65px] h-9 bg-white border-slate-200 focus:ring-emerald-500/30 font-bold text-base text-slate-700 rounded-xl shadow-sm z-50">
+                  <SelectValue placeholder="MM" />
+                </SelectTrigger>
+                <SelectContent position="popper" className="max-h-[220px] z-[100] rounded-xl font-['Quicksand',sans-serif]">
+                  {Array.from({ length: 60 }).map((_, i) => {
+                    const m = i.toString().padStart(2, "0");
+                    return <SelectItem key={m} value={m} className="cursor-pointer font-bold text-[15px] py-1.5">{m}</SelectItem>;
+                  })}
+                </SelectContent>
+              </Select>
+            </div>
 
             <Select
               value={currentAmPm}
               onValueChange={(v) => handleTimeSelect("ampm", v)}
               disabled={!selectedDate}
             >
-              <SelectTrigger className="w-[85px] h-10 bg-emerald-50 border-emerald-100 focus:ring-emerald-500/30 ml-2 font-bold text-emerald-700 text-[15px] rounded-xl shadow-sm z-50">
+              <SelectTrigger className="w-full h-9 bg-emerald-50 border-emerald-100 focus:ring-emerald-500/30 font-bold text-emerald-700 text-[14px] hover:bg-emerald-100 transition-colors rounded-xl shadow-sm z-50 flex justify-center">
                 <SelectValue placeholder="AM/PM" />
               </SelectTrigger>
               <SelectContent position="popper" className="z-[100] rounded-xl font-['Quicksand',sans-serif]">
-                <SelectItem value="AM" className="cursor-pointer font-bold py-2">AM</SelectItem>
-                <SelectItem value="PM" className="cursor-pointer font-bold py-2">PM</SelectItem>
+                <SelectItem value="AM" className="cursor-pointer font-bold py-1.5 text-[15px]">AM</SelectItem>
+                <SelectItem value="PM" className="cursor-pointer font-bold py-1.5 text-[15px]">PM</SelectItem>
               </SelectContent>
             </Select>
           </div>
