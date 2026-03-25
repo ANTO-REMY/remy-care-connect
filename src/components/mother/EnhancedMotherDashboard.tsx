@@ -290,7 +290,7 @@ export function EnhancedMotherDashboard({ isFirstLogin = false }: MotherDashboar
   const markNotificationRead = async (id: number) => {
     try {
       const resp = await notificationService.markRead(id);
-      setNotifications(prev => prev.map(n => n.id === id ? { ...n, is_read: true } : n));
+      setNotifications(prev => prev.filter(n => n.id !== id));
       setUnreadNotificationCount(resp.unread_count);
     } catch {
       // ignore
