@@ -2030,12 +2030,13 @@ export function EnhancedNurseDashboard({ isFirstLogin = false }: NurseDashboardP
                             </div>
                             <div className="flex gap-2">
                               {resource.url && (
-                                <Button 
-                                  size="sm" 
+                                <Button
+                                  size="sm"
                                   variant="outline"
+                                  className="w-20"
                                   onClick={() => window.open(resource.url, '_blank', 'noopener,noreferrer')}
                                 >
-                                  <Download className="h-4 w-4" />
+                                  View
                                 </Button>
                               )}
                               <Button size="sm" variant="outline">
