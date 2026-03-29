@@ -35,6 +35,8 @@ import { checkinService, type CheckIn } from "@/services/checkinService";
 import { notificationService, type UserNotification } from "@/services/notificationService";
 import { useSocket, useSocketStatus, joinProfileRoom } from "@/hooks/useSocket";
 import { ConnectionBanner } from "@/components/ConnectionBanner";
+import resourceService, { Resource } from '@/services/resourceService';
+import { Alert, AlertDescription } from '@/components/ui/alert';
 
 // Mock data for mothers
 const mockMothers = [
@@ -142,57 +144,6 @@ const mockEscalatedCases = [
   },
 ];
 
-// Mock data for educational materials
-const educationalMaterials = [
-  {
-    id: 1,
-    title: "Nutrition During Pregnancy",
-    type: "PDF",
-    size: "2.3 MB",
-    category: "Nutrition",
-    downloads: 156,
-    thumbnail: "[NUTRITION]"
-  },
-  {
-    id: 2,
-    title: "Warning Signs to Watch",
-    type: "PDF",
-    size: "1.8 MB",
-    category: "Safety",
-    downloads: 234,
-    thumbnail: "[ALERT]"
-  },
-  {
-    id: 3,
-    title: "Safe Exercise Guide",
-    type: "Video",
-    size: "45 MB",
-    category: "Wellness",
-    downloads: 89,
-    thumbnail: "[EXERCISE]",
-    duration: "12:30"
-  },
-  {
-    id: 4,
-    title: "Postpartum Care",
-    type: "PDF",
-    size: "3.1 MB",
-    category: "Postpartum",
-    downloads: 178,
-    thumbnail: "[BABY]"
-  },
-  {
-    id: 5,
-    title: "Breastfeeding Basics",
-    type: "Video",
-    size: "28 MB",
-    category: "Breastfeeding",
-    downloads: 267,
-    thumbnail: "[CARE]",
-    duration: "18:45"
-  },
-];
-
 // Mock weekly stats
 const weeklyStats = {
   totalCheckIns: 45,
@@ -283,6 +234,10 @@ export function EnhancedCHWDashboard({ isFirstLogin = false }: CHWDashboardProps
   const [showHiddenEscalations, setShowHiddenEscalations] = useState(false);
   const [notifications, setNotifications] = useState<UserNotification[]>([]);
   const [unreadNotificationCount, setUnreadNotificationCount] = useState(0);
+  // Resources
+  const [resources, setResources] = useState<Resource[]>([]);
+  const [resourcesLoading, setResourcesLoading] = useState(true);
+  const [resourcesError, setResourcesError] = useState<string | null>(null);
 
   // Ref keeps the latest chwProfileId available inside the polling callback
   const chwProfileIdRef = useRef<number | null>(null);
@@ -801,6 +756,23 @@ export function EnhancedCHWDashboard({ isFirstLogin = false }: CHWDashboardProps
     })();
     return () => { isMounted = false; };
   }, [refreshData, refreshNotifications]);
+
+  // Fetch resources for CHW role
+  useEffect(() => {
+    const fetchResources = async () => {
+      try {
+        setResourcesLoading(true);
+        setResourcesError(null);
+        const data = await resourceService.list({ role: 'chw' });
+        setResources(data);
+      } catch (err) {
+        setResourcesError(err instanceof Error ? err.message : 'Failed to load resources');
+      } finally {
+        setResourcesLoading(false);
+      }
+    };
+    fetchResources();
+  }, []);
 
   const handlePhotoUpload = async (event: React.ChangeEvent<HTMLInputElement>) => {
     const file = event.target.files?.[0];
@@ -2471,43 +2443,67 @@ export function EnhancedCHWDashboard({ isFirstLogin = false }: CHWDashboardProps
 
           {/* Resources Tab */}
           <TabsContent value="resources" className="space-y-4">
-            <div className="grid md:grid-cols-2 gap-4">
-              {educationalMaterials.map((material) => (
-                <Card key={material.id} className="hover:shadow-lg transition-shadow">
-                  <CardContent className="p-4">
-                    <div className="flex items-start gap-4">
-                      <div className="text-4xl">{material.thumbnail}</div>
-                      <div className="flex-1">
-                        <div className="flex items-start justify-between">
-                          <div>
-                            <h4 className="font-medium">{material.title}</h4>
-                            <div className="flex items-center gap-2 mt-1">
-                              <Badge variant="outline">{material.category}</Badge>
-                              <span className="text-xs text-muted-foreground">{material.type}</span>
+            {resourcesLoading ? (
+              <div className="flex items-center justify-center py-8">
+                <Loader2 className="h-8 w-8 animate-spin text-primary" />
+                <span className="ml-2 text-muted-foreground">Loading resources...</span>
+              </div>
+            ) : resourcesError ? (
+              <Alert variant="destructive">
+                <AlertCircle className="h-4 w-4" />
+                <AlertDescription>
+                  {resourcesError}
+                </AlertDescription>
+              </Alert>
+            ) : resources.length === 0 ? (
+              <Alert>
+                <AlertCircle className="h-4 w-4" />
+                <AlertDescription>
+                  No resources available for CHW at this time.
+                </AlertDescription>
+              </Alert>
+            ) : (
+              <div className="grid md:grid-cols-2 gap-4">
+                {resources.map((resource) => (
+                  <Card key={resource.id} className="hover:shadow-lg transition-shadow">
+                    <CardContent className="p-4">
+                      <div className="flex items-start gap-4">
+                        <div className="text-4xl">{resource.thumbnail}</div>
+                        <div className="flex-1">
+                          <div className="flex items-start justify-between">
+                            <div>
+                              <h4 className="font-medium">{resource.title}</h4>
+                              <div className="flex items-center gap-2 mt-1">
+                                <Badge variant="outline">{resource.category}</Badge>
+                                <span className="text-xs text-muted-foreground capitalize">{resource.content_type}</span>
+                              </div>
+                            </div>
+                          </div>
+                          <p className="text-sm text-muted-foreground mt-2 line-clamp-2">{resource.description}</p>
+                          <div className="flex items-center justify-between mt-3">
+                            <div className="flex items-center gap-3 text-sm text-muted-foreground">
+                              <span>CHW Resource</span>
+                            </div>
+                            <div className="flex gap-2">
+                              <Button 
+                                size="sm" 
+                                variant="outline"
+                                onClick={() => window.open(resource.url, '_blank', 'noopener,noreferrer')}
+                              >
+                                View
+                              </Button>
+                              <Button size="sm" variant="outline">
+                                <Share2 className="h-4 w-4" />
+                              </Button>
                             </div>
                           </div>
                         </div>
-                        <div className="flex items-center justify-between mt-3">
-                          <div className="flex items-center gap-3 text-sm text-muted-foreground">
-                            <span>{material.size}</span>
-                            {material.duration && <span>| {material.duration}</span>}
-                            <span>| {material.downloads} downloads</span>
-                          </div>
-                          <div className="flex gap-2">
-                            <Button size="sm" variant="outline">
-                              <Download className="h-4 w-4" />
-                            </Button>
-                            <Button size="sm" variant="outline">
-                              <Share2 className="h-4 w-4" />
-                            </Button>
-                          </div>
-                        </div>
                       </div>
-                    </div>
-                  </CardContent>
-                </Card>
-              ))}
-            </div>
+                    </CardContent>
+                  </Card>
+                ))}
+              </div>
+            )}
           </TabsContent>
         </Tabs>
       </main>

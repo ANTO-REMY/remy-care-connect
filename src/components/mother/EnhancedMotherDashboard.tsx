@@ -1,11 +1,11 @@
 import { useState, useEffect, useCallback, useRef } from "react";
 import { useNavigate } from "react-router-dom";
 import {
-  Baby, MessageCircle, Phone, AlertCircle, BookOpen, CheckCircle,
+  Baby, MessageCircle, Phone, AlertCircle, CheckCircle,
   User, LogOut, Camera, Heart, Apple, Bell, Calendar, Clock,
   ChevronRight, Sparkles, Utensils, Droplets, Moon, Sun,
-  Activity, TrendingUp, FileText, Video, ExternalLink, Bookmark,
-  Share2, Play, Pause, Volume2, VolumeX, Loader2, Plus, ArrowLeft, Trash2
+  Activity, TrendingUp, FileText, Video, ExternalLink,
+  Play, Pause, Volume2, VolumeX, Loader2, Plus, ArrowLeft, Trash2, BookOpen
 } from "lucide-react";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle, CardFooter } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -26,11 +26,13 @@ import { motherService } from "@/services/motherService";
 import { checkinService } from "@/services/checkinService";
 import { assignmentService } from "@/services/assignmentService";
 import { notificationService, type UserNotification } from "@/services/notificationService";
+import resourceService, { Resource } from "@/services/resourceService";
 import { Textarea } from "@/components/ui/textarea";
 import { Input } from "@/components/ui/input";
 import { DateTimePicker } from "@/components/ui/datetime-picker";
 import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { Alert, AlertDescription } from "@/components/ui/alert";
 import { useSocket, useSocketStatus } from "@/hooks/useSocket";
 import { ConnectionBanner } from "@/components/ConnectionBanner";
 import { PregnancyJourneyTracker } from "./PregnancyJourneyTracker";
@@ -98,83 +100,7 @@ const dailyReminders = [
   { id: 5, title: "Read pregnancy article", time: "Anytime", completed: false, type: "education", icon: "READ" },
 ];
 
-// Mock articles data
-const pregnancyArticles = [
-  {
-    id: 1,
-    title: "Understanding Your Baby's Development Week by Week",
-    excerpt: "Track your baby's growth from conception to birth with our comprehensive week-by-week guide.",
-    category: "Development",
-    readTime: "8 min read",
-    image: "https://images.unsplash.com/photo-1544367563-12123d8965cd?w=400&h=250&fit=crop",
-    author: "Dr. Sarah Johnson",
-    date: "2 days ago",
-    featured: true,
-    type: "article"
-  },
-  {
-    id: 2,
-    title: "Nutrition Essentials for a Healthy Pregnancy",
-    excerpt: "Learn about the key nutrients your body needs and the best foods to support your baby's growth.",
-    category: "Nutrition",
-    readTime: "6 min read",
-    image: "https://images.unsplash.com/photo-1490645935967-10de6ba17061?w=400&h=250&fit=crop",
-    author: "Nutritionist Mary Kimani",
-    date: "1 week ago",
-    featured: false,
-    type: "article"
-  },
-  {
-    id: 3,
-    title: "Preparing for Labor: What to Expect",
-    excerpt: "A comprehensive guide to help you understand the stages of labor and delivery.",
-    category: "Labor & Delivery",
-    readTime: "12 min read",
-    image: "https://images.unsplash.com/photo-1555252333-9f8e92e65df4?w=400&h=250&fit=crop",
-    author: "Midwife Grace Ochieng",
-    date: "3 days ago",
-    featured: true,
-    type: "video",
-    duration: "15:30"
-  },
-  {
-    id: 4,
-    title: "Postpartum Care: Recovery Tips for New Moms",
-    excerpt: "Essential advice for physical and emotional recovery after childbirth.",
-    category: "Postpartum",
-    readTime: "10 min read",
-    image: "https://images.unsplash.com/photo-1559757175-5700dde675bc?w=400&h=250&fit=crop",
-    author: "Dr. Emily Wanjiku",
-    date: "5 days ago",
-    featured: false,
-    type: "article"
-  },
-  {
-    id: 5,
-    title: "Breastfeeding Basics: Getting Started",
-    excerpt: "Everything you need to know about successful breastfeeding from day one.",
-    category: "Breastfeeding",
-    readTime: "7 min read",
-    image: "https://images.unsplash.com/photo-1555252333-9f8e92e65df4?w=400&h=250&fit=crop",
-    author: "Lactation Consultant Jane Muthoni",
-    date: "1 day ago",
-    featured: false,
-    type: "video",
-    duration: "22:15"
-  },
-  {
-    id: 6,
-    title: "Managing Pregnancy Symptoms Naturally",
-    excerpt: "Natural remedies and tips for dealing with common pregnancy discomforts.",
-    category: "Wellness",
-    readTime: "5 min read",
-    image: "https://images.unsplash.com/photo-1506126613408-eca07ce68773?w=400&h=250&fit=crop",
-    author: "Holistic Practitioner Anna Otieno",
-    date: "4 days ago",
-    featured: false,
-    type: "article"
-  }
-];
+
 
 // Mock weekly progress data
 const weeklyProgress = {
@@ -202,9 +128,6 @@ export function EnhancedMotherDashboard({ isFirstLogin = false }: MotherDashboar
   const [profileImage, setProfileImage] = useState<string | null>(null);
   const [activeTab, setActiveTab] = useState("overview");
   const [reminders, setReminders] = useState(dailyReminders);
-  const [bookmarkedArticles, setBookmarkedArticles] = useState<number[]>([]);
-  const [selectedArticle, setSelectedArticle] = useState<typeof pregnancyArticles[0] | null>(null);
-  const [showArticleDialog, setShowArticleDialog] = useState(false);
   const [waterIntake, setWaterIntake] = useState(3);
   const [showCheckInModal, setShowCheckInModal] = useState(false);
   const [checkInResponse, setCheckInResponse] = useState<'ok' | 'not_ok' | null>(null);
@@ -234,6 +157,11 @@ export function EnhancedMotherDashboard({ isFirstLogin = false }: MotherDashboar
   const motherProfileIdRef = useRef<number | null>(null);
   // Assigned CHW's user_id â€” used when mother schedules an appointment
   const [assignedCHWUserId, setAssignedCHWUserId] = useState<number | null>(null);
+
+  // Resources state
+  const [resources, setResources] = useState<Resource[]>([]);
+  const [resourcesLoading, setResourcesLoading] = useState(true);
+  const [resourcesError, setResourcesError] = useState<string | null>(null);
 
   // Real profile data
   const [profile, setProfile] = useState<{ due_date?: string } | null>(null);
@@ -361,6 +289,23 @@ export function EnhancedMotherDashboard({ isFirstLogin = false }: MotherDashboar
     refreshNotifications();
   }, [refreshNotifications]);
 
+  // Fetch resources for mother role
+  useEffect(() => {
+    const fetchResources = async () => {
+      try {
+        setResourcesLoading(true);
+        setResourcesError(null);
+        const data = await resourceService.list({ role: 'mother' });
+        setResources(data);
+      } catch (err) {
+        setResourcesError(err instanceof Error ? err.message : 'Failed to load resources');
+      } finally {
+        setResourcesLoading(false);
+      }
+    };
+    fetchResources();
+  }, []);
+
   // Appointment filtering: separate by creator
   const sourceAppointments = showHiddenAppointments ? hiddenAppointments : appointments;
   const apptsByMother = sourceAppointments.filter(
@@ -427,19 +372,7 @@ export function EnhancedMotherDashboard({ isFirstLogin = false }: MotherDashboar
     ));
   };
 
-  // Toggle article bookmark
-  const toggleBookmark = (id: number, e: React.MouseEvent) => {
-    e.stopPropagation();
-    setBookmarkedArticles(prev =>
-      prev.includes(id) ? prev.filter(i => i !== id) : [...prev, id]
-    );
-  };
 
-  // Handle article click
-  const handleArticleClick = (article: typeof pregnancyArticles[0]) => {
-    setSelectedArticle(article);
-    setShowArticleDialog(true);
-  };
 
   // Handle check-in
   const handleCheckIn = async () => {
@@ -598,81 +531,6 @@ export function EnhancedMotherDashboard({ isFirstLogin = false }: MotherDashboar
         </DialogContent>
       </Dialog>
 
-      {/* Article Dialog */}
-      <Dialog open={showArticleDialog} onOpenChange={setShowArticleDialog}>
-        <DialogContent className="sm:max-w-2xl max-h-[90vh] overflow-y-auto">
-          {selectedArticle && (
-            <>
-              <DialogHeader>
-                <div className="relative h-48 -mx-6 -mt-6 mb-4 overflow-hidden rounded-t-lg">
-                  <img
-                    src={selectedArticle.image}
-                    alt={selectedArticle.title}
-                    className="w-full h-full object-cover"
-                  />
-                  <div className="absolute inset-0 bg-gradient-to-t from-black/60 to-transparent" />
-                  <Badge className="absolute top-4 left-4 bg-white/90 text-foreground">
-                    {selectedArticle.category}
-                  </Badge>
-                </div>
-                <DialogTitle className="text-xl leading-tight">
-                  {selectedArticle.title}
-                </DialogTitle>
-                <DialogDescription className="flex items-center gap-4 text-sm">
-                  <span>By {selectedArticle.author}</span>
-                  <span>|</span>
-                  <span>{selectedArticle.date}</span>
-                  <span>|</span>
-                  <span className="flex items-center gap-1">
-                    <Clock className="h-3 w-3" />
-                    {selectedArticle.readTime}
-                  </span>
-                </DialogDescription>
-              </DialogHeader>
-              <div className="space-y-4 py-4">
-                <p className="text-lg text-muted-foreground leading-relaxed">
-                  {selectedArticle.excerpt}
-                </p>
-                <div className="prose prose-sm max-w-none">
-                  <p>
-                    Pregnancy is a beautiful journey filled with excitement, anticipation, and many questions.
-                    This comprehensive guide will help you navigate through each stage with confidence and knowledge.
-                  </p>
-                  <h3 className="text-lg font-semibold mt-4">Key Takeaways</h3>
-                  <ul className="list-disc pl-5 space-y-2">
-                    <li>Understanding your body's changes during pregnancy</li>
-                    <li>Nutrition and exercise recommendations</li>
-                    <li>Preparing for labor and delivery</li>
-                    <li>Postpartum care essentials</li>
-                  </ul>
-                  <p className="mt-4">
-                    Remember, every pregnancy is unique. Always consult with your healthcare provider
-                    for personalized advice and guidance throughout your journey.
-                  </p>
-                </div>
-              </div>
-              <div className="flex gap-2 pt-4 border-t">
-                <Button className="flex-1">
-                  <BookOpen className="h-4 w-4 mr-2" />
-                  Read Full Article
-                </Button>
-                <Button variant="outline" size="icon">
-                  <Share2 className="h-4 w-4" />
-                </Button>
-                <Button
-                  variant="outline"
-                  size="icon"
-                  onClick={(e) => toggleBookmark(selectedArticle.id, e)}
-                >
-                  <Bookmark
-                    className={`h-4 w-4 ${bookmarkedArticles.includes(selectedArticle.id) ? 'fill-primary' : ''}`}
-                  />
-                </Button>
-              </div>
-            </>
-          )}
-        </DialogContent>
-      </Dialog>
 
       {/* Check-in Modal */}
       <Dialog open={showCheckInModal} onOpenChange={(open) => { setShowCheckInModal(open); if (!open) { setCheckInSelected(null); setCheckInComment(''); } }}>
@@ -1085,36 +943,31 @@ export function EnhancedMotherDashboard({ isFirstLogin = false }: MotherDashboar
               </div>
               <ScrollArea className="w-full whitespace-nowrap">
                 <div className="flex gap-4 pb-4">
-                  {pregnancyArticles.filter(a => a.featured).map((article) => (
+                  {resources.slice(0, 3).map((resource) => (
                     <Card
-                      key={article.id}
+                      key={resource.id}
                       className="w-[300px] flex-shrink-0 cursor-pointer hover:shadow-lg transition-shadow"
-                      onClick={() => handleArticleClick(article)}
+                      onClick={() => window.open(resource.url, '_blank', 'noopener,noreferrer')}
                     >
-                      <div className="relative h-40 overflow-hidden rounded-t-lg">
-                        <img
-                          src={article.image}
-                          alt={article.title}
-                          className="w-full h-full object-cover"
-                        />
-                        <Badge className="absolute top-2 left-2 bg-white/90">
-                          {article.category}
-                        </Badge>
-                        {article.type === 'video' && (
-                          <div className="absolute inset-0 flex items-center justify-center bg-black/30">
-                            <div className="bg-white/90 rounded-full p-2">
-                              <Play className="h-6 w-6 text-primary fill-primary" />
-                            </div>
+                      <CardHeader>
+                        <div className="flex items-center gap-3">
+                          <div className="text-2xl">{resource.thumbnail}</div>
+                          <div className="flex-1">
+                            <Badge variant="secondary" className="mb-2">{resource.category}</Badge>
+                            {resource.content_type === 'video' && (
+                              <Badge className="bg-red-500 text-white ml-2">
+                                <Play className="h-3 w-3 mr-1 fill-white" />
+                                Video
+                              </Badge>
+                            )}
                           </div>
-                        )}
-                      </div>
-                      <CardContent className="p-4">
-                        <h4 className="font-medium line-clamp-2 mb-2 whitespace-normal">{article.title}</h4>
-                        <div className="flex items-center gap-2 text-xs text-muted-foreground">
-                          <Clock className="h-3 w-3" />
-                          {article.readTime}
-                          {article.duration && <span>| {article.duration}</span>}
                         </div>
+                      </CardHeader>
+                      <CardContent className="p-4 pt-0">
+                        <h4 className="font-medium line-clamp-2 mb-2 whitespace-normal">{resource.title}</h4>
+                        <p className="text-sm text-muted-foreground line-clamp-2">
+                          {resource.description}
+                        </p>
                       </CardContent>
                     </Card>
                   ))}
@@ -1430,86 +1283,51 @@ export function EnhancedMotherDashboard({ isFirstLogin = false }: MotherDashboar
           <TabsContent value="articles" className="space-y-4">
             <div className="flex items-center justify-between">
               <div>
-                <h3 className="font-semibold text-lg">Pregnancy Resources</h3>
+                <h3 className="font-semibold text-lg">Resources</h3>
                 <p className="text-sm text-muted-foreground">Expert articles and videos for every stage</p>
-              </div>
-              <div className="flex gap-2">
-                <Badge variant="outline" className="cursor-pointer hover:bg-primary hover:text-primary-foreground">
-                  All
-                </Badge>
-                <Badge variant="outline" className="cursor-pointer hover:bg-primary hover:text-primary-foreground">
-                  Articles
-                </Badge>
-                <Badge variant="outline" className="cursor-pointer hover:bg-primary hover:text-primary-foreground">
-                  Videos
-                </Badge>
               </div>
             </div>
 
-            <div className="grid md:grid-cols-2 gap-4">
-              {pregnancyArticles.map((article) => (
-                <Card
-                  key={article.id}
-                  className="cursor-pointer hover:shadow-lg transition-all group overflow-hidden"
-                  onClick={() => handleArticleClick(article)}
-                >
-                  <div className="relative h-48 overflow-hidden">
-                    <img
-                      src={article.image}
-                      alt={article.title}
-                      className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300"
-                    />
-                    <div className="absolute inset-0 bg-gradient-to-t from-black/60 via-transparent to-transparent" />
-                    <div className="absolute top-3 left-3 flex gap-2">
-                      <Badge className="bg-white/90 text-foreground">
-                        {article.category}
-                      </Badge>
-                      {article.type === 'video' && (
-                        <Badge className="bg-red-500 text-white">
-                          <Play className="h-3 w-3 mr-1 fill-white" />
-                          Video
-                        </Badge>
-                      )}
-                    </div>
-                    <button
-                      onClick={(e) => toggleBookmark(article.id, e)}
-                      className="absolute top-3 right-3 bg-white/90 p-2 rounded-full hover:bg-white transition-colors"
-                    >
-                      <Bookmark
-                        className={`h-4 w-4 ${bookmarkedArticles.includes(article.id) ? 'fill-primary text-primary' : ''}`}
-                      />
-                    </button>
-                    {article.type === 'video' && (
-                      <div className="absolute inset-0 flex items-center justify-center">
-                        <div className="bg-white/90 rounded-full p-3 group-hover:scale-110 transition-transform">
-                          <Play className="h-8 w-8 text-primary fill-primary" />
+            {resourcesError && (
+              <Alert variant="destructive">
+                <AlertCircle className="h-4 w-4" />
+                <AlertDescription>{resourcesError}</AlertDescription>
+              </Alert>
+            )}
+
+            {resourcesLoading ? (
+              <div className="flex items-center justify-center p-8">
+                <Loader2 className="h-8 w-8 animate-spin text-primary" />
+              </div>
+            ) : (
+              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+                {resources.map((resource) => (
+                  <Card 
+                    key={resource.id}
+                    className="hover:shadow-lg transition-all duration-300 cursor-pointer hover:-translate-y-1"
+                    onClick={() => window.open(resource.url, '_blank', 'noopener,noreferrer')}
+                  >
+                    <CardHeader>
+                      <div className="flex items-center gap-3">
+                        <div className="text-3xl">{resource.thumbnail}</div>
+                        <div className="flex-1">
+                          <CardTitle className="text-lg">{resource.title}</CardTitle>
+                          <Badge variant="secondary" className="mt-1">{resource.category}</Badge>
                         </div>
                       </div>
-                    )}
-                  </div>
-                  <CardContent className="p-4">
-                    <h4 className="font-medium line-clamp-2 mb-2 group-hover:text-primary transition-colors">
-                      {article.title}
-                    </h4>
-                    <p className="text-sm text-muted-foreground line-clamp-2 mb-3">
-                      {article.excerpt}
-                    </p>
-                    <div className="flex items-center justify-between text-xs text-muted-foreground">
-                      <div className="flex items-center gap-2">
-                        <span>{article.author}</span>
-                        <span>|</span>
-                        <span className="flex items-center gap-1">
-                          <Clock className="h-3 w-3" />
-                          {article.readTime}
-                          {article.duration && ` (${article.duration})`}
-                        </span>
-                      </div>
-                      <span>{article.date}</span>
-                    </div>
-                  </CardContent>
-                </Card>
-              ))}
-            </div>
+                    </CardHeader>
+                    <CardContent>
+                      <CardDescription className="text-sm mb-4">
+                        {resource.description}
+                      </CardDescription>
+                      <Button variant="outline" className="w-full">
+                        {resource.content_type === 'video' ? '▶ Watch' : '📖 Read More'}
+                      </Button>
+                    </CardContent>
+                  </Card>
+                ))}
+              </div>
+            )}
           </TabsContent>
 
           {/* Reminders Tab */}

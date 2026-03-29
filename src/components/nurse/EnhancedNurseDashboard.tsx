@@ -28,6 +28,8 @@ import { useToast } from "@/hooks/use-toast";
 import { useAuth } from "@/contexts/AuthContext";
 import { uploadPhoto, getPhotoFileUrl, getMyPhoto } from "@/services/photoService";
 import { escalationService, type Escalation as RealEscalation } from "@/services/escalationService";
+import resourceService, { Resource } from '@/services/resourceService';
+import { Alert, AlertDescription } from '@/components/ui/alert';
 import { assignmentService, type Assignment, type AssignedMother } from "@/services/assignmentService";
 import { appointmentService, type Appointment } from "@/services/appointmentService";
 import { nurseService } from "@/services/nurseService";
@@ -120,46 +122,7 @@ const mockCHWs = [
   },
 ];
 
-// Mock data for resources
-const nurseResources = [
-  {
-    id: 1,
-    title: "Emergency Response Protocols",
-    type: "PDF",
-    category: "Critical Care",
-    author: "Ministry of Health",
-    date: "2024-01-15",
-    thumbnail: "[EMERGENCY]"
-  },
-  {
-    id: 2,
-    title: "Maternal Health Guidelines 2024",
-    type: "PDF",
-    category: "Guidelines",
-    author: "WHO",
-    date: "2024-01-10",
-    thumbnail: "[GUIDE]"
-  },
-  {
-    id: 3,
-    title: "Preeclampsia Management",
-    type: "Video",
-    category: "Training",
-    author: "Dr. Sarah Johnson",
-    date: "2024-02-01",
-    duration: "25:30",
-    thumbnail: "[VIDEO]"
-  },
-  {
-    id: 4,
-    title: "Postpartum Hemorrhage Protocol",
-    type: "PDF",
-    category: "Emergency",
-    author: "Ministry of Health",
-    date: "2024-01-20",
-    thumbnail: "[MEDICAL]"
-  },
-];
+
 
 // Mock weekly statistics
 const weeklyStats = {
@@ -201,6 +164,12 @@ export function EnhancedNurseDashboard({ isFirstLogin = false }: NurseDashboardP
   const [actionLoading, setActionLoading] = useState(false);
   // Real CHW assignments for the CHW Team tab
   const [realCHWAssignments, setRealCHWAssignments] = useState<Assignment[] | null>(null);
+  
+  // Resources state
+  const [resources, setResources] = useState<Resource[]>([]);
+  const [resourcesLoading, setResourcesLoading] = useState(true);
+  const [resourcesError, setResourcesError] = useState<string | null>(null);
+  
   // Appointments for the nurse
   const [nurseAppointments, setNurseAppointments] = useState<Appointment[]>([]);
   const [hiddenNurseAppointments, setHiddenNurseAppointments] = useState<Appointment[]>([]);
@@ -545,6 +514,23 @@ export function EnhancedNurseDashboard({ isFirstLogin = false }: NurseDashboardP
       });
     return () => { cancelled = true; };
   }, [nurseScheduleForm.selectedChwId]);
+
+  // Fetch resources
+  useEffect(() => {
+    const fetchResources = async () => {
+      try {
+        setResourcesLoading(true);
+        setResourcesError(null);
+        const data = await resourceService.list({ role: 'nurse' });
+        setResources(data);
+      } catch (err) {
+        setResourcesError(err instanceof Error ? err.message : 'Failed to load resources');
+      } finally {
+        setResourcesLoading(false);
+      }
+    };
+    fetchResources();
+  }, []);
 
   const refreshNotifications = useCallback(async () => {
     if (!user) return;
@@ -2008,49 +1994,67 @@ export function EnhancedNurseDashboard({ isFirstLogin = false }: NurseDashboardP
 
           {/* Resources Tab */}
           <TabsContent value="resources" className="space-y-4">
-            <div className="grid md:grid-cols-2 gap-4">
-              {nurseResources.map((resource) => (
-                <Card key={resource.id} className="hover:shadow-lg transition-shadow">
-                  <CardContent className="p-4">
-                    <div className="flex items-start gap-4">
-                      <div className="text-4xl">{resource.thumbnail}</div>
-                      <div className="flex-1">
-                        <div className="flex items-start justify-between">
-                          <div>
-                            <h4 className="font-medium">{resource.title}</h4>
-                            <div className="flex items-center gap-2 mt-1">
-                              <Badge variant="outline">{resource.category}</Badge>
-                              <span className="text-xs text-muted-foreground">{resource.type}</span>
+            {resourcesLoading ? (
+              <div className="flex items-center justify-center py-8">
+                <Loader2 className="h-8 w-8 animate-spin" />
+                <span className="ml-2">Loading resources...</span>
+              </div>
+            ) : resourcesError ? (
+              <Alert>
+                <AlertCircle className="h-4 w-4" />
+                <AlertDescription>{resourcesError}</AlertDescription>
+              </Alert>
+            ) : (
+              <div className="grid md:grid-cols-2 gap-4">
+                {resources.map((resource) => (
+                  <Card key={resource.id} className="hover:shadow-lg transition-shadow">
+                    <CardContent className="p-4">
+                      <div className="flex items-start gap-4">
+                        <div className="text-4xl">{resource.thumbnail || "📄"}</div>
+                        <div className="flex-1">
+                          <div className="flex items-start justify-between">
+                            <div>
+                              <h4 className="font-medium">{resource.title}</h4>
+                              <div className="flex items-center gap-2 mt-1">
+                                <Badge variant="outline">{resource.category}</Badge>
+                                <span className="text-xs text-muted-foreground capitalize">{resource.content_type}</span>
+                              </div>
+                            </div>
+                          </div>
+                          <p className="text-sm text-muted-foreground mt-2 line-clamp-2">
+                            {resource.description}
+                          </p>
+                          <div className="flex items-center justify-between mt-3">
+                            <div className="text-sm text-muted-foreground">
+                              <span>{new Date(resource.created_at).toLocaleDateString()}</span>
+                            </div>
+                            <div className="flex gap-2">
+                              {resource.url && (
+                                <Button 
+                                  size="sm" 
+                                  variant="outline"
+                                  onClick={() => window.open(resource.url, '_blank', 'noopener,noreferrer')}
+                                >
+                                  <Download className="h-4 w-4" />
+                                </Button>
+                              )}
+                              <Button size="sm" variant="outline">
+                                <Share2 className="h-4 w-4" />
+                              </Button>
                             </div>
                           </div>
                         </div>
-                        <div className="flex items-center justify-between mt-3">
-                          <div className="text-sm text-muted-foreground">
-                            <span>By {resource.author}</span>
-                            <span className="mx-2">|</span>
-                            <span>{new Date(resource.date).toLocaleDateString()}</span>
-                            {resource.duration && (
-                              <>
-                                <span className="mx-2">|</span>
-                                <span>{resource.duration}</span>
-                              </>
-                            )}
-                          </div>
-                          <div className="flex gap-2">
-                            <Button size="sm" variant="outline">
-                              <Download className="h-4 w-4" />
-                            </Button>
-                            <Button size="sm" variant="outline">
-                              <Share2 className="h-4 w-4" />
-                            </Button>
-                          </div>
-                        </div>
                       </div>
-                    </div>
-                  </CardContent>
-                </Card>
-              ))}
-            </div>
+                    </CardContent>
+                  </Card>
+                ))}
+                {resources.length === 0 && (
+                  <div className="col-span-2 text-center py-8 text-muted-foreground">
+                    No resources available
+                  </div>
+                )}
+              </div>
+            )}
           </TabsContent>
         </Tabs>
       </main>
