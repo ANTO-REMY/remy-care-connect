@@ -1,8 +1,8 @@
-import { useState, useEffect, useCallback, useRef } from "react";
+import { useState, useEffect, useCallback, useRef, useMemo } from "react";
 import { useNavigate } from "react-router-dom";
 import {
   Baby, MessageCircle, Phone, AlertCircle, CheckCircle,
-  User, LogOut, Camera, Heart, Apple, Bell, Calendar, Clock,
+  Camera, Heart, Apple, Bell, Calendar, Clock,
   ChevronRight, Sparkles, Utensils, Droplets, Moon, Sun,
   Activity, TrendingUp, FileText, Video, ExternalLink,
   Play, Pause, Volume2, VolumeX, Loader2, Plus, ArrowLeft, Trash2, BookOpen
@@ -27,6 +27,7 @@ import { checkinService } from "@/services/checkinService";
 import { assignmentService } from "@/services/assignmentService";
 import { notificationService, type UserNotification } from "@/services/notificationService";
 import resourceService, { Resource } from "@/services/resourceService";
+import nutritionService, { DietaryRecommendation } from "@/services/nutritionService";
 import { Textarea } from "@/components/ui/textarea";
 import { Input } from "@/components/ui/input";
 import { DateTimePicker } from "@/components/ui/datetime-picker";
@@ -36,60 +37,9 @@ import { Alert, AlertDescription } from "@/components/ui/alert";
 import { useSocket, useSocketStatus } from "@/hooks/useSocket";
 import { ConnectionBanner } from "@/components/ConnectionBanner";
 import { PregnancyJourneyTracker } from "./PregnancyJourneyTracker";
+import { DashboardAccountMenu } from "@/components/layout/DashboardAccountMenu";
 
-// Mock data for daily insights
-const dailyNutritionTips = [
-  {
-    id: 1,
-    meal: "Breakfast",
-    title: "Iron-Rich Oatmeal",
-    description: "Start your day with iron-fortified oatmeal topped with sliced bananas and a handful of almonds.",
-    calories: "350 kcal",
-    nutrients: ["Iron", "Fiber", "Potassium"],
-    image: "[BREAKFAST]",
-    time: "7:00 AM"
-  },
-  {
-    id: 2,
-    meal: "Mid-Morning Snack",
-    title: "Greek Yogurt Parfait",
-    description: "Calcium-rich Greek yogurt with berries and a drizzle of honey for sustained energy.",
-    calories: "200 kcal",
-    nutrients: ["Calcium", "Protein", "Antioxidants"],
-    image: "[SNACK]",
-    time: "10:00 AM"
-  },
-  {
-    id: 3,
-    meal: "Lunch",
-    title: "Grilled Salmon & Quinoa",
-    description: "Omega-3 rich salmon with quinoa and steamed vegetables for brain development.",
-    calories: "450 kcal",
-    nutrients: ["Omega-3", "Protein", "Folate"],
-    image: "[LUNCH]",
-    time: "1:00 PM"
-  },
-  {
-    id: 4,
-    meal: "Afternoon Snack",
-    title: "Avocado Toast",
-    description: "Whole grain toast with mashed avocado and a sprinkle of chia seeds.",
-    calories: "250 kcal",
-    nutrients: ["Healthy Fats", "Fiber", "Vitamin E"],
-    image: "[AVOCADO]",
-    time: "4:00 PM"
-  },
-  {
-    id: 5,
-    meal: "Dinner",
-    title: "Lean Chicken & Sweet Potato",
-    description: "Protein-packed chicken breast with roasted sweet potatoes and green beans.",
-    calories: "400 kcal",
-    nutrients: ["Protein", "Vitamin A", "Iron"],
-    image: "[DINNER]",
-    time: "7:00 PM"
-  }
-];
+
 
 // Mock reminders data
 const dailyReminders = [
@@ -128,7 +78,6 @@ export function EnhancedMotherDashboard({ isFirstLogin = false }: MotherDashboar
   const [profileImage, setProfileImage] = useState<string | null>(null);
   const [activeTab, setActiveTab] = useState("overview");
   const [reminders, setReminders] = useState(dailyReminders);
-  const [waterIntake, setWaterIntake] = useState(3);
   const [showCheckInModal, setShowCheckInModal] = useState(false);
   const [checkInResponse, setCheckInResponse] = useState<'ok' | 'not_ok' | null>(null);
   const [motherProfileId, setMotherProfileId] = useState<number | null>(null);
@@ -162,6 +111,11 @@ export function EnhancedMotherDashboard({ isFirstLogin = false }: MotherDashboar
   const [resources, setResources] = useState<Resource[]>([]);
   const [resourcesLoading, setResourcesLoading] = useState(true);
   const [resourcesError, setResourcesError] = useState<string | null>(null);
+
+  // Nutrition state
+  const [nutritionPlans, setNutritionPlans] = useState<DietaryRecommendation[]>([]);
+  const [nutritionLoading, setNutritionLoading] = useState(true);
+  const [nutritionError, setNutritionError] = useState<string | null>(null);
 
   // Real profile data
   const [profile, setProfile] = useState<{ due_date?: string } | null>(null);
@@ -306,6 +260,53 @@ export function EnhancedMotherDashboard({ isFirstLogin = false }: MotherDashboar
     fetchResources();
   }, []);
 
+  const deriveTrimesterTag = useCallback((): 'T1' | 'T2' | 'T3' | undefined => {
+    if (!profile?.due_date) return undefined;
+    const dueDate = new Date(profile.due_date);
+    if (Number.isNaN(dueDate.getTime())) return undefined;
+    const conceptionDate = new Date(dueDate.getTime() - 280 * 24 * 60 * 60 * 1000);
+    const today = new Date();
+    const daysPregnant = Math.max(0, Math.floor((today.getTime() - conceptionDate.getTime()) / (1000 * 60 * 60 * 24)));
+    const week = Math.max(1, Math.min(42, Math.floor(daysPregnant / 7)));
+
+    if (week < 14) return 'T1';
+    if (week < 28) return 'T2';
+    return 'T3';
+  }, [profile?.due_date]);
+
+  useEffect(() => {
+    let isMounted = true;
+    const fetchNutrition = async () => {
+      try {
+        setNutritionLoading(true);
+        setNutritionError(null);
+        const trimesterTag = deriveTrimesterTag();
+        const data = await nutritionService.list({
+          target_group: 'general_all_trimesters',
+          trimester: trimesterTag,
+          limit: 4,
+          daily_plan: true,
+        });
+        if (isMounted) {
+          setNutritionPlans(data);
+        }
+      } catch (err) {
+        if (isMounted) {
+          setNutritionError(err instanceof Error ? err.message : 'Failed to load meal plan');
+        }
+      } finally {
+        if (isMounted) {
+          setNutritionLoading(false);
+        }
+      }
+    };
+
+    fetchNutrition();
+    return () => {
+      isMounted = false;
+    };
+  }, [deriveTrimesterTag]);
+
   // Appointment filtering: separate by creator
   const sourceAppointments = showHiddenAppointments ? hiddenAppointments : appointments;
   const apptsByMother = sourceAppointments.filter(
@@ -409,18 +410,7 @@ export function EnhancedMotherDashboard({ isFirstLogin = false }: MotherDashboar
     }
   };
 
-  // Add water intake
-  const addWater = () => {
-    if (waterIntake < 8) {
-      setWaterIntake(prev => prev + 1);
-      if (waterIntake + 1 === 8) {
-        toast({
-          title: "Goal Reached!",
-          description: "You've reached your daily water intake goal!",
-        });
-      }
-    }
-  };
+
 
   // Calculate progress percentage
   const progressPercentage = (weeklyProgress.week / weeklyProgress.totalWeeks) * 100;
@@ -473,6 +463,43 @@ export function EnhancedMotherDashboard({ isFirstLogin = false }: MotherDashboar
     })();
     return () => { isMounted = false; };
   }, [refreshData, user?.id]);
+
+  const totalNutritionCalories = useMemo(() => {
+    return nutritionPlans.reduce((sum, plan) => sum + (plan.calories || 0), 0);
+  }, [nutritionPlans]);
+
+  const nutritionTips = useMemo(() => {
+    const tips = nutritionPlans.flatMap(plan => plan.health_benefits || []);
+    if (tips.length === 0) {
+      return [
+        "Stay hydrated - aim for 8-10 glasses of water daily",
+        "Include lean protein and leafy greens for iron support",
+        "Snack on fruits or nuts between meals to steady energy",
+        "Take prenatal vitamins with meals to reduce nausea",
+      ];
+    }
+    return tips.slice(0, 4);
+  }, [nutritionPlans]);
+
+  const formatMealType = (mealType?: string) => {
+    if (!mealType) return "Meal";
+    return mealType.replace(/_/g, ' ').replace(/\b\w/g, (c) => c.toUpperCase());
+  };
+
+  const getMealIconInfo = (mealType?: string) => {
+    switch (mealType?.toLowerCase()) {
+      case 'breakfast':
+        return { icon: Sun, color: 'text-amber-500', bg: 'from-amber-100 to-yellow-100' };
+      case 'snack':
+        return { icon: Apple, color: 'text-orange-500', bg: 'from-orange-100 to-amber-100' };
+      case 'lunch':
+        return { icon: Utensils, color: 'text-green-500', bg: 'from-green-100 to-emerald-100' };
+      case 'dinner':
+        return { icon: Moon, color: 'text-purple-500', bg: 'from-purple-100 to-indigo-100' };
+      default:
+        return { icon: Utensils, color: 'text-gray-500', bg: 'from-gray-100 to-slate-100' };
+    }
+  };
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-pink-50 via-white to-purple-50">
@@ -681,48 +708,15 @@ export function EnhancedMotherDashboard({ isFirstLogin = false }: MotherDashboar
                 </DropdownMenuContent>
               </DropdownMenu>
 
-              <DropdownMenu>
-                <DropdownMenuTrigger asChild>
-                  <Button variant="ghost" className="relative h-10 w-10 rounded-full">
-                    <Avatar className="h-10 w-10 ring-2 ring-pink-200">
-                      <AvatarImage src={profileImage || undefined} />
-                      <AvatarFallback className="bg-gradient-to-br from-pink-400 to-purple-500 text-white">
-                        {user?.first_name?.charAt(0).toUpperCase() || 'M'}
-                      </AvatarFallback>
-                    </Avatar>
-                  </Button>
-                </DropdownMenuTrigger>
-                <DropdownMenuContent align="end" className="w-56">
-                  <DropdownMenuLabel>
-                    <div className="flex flex-col">
-                      <span className="font-semibold">{user?.first_name} {user?.last_name}</span>
-                      <span className="text-xs text-muted-foreground">{user?.phone_number}</span>
-                    </div>
-                  </DropdownMenuLabel>
-                  <DropdownMenuSeparator />
-                  <DropdownMenuItem onClick={() => navigate("/dashboard/mother/profile")}>
-                    <User className="mr-2 h-4 w-4" />
-                    My Profile
-                  </DropdownMenuItem>
-                  <DropdownMenuItem onClick={() => setShowPhotoUpload(true)}>
-                    <Camera className="mr-2 h-4 w-4" />
-                    Update Photo
-                  </DropdownMenuItem>
-                  <DropdownMenuItem onClick={async () => {
-                    setActiveTab('appointments');
-                    setShowHiddenAppointments(true);
-                    await loadHiddenAppointments();
-                  }}>
-                    <Clock className="mr-2 h-4 w-4" />
-                    Recently Deleted Appointments (15 days)
-                  </DropdownMenuItem>
-                  <DropdownMenuSeparator />
-                  <DropdownMenuItem onClick={logout} className="text-red-600">
-                    <LogOut className="mr-2 h-4 w-4" />
-                    Log out
-                  </DropdownMenuItem>
-                </DropdownMenuContent>
-              </DropdownMenu>
+              <DashboardAccountMenu
+                userName={`${user?.first_name || ""} ${user?.last_name || ""}`.trim()}
+                phoneNumber={user?.phone_number}
+                profileImage={profileImage}
+                fallbackText={user?.first_name?.charAt(0).toUpperCase() || "M"}
+                onProfile={() => navigate("/dashboard/mother/profile")}
+                onSettings={() => navigate("/dashboard/mother/settings")}
+                onLogout={logout}
+              />
             </div>
           </div>
         </div>
@@ -786,41 +780,6 @@ export function EnhancedMotherDashboard({ isFirstLogin = false }: MotherDashboar
           </button>
         </div>
 
-        {/* Water Tracker */}
-        <Card className="mb-6">
-          <CardContent className="p-4">
-            <div className="flex items-center justify-between">
-              <div className="flex items-center gap-3">
-                <div className="bg-blue-100 p-2 rounded-lg">
-                  <Droplets className="h-5 w-5 text-blue-600" />
-                </div>
-                <div>
-                  <p className="font-medium">Water Intake</p>
-                  <p className="text-sm text-muted-foreground">{waterIntake} of 8 glasses</p>
-                </div>
-              </div>
-              <div className="flex items-center gap-3">
-                <div className="flex gap-1">
-                  {[...Array(8)].map((_, i) => (
-                    <div
-                      key={i}
-                      className={`w-3 h-8 rounded-full transition-all ${i < waterIntake ? 'bg-blue-500' : 'bg-gray-200'
-                        }`}
-                    />
-                  ))}
-                </div>
-                <Button
-                  size="sm"
-                  variant="outline"
-                  onClick={addWater}
-                  disabled={waterIntake >= 8}
-                >
-                  + Add
-                </Button>
-              </div>
-            </div>
-          </CardContent>
-        </Card>
 
         {/* Main Tabs Content */}
         <Tabs value={activeTab} onValueChange={setActiveTab} className="space-y-6">
@@ -1208,45 +1167,119 @@ export function EnhancedMotherDashboard({ isFirstLogin = false }: MotherDashboar
               </div>
               <Badge variant="secondary" className="text-sm">
                 <Apple className="h-4 w-4 mr-1" />
-                1,650 kcal
+                {totalNutritionCalories > 0 ? `${totalNutritionCalories} kcal` : 'Balanced Plate'}
               </Badge>
             </div>
 
-            <div className="space-y-3">
-              {dailyNutritionTips.map((meal) => (
-                <Card key={meal.id} className="overflow-hidden">
-                  <CardContent className="p-0">
-                    <div className="flex">
-                      <div className="w-20 bg-gradient-to-br from-orange-100 to-amber-100 flex items-center justify-center text-4xl">
-                        {meal.image}
+            {nutritionError && (
+              <Alert variant="destructive">
+                <AlertCircle className="h-4 w-4" />
+                <AlertDescription>{nutritionError}</AlertDescription>
+              </Alert>
+            )}
+
+            {nutritionLoading ? (
+              <div className="space-y-3">
+                {[1, 2, 3].map((idx) => (
+                  <Card key={idx} className="overflow-hidden animate-pulse">
+                    <CardContent className="p-0">
+                      <div className="flex">
+                        <div className="w-20 bg-orange-100 h-full" />
+                        <div className="flex-1 p-4 space-y-2">
+                          <div className="h-4 w-24 bg-muted rounded" />
+                          <div className="h-5 w-2/3 bg-muted rounded" />
+                          <div className="h-3 w-full bg-muted rounded" />
+                        </div>
                       </div>
-                      <div className="flex-1 p-4">
-                        <div className="flex items-start justify-between">
-                          <div>
-                            <div className="flex items-center gap-2 mb-1">
-                              <Badge variant="outline" className="text-xs">{meal.meal}</Badge>
-                              <span className="text-xs text-muted-foreground">{meal.time}</span>
+                    </CardContent>
+                  </Card>
+                ))}
+              </div>
+            ) : nutritionPlans.length === 0 ? (
+              <Card>
+                <CardContent className="p-6 text-center text-muted-foreground">
+                  We’re preparing a personalized plan for you. Check back soon for culturally relevant meals.
+                </CardContent>
+              </Card>
+            ) : (
+              <div className="space-y-3">
+                {nutritionPlans.map((meal) => (
+                  <Card key={meal.id ?? meal.source_id} className="overflow-hidden">
+                    <CardContent className="p-0">
+                      <div className="flex">
+                        {(() => {
+                          const iconInfo = getMealIconInfo(meal.meal_type);
+                          const IconComp = iconInfo.icon;
+                          return (
+                            <div className={`w-20 bg-gradient-to-br ${iconInfo.bg} flex items-center justify-center`}>
+                              <IconComp className={`h-8 w-8 ${iconInfo.color}`} />
                             </div>
-                            <h4 className="font-medium">{meal.title}</h4>
-                            <p className="text-sm text-muted-foreground mt-1">{meal.description}</p>
+                          );
+                        })()}
+                        <div className="flex-1 p-4">
+                          <div className="flex items-start justify-between gap-4">
+                            <div className="space-y-1">
+                              <div className="flex items-center gap-2 flex-wrap">
+                                <Badge variant="outline" className="text-xs capitalize">
+                                  {formatMealType(meal.meal_type)}
+                                </Badge>
+                                {meal.meal_time && (
+                                  <span className="text-xs text-muted-foreground">{meal.meal_time}</span>
+                                )}
+                                {meal.nutrition_highlight && (
+                                  <Badge variant="secondary" className="text-xs bg-orange-100 text-orange-700">
+                                    {meal.nutrition_highlight}
+                                  </Badge>
+                                )}
+                              </div>
+                              <h4 className="font-medium">
+                                {meal.title}
+                                {meal.swahili_name && (
+                                  <span className="block text-sm text-muted-foreground italic">
+                                    {meal.swahili_name}
+                                  </span>
+                                )}
+                              </h4>
+                              <p className="text-sm text-muted-foreground">{meal.description || meal.content}</p>
+                              {meal.portion_guide && (
+                                <p className="text-xs text-muted-foreground">
+                                  Portion: {meal.portion_guide}
+                                </p>
+                              )}
+                            </div>
+                            <div className="text-right min-w-[80px]">
+                              {meal.calories && (
+                                <p className="font-semibold text-sm">{meal.calories} kcal</p>
+                              )}
+                              {meal.tags?.length > 0 && (
+                                <p className="text-xs text-muted-foreground mt-1">
+                                  {meal.tags.slice(0, 2).join(' • ')}
+                                </p>
+                              )}
+                            </div>
                           </div>
-                          <div className="text-right">
-                            <p className="font-semibold text-sm">{meal.calories}</p>
+                          <div className="flex flex-wrap gap-2 mt-3">
+                            {(meal.key_nutrients?.length ? meal.key_nutrients : meal.tags)?.slice(0, 4).map((nutrient, idx) => (
+                              <Badge key={`${meal.id}-nutrient-${idx}`} variant="secondary" className="text-xs bg-green-100 text-green-700">
+                                {nutrient}
+                              </Badge>
+                            ))}
                           </div>
-                        </div>
-                        <div className="flex gap-2 mt-3">
-                          {meal.nutrients.map((nutrient, idx) => (
-                            <Badge key={idx} variant="secondary" className="text-xs bg-green-100 text-green-700">
-                              {nutrient}
-                            </Badge>
-                          ))}
+                          {meal.cautions?.length > 0 && (
+                            <Alert className="mt-3 border-amber-200 bg-amber-50 text-amber-900">
+                              <AlertCircle className="h-4 w-4" />
+                              <AlertDescription className="text-xs">
+                                {meal.cautions[0]}
+                              </AlertDescription>
+                            </Alert>
+                          )}
                         </div>
                       </div>
-                    </div>
-                  </CardContent>
-                </Card>
-              ))}
-            </div>
+                    </CardContent>
+                  </Card>
+                ))}
+              </div>
+            )}
 
             {/* Nutrition Tips */}
             <Card className="bg-gradient-to-r from-green-50 to-emerald-50 border-green-200">
@@ -1258,22 +1291,12 @@ export function EnhancedMotherDashboard({ isFirstLogin = false }: MotherDashboar
               </CardHeader>
               <CardContent>
                 <ul className="space-y-2 text-sm">
-                  <li className="flex items-start gap-2">
-                    <span className="text-green-500 mt-0.5">OK</span>
-                    <span>Stay hydrated - aim for 8-10 glasses of water daily</span>
-                  </li>
-                  <li className="flex items-start gap-2">
-                    <span className="text-green-500 mt-0.5">OK</span>
-                    <span>Include protein in every meal for baby's growth</span>
-                  </li>
-                  <li className="flex items-start gap-2">
-                    <span className="text-green-500 mt-0.5">OK</span>
-                    <span>Choose whole grains over refined carbohydrates</span>
-                  </li>
-                  <li className="flex items-start gap-2">
-                    <span className="text-green-500 mt-0.5">OK</span>
-                    <span>Take your prenatal vitamins with food</span>
-                  </li>
+                  {nutritionTips.map((tip, idx) => (
+                    <li key={idx} className="flex items-start gap-2">
+                      <span className="text-green-500 mt-0.5">✓</span>
+                      <span>{tip}</span>
+                    </li>
+                  ))}
                 </ul>
               </CardContent>
             </Card>

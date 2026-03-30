@@ -15,6 +15,9 @@ import MotherIndex from "./pages/MotherIndex";
 import ModernMotherIndex from "./pages/ModernMotherIndex";
 import CHWIndex from "./pages/CHWIndex";
 import NurseIndex from "./pages/NurseIndex";
+import MotherSettings from "./pages/MotherSettings";
+import CHWSettings from "./pages/CHWSettings";
+import NurseSettings from "./pages/NurseSettings";
 import NotFound from "./pages/NotFound";
 import { Layout } from "@/components/layout/Layout";
 import { ProtectedRoute } from "@/components/ProtectedRoute";
@@ -51,6 +54,9 @@ const App = () => (
             <Route path="/dashboard/mother/profile" element={<Layout><ProtectedRoute requiredRole="mother"><MotherProfile /></ProtectedRoute></Layout>} />
             <Route path="/dashboard/chw/profile" element={<Layout><ProtectedRoute requiredRole="chw"><CHWProfile /></ProtectedRoute></Layout>} />
             <Route path="/dashboard/nurse/profile" element={<Layout><ProtectedRoute requiredRole="nurse"><NurseProfile /></ProtectedRoute></Layout>} />
+            <Route path="/dashboard/mother/settings" element={<Layout><ProtectedRoute requiredRole="mother"><MotherSettings /></ProtectedRoute></Layout>} />
+            <Route path="/dashboard/chw/settings" element={<Layout><ProtectedRoute requiredRole="chw"><CHWSettings /></ProtectedRoute></Layout>} />
+            <Route path="/dashboard/nurse/settings" element={<Layout><ProtectedRoute requiredRole="nurse"><NurseSettings /></ProtectedRoute></Layout>} />
             {/* 404 Route */}
             <Route path="*" element={<Layout><NotFound /></Layout>} />
           </Routes>

@@ -2,9 +2,9 @@ import { useState, useEffect, useCallback, useRef } from "react";
 import { useNavigate } from "react-router-dom";
 import {
   AlertTriangle, MessageCircle, Phone, Clock, CheckCircle, User, FileText,
-  LogOut, Search, Filter, TrendingUp, Activity, Heart, Stethoscope,
+  Search, Filter, TrendingUp, Activity, Heart, Stethoscope,
   ChevronRight, MoreHorizontal, Calendar, MapPin, BadgeCheck,
-  Video, Download, Share2, Bell, Settings, BarChart3, Users,
+  Video, Download, Share2, Bell, BarChart3, Users,
   ArrowUpRight, ArrowDownRight, Sparkles, Star, ClipboardCheck,
   CheckCircle2, XCircle, Clock4, UserCheck, Briefcase, Camera,
   PlusCircle, CalendarCheck, CalendarX, Loader2, AlertCircle, ArrowLeft, Trash2
@@ -36,6 +36,7 @@ import { nurseService } from "@/services/nurseService";
 import { notificationService, type UserNotification } from "@/services/notificationService";
 import { useSocket, useSocketStatus, joinProfileRoom } from "@/hooks/useSocket";
 import { ConnectionBanner } from "@/components/ConnectionBanner";
+import { DashboardAccountMenu } from "@/components/layout/DashboardAccountMenu";
 
 // Mock data for escalated cases
 const mockEscalatedCases = [
@@ -1360,61 +1361,15 @@ export function EnhancedNurseDashboard({ isFirstLogin = false }: NurseDashboardP
                 </DropdownMenuContent>
               </DropdownMenu>
 
-              {/* Profile */}
-              <DropdownMenu>
-                <DropdownMenuTrigger asChild>
-                  <Button variant="ghost" className="relative h-10 w-10 rounded-full">
-                    <Avatar className="h-10 w-10 ring-2 ring-purple-200">
-                      <AvatarImage src={profileImage || undefined} />
-                      <AvatarFallback className="bg-gradient-to-br from-purple-500 to-pink-600 text-white">
-                        {user?.first_name?.charAt(0).toUpperCase() || 'N'}
-                      </AvatarFallback>
-                    </Avatar>
-                  </Button>
-                </DropdownMenuTrigger>
-                <DropdownMenuContent align="end" className="w-56">
-                  <DropdownMenuLabel>
-                    <div className="flex flex-col">
-                      <span className="font-semibold">{user?.first_name} {user?.last_name}</span>
-                      <span className="text-xs text-muted-foreground">{user?.phone_number}</span>
-                    </div>
-                  </DropdownMenuLabel>
-                  <DropdownMenuSeparator />
-                  <DropdownMenuItem onClick={() => setShowPhotoUpload(true)}>
-                    <Camera className="mr-2 h-4 w-4" />
-                    Update Photo
-                  </DropdownMenuItem>
-                  <DropdownMenuItem onClick={() => navigate("/dashboard/nurse/profile")}>
-                    <User className="mr-2 h-4 w-4" />
-                    My Profile
-                  </DropdownMenuItem>
-                  <DropdownMenuItem onClick={async () => {
-                    setActiveTab('appointments');
-                    setShowHiddenNurseAppointments(true);
-                    await loadHiddenNurseAppointments();
-                  }}>
-                    <Clock className="mr-2 h-4 w-4" />
-                    Recently Deleted Appointments (15 days)
-                  </DropdownMenuItem>
-                  <DropdownMenuItem onClick={async () => {
-                    setActiveTab('cases');
-                    setShowHiddenNurseEscalations(true);
-                    await loadHiddenNurseEscalations();
-                  }}>
-                    <Clock className="mr-2 h-4 w-4" />
-                    Recently Deleted Escalations (15 days)
-                  </DropdownMenuItem>
-                  <DropdownMenuItem>
-                    <Settings className="mr-2 h-4 w-4" />
-                    Settings
-                  </DropdownMenuItem>
-                  <DropdownMenuSeparator />
-                  <DropdownMenuItem onClick={logout} className="text-red-600">
-                    <LogOut className="mr-2 h-4 w-4" />
-                    Log out
-                  </DropdownMenuItem>
-                </DropdownMenuContent>
-              </DropdownMenu>
+              <DashboardAccountMenu
+                userName={`${user?.first_name || ""} ${user?.last_name || ""}`.trim()}
+                phoneNumber={user?.phone_number}
+                profileImage={profileImage}
+                fallbackText={user?.first_name?.charAt(0).toUpperCase() || "N"}
+                onProfile={() => navigate("/dashboard/nurse/profile")}
+                onSettings={() => navigate("/dashboard/nurse/settings")}
+                onLogout={logout}
+              />
             </div>
           </div>
         </div>

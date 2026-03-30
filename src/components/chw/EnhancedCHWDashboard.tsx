@@ -2,9 +2,9 @@ import { useState, useEffect, useCallback, useRef } from "react";
 import { useNavigate } from "react-router-dom";
 import {
   Users, AlertTriangle, MessageCircle, Phone, Upload, Calendar, CheckCircle,
-  X, User, LogOut, Search, Filter, MapPin, TrendingUp, Activity, ArrowLeft,
+  X, Search, Filter, MapPin, TrendingUp, Activity, ArrowLeft,
   Heart, Baby, Clock, ChevronRight, MoreHorizontal, FileText,
-  Video, Download, Share2, Bell, Settings, BarChart3, Stethoscope,
+  Video, Download, Share2, Bell, BarChart3, Stethoscope,
   ClipboardList, ArrowUpRight, ArrowDownRight, Sparkles, Star, Camera, Trash2,
   PlusCircle, Plus, CalendarCheck, CalendarX, Loader2, AlertCircle
 } from "lucide-react";
@@ -37,6 +37,7 @@ import { useSocket, useSocketStatus, joinProfileRoom } from "@/hooks/useSocket";
 import { ConnectionBanner } from "@/components/ConnectionBanner";
 import resourceService, { Resource } from '@/services/resourceService';
 import { Alert, AlertDescription } from '@/components/ui/alert';
+import { DashboardAccountMenu } from "@/components/layout/DashboardAccountMenu";
 
 // Mock data for mothers
 const mockMothers = [
@@ -1586,61 +1587,15 @@ export function EnhancedCHWDashboard({ isFirstLogin = false }: CHWDashboardProps
                 </DropdownMenuContent>
               </DropdownMenu>
 
-              {/* Profile */}
-              <DropdownMenu>
-                <DropdownMenuTrigger asChild>
-                  <Button variant="ghost" className="relative h-10 w-10 rounded-full">
-                    <Avatar className="h-10 w-10 ring-2 ring-blue-200">
-                      <AvatarImage src={profileImage || undefined} />
-                      <AvatarFallback className="bg-gradient-to-br from-blue-500 to-indigo-600 text-white">
-                        {user?.first_name?.charAt(0).toUpperCase() || 'C'}
-                      </AvatarFallback>
-                    </Avatar>
-                  </Button>
-                </DropdownMenuTrigger>
-                <DropdownMenuContent align="end" className="w-56">
-                  <DropdownMenuLabel>
-                    <div className="flex flex-col">
-                      <span className="font-semibold">{user?.first_name} {user?.last_name}</span>
-                      <span className="text-xs text-muted-foreground">{user?.phone_number}</span>
-                    </div>
-                  </DropdownMenuLabel>
-                  <DropdownMenuSeparator />
-                  <DropdownMenuItem onClick={() => setShowPhotoUpload(true)}>
-                    <Camera className="mr-2 h-4 w-4" />
-                    Update Photo
-                  </DropdownMenuItem>
-                  <DropdownMenuItem onClick={() => navigate("/dashboard/chw/profile")}>
-                    <User className="mr-2 h-4 w-4" />
-                    My Profile
-                  </DropdownMenuItem>
-                  <DropdownMenuItem onClick={async () => {
-                    setActiveTab('appointments');
-                    setShowHiddenAppointments(true);
-                    await loadHiddenAppointments();
-                  }}>
-                    <Clock className="mr-2 h-4 w-4" />
-                    Recently Deleted Appointments (15 days)
-                  </DropdownMenuItem>
-                  <DropdownMenuItem onClick={async () => {
-                    setActiveTab('cases');
-                    setShowHiddenEscalations(true);
-                    await loadHiddenEscalations();
-                  }}>
-                    <Clock className="mr-2 h-4 w-4" />
-                    Recently Deleted Escalations (15 days)
-                  </DropdownMenuItem>
-                  <DropdownMenuItem>
-                    <Settings className="mr-2 h-4 w-4" />
-                    Settings
-                  </DropdownMenuItem>
-                  <DropdownMenuSeparator />
-                  <DropdownMenuItem onClick={logout} className="text-red-600">
-                    <LogOut className="mr-2 h-4 w-4" />
-                    Log out
-                  </DropdownMenuItem>
-                </DropdownMenuContent>
-              </DropdownMenu>
+              <DashboardAccountMenu
+                userName={`${user?.first_name || ""} ${user?.last_name || ""}`.trim()}
+                phoneNumber={user?.phone_number}
+                profileImage={profileImage}
+                fallbackText={user?.first_name?.charAt(0).toUpperCase() || "C"}
+                onProfile={() => navigate("/dashboard/chw/profile")}
+                onSettings={() => navigate("/dashboard/chw/settings")}
+                onLogout={logout}
+              />
             </div>
           </div>
         </div>
