@@ -1,7 +1,7 @@
 import { useState, useEffect, useCallback, useRef } from "react";
 import { useNavigate } from "react-router-dom";
 import {
-  Users, AlertTriangle, MessageCircle, Phone, Upload, Calendar, CheckCircle,
+  Users, AlertTriangle, Upload, Calendar, CheckCircle,
   X, Search, Filter, MapPin, TrendingUp, Activity, ArrowLeft,
   Heart, Baby, Clock, ChevronRight, MoreHorizontal, FileText,
   Video, Download, Share2, Bell, BarChart3, Stethoscope,
@@ -32,6 +32,7 @@ import { appointmentService, type Appointment } from "@/services/appointmentServ
 import { chwService } from "@/services/chwService";
 import { apiClient } from "@/lib/apiClient";
 import { checkinService, type CheckIn } from "@/services/checkinService";
+import { ultrasoundService } from "@/services/ultrasoundService";
 import { notificationService, type UserNotification } from "@/services/notificationService";
 import { useSocket, useSocketStatus, joinProfileRoom } from "@/hooks/useSocket";
 import { ConnectionBanner } from "@/components/ConnectionBanner";
@@ -206,6 +207,17 @@ export function EnhancedCHWDashboard({ isFirstLogin = false }: CHWDashboardProps
     nurseUserId: undefined as number | undefined,
   });
   const [scheduleSubmitting, setScheduleSubmitting] = useState(false);
+  const [showUltrasoundModal, setShowUltrasoundModal] = useState(false);
+  const [ultrasoundForm, setUltrasoundForm] = useState({
+    motherId: null as number | null,
+    week_number: '',
+    fetal_weight_grams: '',
+    fetal_length_cm: '',
+    heart_rate_bpm: '',
+    notes: '',
+    scan_date: new Date().toISOString().split('T')[0],
+  });
+  const [ultrasoundSubmitting, setUltrasoundSubmitting] = useState(false);
   // Live check-in feed
   const [recentCheckIns, setRecentCheckIns] = useState<CheckIn[]>([]);
   const [checkInsLoading, setCheckInsLoading] = useState(false);
@@ -297,14 +309,6 @@ export function EnhancedCHWDashboard({ isFirstLogin = false }: CHWDashboardProps
       case 'medium': return <Badge variant="outline" className="bg-amber-50 text-amber-700 border-amber-200">Medium Risk</Badge>;
       case 'high': return <Badge variant="outline" className="bg-red-50 text-red-700 border-red-200">High Risk</Badge>;
     }
-  };
-
-  const openWhatsApp = (phone: string) => {
-    window.open(`https://wa.me/${phone.replace('+', '')}`, '_blank');
-  };
-
-  const openSMS = (phone: string) => {
-    window.open(`sms:${phone}`, '_blank');
   };
 
   // Appointment filtering: separate by creator
@@ -440,6 +444,31 @@ export function EnhancedCHWDashboard({ isFirstLogin = false }: CHWDashboardProps
   const handleMotherClick = (mother: typeof displayMothers[0]) => {
     setSelectedMother(mother as typeof mockMothers[0]);
     setShowMotherDetails(true);
+  };
+
+  const handleUltrasoundSubmit = async () => {
+    if (!ultrasoundForm.motherId || !ultrasoundForm.week_number || !ultrasoundForm.scan_date) {
+      toast({ title: "Validation Error", description: "Week number and scan date are required.", variant: "destructive" });
+      return;
+    }
+    setUltrasoundSubmitting(true);
+    try {
+      await ultrasoundService.create(ultrasoundForm.motherId, {
+        week_number: parseInt(ultrasoundForm.week_number),
+        scan_date: ultrasoundForm.scan_date,
+        fetal_weight_grams: ultrasoundForm.fetal_weight_grams ? parseFloat(ultrasoundForm.fetal_weight_grams) : undefined,
+        fetal_length_cm: ultrasoundForm.fetal_length_cm ? parseFloat(ultrasoundForm.fetal_length_cm) : undefined,
+        heart_rate_bpm: ultrasoundForm.heart_rate_bpm ? parseInt(ultrasoundForm.heart_rate_bpm) : undefined,
+        notes: ultrasoundForm.notes.trim() || undefined,
+      });
+      toast({ title: "Ultrasound Recorded", description: "Successfully saved fetal measurements." });
+      setShowUltrasoundModal(false);
+      setUltrasoundForm({ motherId: null, week_number: '', fetal_weight_grams: '', fetal_length_cm: '', heart_rate_bpm: '', notes: '', scan_date: new Date().toISOString().split('T')[0] });
+    } catch (e: any) {
+      toast({ title: "Submission Failed", description: e.message || "Failed to save ultrasound data.", variant: "destructive" });
+    } finally {
+      setUltrasoundSubmitting(false);
+    }
   };
 
   const handleScheduleAppointment = async () => {
@@ -945,35 +974,66 @@ export function EnhancedCHWDashboard({ isFirstLogin = false }: CHWDashboardProps
                   </div>
                 </div>
 
-                {/* Quick Actions */}
+                {/* Quick Actions -> Replaced with Ultrasound for now */}
                 <div className="flex gap-2">
                   <Button
-                    className="flex-1 bg-green-600 hover:bg-green-700"
-                    onClick={() => openWhatsApp(selectedMother.phone_number)}
+                    className="w-full bg-teal-600 hover:bg-teal-700"
+                    onClick={() => {
+                      setUltrasoundForm({ ...ultrasoundForm, motherId: typeof selectedMother.id === 'string' ? parseInt(selectedMother.id) : selectedMother.id });
+                      setShowMotherDetails(false);
+                      setShowUltrasoundModal(true);
+                    }}
                   >
-                    <MessageCircle className="h-4 w-4 mr-2" />
-                    WhatsApp
-                  </Button>
-                  <Button
-                    variant="outline"
-                    className="flex-1"
-                    onClick={() => openSMS(selectedMother.phone_number)}
-                  >
-                    <MessageCircle className="h-4 w-4 mr-2" />
-                    SMS
-                  </Button>
-                  <Button
-                    variant="outline"
-                    className="flex-1"
-                    onClick={() => window.open(`tel:${selectedMother.phone_number}`, '_self')}
-                  >
-                    <Phone className="h-4 w-4 mr-2" />
-                    Call
+                    <Baby className="h-4 w-4 mr-2" />
+                    Record Ultrasound
                   </Button>
                 </div>
               </div>
             </>
           )}
+        </DialogContent>
+      </Dialog>
+
+      {/* Ultrasound Modal */}
+      <Dialog open={showUltrasoundModal} onOpenChange={setShowUltrasoundModal}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Record Ultrasound Scan</DialogTitle>
+            <DialogDescription>Enter fetal measurements for the current week.</DialogDescription>
+          </DialogHeader>
+          <div className="space-y-4 py-4">
+            <div className="grid grid-cols-2 gap-4">
+              <div className="space-y-2">
+                <label className="text-sm font-medium">Week Number *</label>
+                <Input type="number" min="1" max="42" placeholder="e.g. 20" value={ultrasoundForm.week_number} onChange={(e) => setUltrasoundForm(f => ({ ...f, week_number: e.target.value }))} />
+              </div>
+              <div className="space-y-2">
+                <label className="text-sm font-medium">Scan Date *</label>
+                <Input type="date" value={ultrasoundForm.scan_date} onChange={(e) => setUltrasoundForm(f => ({ ...f, scan_date: e.target.value }))} />
+              </div>
+            </div>
+            <div className="grid grid-cols-2 gap-4">
+              <div className="space-y-2">
+                <label className="text-sm font-medium">Est. Weight (g)</label>
+                <Input type="number" placeholder="e.g. 300" value={ultrasoundForm.fetal_weight_grams} onChange={(e) => setUltrasoundForm(f => ({ ...f, fetal_weight_grams: e.target.value }))} />
+              </div>
+              <div className="space-y-2">
+                <label className="text-sm font-medium">Est. Length (cm)</label>
+                <Input type="number" step="0.1" placeholder="e.g. 15.2" value={ultrasoundForm.fetal_length_cm} onChange={(e) => setUltrasoundForm(f => ({ ...f, fetal_length_cm: e.target.value }))} />
+              </div>
+            </div>
+            <div className="space-y-2">
+              <label className="text-sm font-medium">Heart Rate (bpm)</label>
+              <Input type="number" placeholder="e.g. 140" value={ultrasoundForm.heart_rate_bpm} onChange={(e) => setUltrasoundForm(f => ({ ...f, heart_rate_bpm: e.target.value }))} />
+            </div>
+            <div className="space-y-2">
+              <label className="text-sm font-medium">Notes</label>
+              <Textarea placeholder="Any clinical notes..." value={ultrasoundForm.notes} onChange={(e) => setUltrasoundForm(f => ({ ...f, notes: e.target.value }))} />
+            </div>
+            <Button className="w-full" onClick={handleUltrasoundSubmit} disabled={ultrasoundSubmitting || !ultrasoundForm.week_number || !ultrasoundForm.scan_date}>
+              {ultrasoundSubmitting ? "Saving..." : "Save Record"}
+            </Button>
+          </div>
         </DialogContent>
       </Dialog>
 
@@ -1773,39 +1833,18 @@ export function EnhancedCHWDashboard({ isFirstLogin = false }: CHWDashboardProps
                     <div className="flex gap-2">
                       <Button
                         size="sm"
-                        variant="outline"
-                        className="flex-1 text-xs"
+                        className="w-full bg-teal-600 hover:bg-teal-700 text-xs"
                         onClick={(e) => {
                           e.stopPropagation();
-                          openWhatsApp(mother.phone_number);
+                          setUltrasoundForm({
+                            ...ultrasoundForm,
+                            motherId: typeof mother.id === "string" ? parseInt(mother.id) : mother.id,
+                          });
+                          setShowUltrasoundModal(true);
                         }}
                       >
-                        <MessageCircle className="h-3 w-3 mr-1" />
-                        WhatsApp
-                      </Button>
-                      <Button
-                        size="sm"
-                        variant="outline"
-                        className="flex-1 text-xs"
-                        onClick={(e) => {
-                          e.stopPropagation();
-                          openSMS(mother.phone_number);
-                        }}
-                      >
-                        <MessageCircle className="h-3 w-3 mr-1" />
-                        SMS
-                      </Button>
-                      <Button
-                        size="sm"
-                        variant="outline"
-                        className="flex-1 text-xs"
-                        onClick={(e) => {
-                          e.stopPropagation();
-                          window.open(`tel:${mother.phone_number}`, '_self');
-                        }}
-                      >
-                        <Phone className="h-3 w-3 mr-1" />
-                        Call
+                        <Baby className="h-3 w-3 mr-1" />
+                        Record Ultrasound
                       </Button>
                     </div>
                   </CardContent>
@@ -1913,6 +1952,15 @@ export function EnhancedCHWDashboard({ isFirstLogin = false }: CHWDashboardProps
                             </div>
                             {ci.comment && (
                               <p className="text-sm text-gray-600 mt-1 italic">"{ci.comment}"</p>
+                            )}
+                            {ci.symptoms && ci.symptoms.length > 0 && (
+                              <div className="flex flex-wrap gap-1 mt-2">
+                                {ci.symptoms.map((sym, i) => (
+                                  <Badge key={i} variant="outline" className="text-red-600 bg-red-50 border-red-200 text-[10px] px-1 py-0">
+                                    {sym}
+                                  </Badge>
+                                ))}
+                              </div>
                             )}
                           </div>
                         </div>

@@ -19,6 +19,7 @@ export default function RegisterMother() {
   const { register, verifyOTP } = useAuth();
   const [isLoading, setIsLoading] = useState(false);
   const [showVerify, setShowVerify] = useState(false);
+  const [dueDateMode, setDueDateMode] = useState<'date' | 'weeks'>('date');
   const [formData, setFormData] = useState({
     firstName: '',
     lastName: '',
@@ -343,14 +344,55 @@ export default function RegisterMother() {
                 />
               </div>
 
-              {/* Due Date */}
+              {/* Due Date — Toggle between date picker and weeks pregnant */}
               <div className="space-y-2">
-                <Label htmlFor="dueDate">Due Date *</Label>
-                <DatePicker
-                  date={formData.dueDate}
-                  setDate={(date) => setFormData({ ...formData, dueDate: date })}
-                  placeholder="Select due date"
-                />
+                <div className="flex items-center justify-between">
+                  <Label>Due Date *</Label>
+                  <button
+                    type="button"
+                    className="text-xs text-accent hover:underline font-medium"
+                    onClick={() => {
+                      setDueDateMode(dueDateMode === 'date' ? 'weeks' : 'date');
+                      setFormData(f => ({ ...f, weeksPregnant: '', dueDate: undefined }));
+                    }}
+                  >
+                    {dueDateMode === 'date' ? "I don't know my due date" : 'I know my due date'}
+                  </button>
+                </div>
+
+                {dueDateMode === 'date' ? (
+                  <DatePicker
+                    date={formData.dueDate}
+                    setDate={(date) => setFormData({ ...formData, dueDate: date })}
+                    placeholder="Select due date"
+                  />
+                ) : (
+                  <div className="space-y-2">
+                    <Input
+                      type="number"
+                      min={1}
+                      max={42}
+                      placeholder="How many weeks pregnant are you? (1-42)"
+                      value={formData.weeksPregnant}
+                      onChange={(e) => {
+                        const weeks = e.target.value;
+                        const w = parseInt(weeks);
+                        let computed: Date | undefined = undefined;
+                        if (!isNaN(w) && w >= 1 && w <= 42) {
+                          const today = new Date();
+                          computed = new Date(today.getTime() + (40 - w) * 7 * 24 * 60 * 60 * 1000);
+                        }
+                        setFormData({ ...formData, weeksPregnant: weeks, dueDate: computed });
+                      }}
+                    />
+                    {formData.dueDate && (
+                      <p className="text-xs text-muted-foreground">
+                        Estimated due date: <span className="font-medium">{formData.dueDate.toLocaleDateString('en-KE', { weekday: 'short', year: 'numeric', month: 'long', day: 'numeric' })}</span>
+                      </p>
+                    )}
+                    <p className="text-xs text-muted-foreground italic">If unsure, ask your CHW or nurse at your next visit.</p>
+                  </div>
+                )}
               </div>
 
 

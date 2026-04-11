@@ -33,7 +33,10 @@ export function getSocket(): Socket {
   const token = sessionStorage.getItem('access_token') ?? '';
 
   _socket = io(SOCKET_URL, {
+    // Prefer websocket, but allow polling fallback if websocket fails.
     transports: ['websocket', 'polling'],
+    upgrade: true,
+    auth: { token },
     query: { token },
     // Reconnect automatically with exponential back-off (built-in)
     reconnectionAttempts: Infinity,

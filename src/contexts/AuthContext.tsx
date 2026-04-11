@@ -61,12 +61,19 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
               last_name: serverUser.last_name,
               name: serverUser.name,
               role: serverUser.role as User['role'],
+              profile_id: serverUser.profile_id,
             };
             // Persist the authoritative data so same-tab refreshes are correct
             sessionStorage.setItem('user', JSON.stringify(fresh));
             // Keep profile_id in sync for components that depend on it
-            if (serverUser.profile_id && serverUser.role === 'mother') {
-              sessionStorage.setItem('mother_profile_id', String(serverUser.profile_id));
+            if (serverUser.profile_id) {
+              if (serverUser.role === 'mother') {
+                sessionStorage.setItem('mother_profile_id', String(serverUser.profile_id));
+              } else if (serverUser.role === 'chw') {
+                sessionStorage.setItem('chw_profile_id', String(serverUser.profile_id));
+              } else if (serverUser.role === 'nurse') {
+                sessionStorage.setItem('nurse_profile_id', String(serverUser.profile_id));
+              }
             }
             setUser(fresh);
           }
@@ -98,8 +105,14 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       setIsAuthenticated(true);
 
       // Persist role-specific profile ID so other components can use it
-      if (response.user.profile_id && response.user.role === 'mother') {
-        sessionStorage.setItem('mother_profile_id', String(response.user.profile_id));
+      if (response.user.profile_id) {
+        if (response.user.role === 'mother') {
+          sessionStorage.setItem('mother_profile_id', String(response.user.profile_id));
+        } else if (response.user.role === 'chw') {
+          sessionStorage.setItem('chw_profile_id', String(response.user.profile_id));
+        } else if (response.user.role === 'nurse') {
+          sessionStorage.setItem('nurse_profile_id', String(response.user.profile_id));
+        }
       }
 
       // Set first-login flag for ALL roles (each role has its own onboarding)
@@ -186,6 +199,9 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       setUser(null);
       setIsAuthenticated(false);
       setIsFirstLogin(false);
+      sessionStorage.removeItem('mother_profile_id');
+      sessionStorage.removeItem('chw_profile_id');
+      sessionStorage.removeItem('nurse_profile_id');
       // Always send user back to the main app entry
       window.location.href = "/";
     });

@@ -7,7 +7,7 @@ import {
   Video, Download, Share2, Bell, BarChart3, Users,
   ArrowUpRight, ArrowDownRight, Sparkles, Star, ClipboardCheck,
   CheckCircle2, XCircle, Clock4, UserCheck, Briefcase, Camera,
-  PlusCircle, CalendarCheck, CalendarX, Loader2, AlertCircle, ArrowLeft, Trash2
+  PlusCircle, CalendarCheck, CalendarX, Loader2, AlertCircle, ArrowLeft, Trash2, Baby
 } from "lucide-react";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle, CardFooter } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -37,6 +37,7 @@ import { notificationService, type UserNotification } from "@/services/notificat
 import { useSocket, useSocketStatus, joinProfileRoom } from "@/hooks/useSocket";
 import { ConnectionBanner } from "@/components/ConnectionBanner";
 import { DashboardAccountMenu } from "@/components/layout/DashboardAccountMenu";
+import { ultrasoundService } from "@/services/ultrasoundService";
 
 // Mock data for escalated cases
 const mockEscalatedCases = [
@@ -163,6 +164,17 @@ export function EnhancedNurseDashboard({ isFirstLogin = false }: NurseDashboardP
   const [nurseProfileId, setNurseProfileId] = useState<number | null>(null);
   const [realEscalations, setRealEscalations] = useState<typeof mockEscalatedCases | null>(null);
   const [actionLoading, setActionLoading] = useState(false);
+  const [showUltrasoundModal, setShowUltrasoundModal] = useState(false);
+  const [ultrasoundForm, setUltrasoundForm] = useState({
+    motherId: null as number | null,
+    week_number: '',
+    fetal_weight_grams: '',
+    fetal_length_cm: '',
+    heart_rate_bpm: '',
+    notes: '',
+    scan_date: new Date().toISOString().split('T')[0],
+  });
+  const [ultrasoundSubmitting, setUltrasoundSubmitting] = useState(false);
   // Real CHW assignments for the CHW Team tab
   const [realCHWAssignments, setRealCHWAssignments] = useState<Assignment[] | null>(null);
   
@@ -696,6 +708,31 @@ export function EnhancedNurseDashboard({ isFirstLogin = false }: NurseDashboardP
     }
   };
 
+  const handleUltrasoundSubmit = async () => {
+    if (!ultrasoundForm.motherId || !ultrasoundForm.week_number || !ultrasoundForm.scan_date) {
+      toast({ title: "Validation Error", description: "Week number and scan date are required.", variant: "destructive" });
+      return;
+    }
+    setUltrasoundSubmitting(true);
+    try {
+      await ultrasoundService.create(ultrasoundForm.motherId, {
+        week_number: parseInt(ultrasoundForm.week_number),
+        scan_date: ultrasoundForm.scan_date,
+        fetal_weight_grams: ultrasoundForm.fetal_weight_grams ? parseFloat(ultrasoundForm.fetal_weight_grams) : undefined,
+        fetal_length_cm: ultrasoundForm.fetal_length_cm ? parseFloat(ultrasoundForm.fetal_length_cm) : undefined,
+        heart_rate_bpm: ultrasoundForm.heart_rate_bpm ? parseInt(ultrasoundForm.heart_rate_bpm) : undefined,
+        notes: ultrasoundForm.notes.trim() || undefined,
+      });
+      toast({ title: "Ultrasound Recorded", description: "Successfully saved fetal measurements." });
+      setShowUltrasoundModal(false);
+      setUltrasoundForm({ motherId: null, week_number: '', fetal_weight_grams: '', fetal_length_cm: '', heart_rate_bpm: '', notes: '', scan_date: new Date().toISOString().split('T')[0] });
+    } catch (e: any) {
+      toast({ title: "Submission Failed", description: e.message || "Failed to save ultrasound data.", variant: "destructive" });
+    } finally {
+      setUltrasoundSubmitting(false);
+    }
+  };
+
   return (
     <div className="min-h-screen bg-gradient-to-br from-purple-50 via-white to-pink-50">
       {/* Photo Upload Modal */}
@@ -872,24 +909,23 @@ export function EnhancedNurseDashboard({ isFirstLogin = false }: NurseDashboardP
                         <p className="font-medium">{selectedCase.chwName}</p>
                         <p className="text-sm text-muted-foreground">{selectedCase.chwPhone}</p>
                       </div>
-                      <div className="flex gap-2">
-                        <Button
-                          size="sm"
-                          variant="outline"
-                          onClick={() => openWhatsApp(selectedCase.chwPhone)}
-                        >
-                          <MessageCircle className="h-4 w-4 mr-2" />
-                          Message
-                        </Button>
-                        <Button
-                          size="sm"
-                          variant="outline"
-                          onClick={() => window.open(`tel:${selectedCase.chwPhone}`, '_self')}
-                        >
-                          <Phone className="h-4 w-4 mr-2" />
-                          Call
-                        </Button>
-                      </div>
+                      <Button
+                        size="sm"
+                        className="bg-teal-600 hover:bg-teal-700"
+                        onClick={() => {
+                          setUltrasoundForm({
+                            ...ultrasoundForm,
+                            motherId: typeof selectedCase.motherId === "string"
+                              ? parseInt(selectedCase.motherId as any)
+                              : selectedCase.motherId,
+                          });
+                          setShowCaseDetails(false);
+                          setShowUltrasoundModal(true);
+                        }}
+                      >
+                        <Baby className="h-4 w-4 mr-2" />
+                        Record Ultrasound
+                      </Button>
                     </div>
                   </CardContent>
                 </Card>
@@ -941,17 +977,53 @@ export function EnhancedNurseDashboard({ isFirstLogin = false }: NurseDashboardP
                     <CheckCircle2 className="h-4 w-4 mr-2" />
                     {actionLoading ? "Updating..." : selectedCase?.status === 'resolved' ? "Already Resolved" : "Mark as Resolved"}
                   </Button>
-                  <Button
-                    variant="outline"
-                    onClick={() => openWhatsApp(selectedCase!.motherPhone)}
-                  >
-                    <MessageCircle className="h-4 w-4 mr-2" />
-                    Contact Mother
-                  </Button>
                 </div>
               </div>
             </>
           )}
+        </DialogContent>
+      </Dialog>
+
+      {/* Ultrasound Modal */}
+      <Dialog open={showUltrasoundModal} onOpenChange={setShowUltrasoundModal}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Record Ultrasound Scan</DialogTitle>
+            <DialogDescription>Enter fetal measurements for the current week.</DialogDescription>
+          </DialogHeader>
+          <div className="space-y-4 py-4">
+            <div className="grid grid-cols-2 gap-4">
+              <div className="space-y-2">
+                <label className="text-sm font-medium">Week Number *</label>
+                <Input type="number" min="1" max="42" placeholder="e.g. 20" value={ultrasoundForm.week_number} onChange={(e) => setUltrasoundForm(f => ({ ...f, week_number: e.target.value }))} />
+              </div>
+              <div className="space-y-2">
+                <label className="text-sm font-medium">Scan Date *</label>
+                <Input type="date" value={ultrasoundForm.scan_date} onChange={(e) => setUltrasoundForm(f => ({ ...f, scan_date: e.target.value }))} />
+              </div>
+            </div>
+            <div className="grid grid-cols-2 gap-4">
+              <div className="space-y-2">
+                <label className="text-sm font-medium">Est. Weight (g)</label>
+                <Input type="number" placeholder="e.g. 300" value={ultrasoundForm.fetal_weight_grams} onChange={(e) => setUltrasoundForm(f => ({ ...f, fetal_weight_grams: e.target.value }))} />
+              </div>
+              <div className="space-y-2">
+                <label className="text-sm font-medium">Est. Length (cm)</label>
+                <Input type="number" step="0.1" placeholder="e.g. 15.2" value={ultrasoundForm.fetal_length_cm} onChange={(e) => setUltrasoundForm(f => ({ ...f, fetal_length_cm: e.target.value }))} />
+              </div>
+            </div>
+            <div className="space-y-2">
+              <label className="text-sm font-medium">Heart Rate (bpm)</label>
+              <Input type="number" placeholder="e.g. 140" value={ultrasoundForm.heart_rate_bpm} onChange={(e) => setUltrasoundForm(f => ({ ...f, heart_rate_bpm: e.target.value }))} />
+            </div>
+            <div className="space-y-2">
+              <label className="text-sm font-medium">Notes</label>
+              <Textarea placeholder="Any clinical notes..." value={ultrasoundForm.notes} onChange={(e) => setUltrasoundForm(f => ({ ...f, notes: e.target.value }))} />
+            </div>
+            <Button className="w-full" onClick={handleUltrasoundSubmit} disabled={ultrasoundSubmitting || !ultrasoundForm.week_number || !ultrasoundForm.scan_date}>
+              {ultrasoundSubmitting ? "Saving..." : "Save Record"}
+            </Button>
+          </div>
         </DialogContent>
       </Dialog>
 

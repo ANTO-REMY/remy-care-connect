@@ -28,6 +28,7 @@ import { assignmentService } from "@/services/assignmentService";
 import { notificationService, type UserNotification } from "@/services/notificationService";
 import resourceService, { Resource } from "@/services/resourceService";
 import nutritionService, { DietaryRecommendation } from "@/services/nutritionService";
+import { ultrasoundService, type UltrasoundRecord } from "@/services/ultrasoundService";
 import { Textarea } from "@/components/ui/textarea";
 import { Input } from "@/components/ui/input";
 import { DateTimePicker } from "@/components/ui/datetime-picker";
@@ -36,7 +37,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Alert, AlertDescription } from "@/components/ui/alert";
 import { useSocket, useSocketStatus } from "@/hooks/useSocket";
 import { ConnectionBanner } from "@/components/ConnectionBanner";
-import { PregnancyJourneyTracker } from "./PregnancyJourneyTracker";
+import { PregnancyJourneyTracker, fetalDevelopmentData } from "./PregnancyJourneyTracker";
 import { DashboardAccountMenu } from "@/components/layout/DashboardAccountMenu";
 
 
@@ -82,6 +83,7 @@ export function EnhancedMotherDashboard({ isFirstLogin = false }: MotherDashboar
   const [checkInResponse, setCheckInResponse] = useState<'ok' | 'not_ok' | null>(null);
   const [motherProfileId, setMotherProfileId] = useState<number | null>(null);
   const [checkInSelected, setCheckInSelected] = useState<'ok' | 'not_ok' | null>(null);
+  const [selectedSymptoms, setSelectedSymptoms] = useState<string[]>([]);
   const [checkInComment, setCheckInComment] = useState('');
   const [checkInSubmitting, setCheckInSubmitting] = useState(false);
   // Appointments state
@@ -119,6 +121,7 @@ export function EnhancedMotherDashboard({ isFirstLogin = false }: MotherDashboar
 
   // Real profile data
   const [profile, setProfile] = useState<{ due_date?: string } | null>(null);
+  const [ultrasoundRecords, setUltrasoundRecords] = useState<UltrasoundRecord[]>([]);
 
   /**
    * Silently refresh appointments + motherProfileId every 15 s.
@@ -131,6 +134,12 @@ export function EnhancedMotherDashboard({ isFirstLogin = false }: MotherDashboar
     try {
       const resp = await appointmentService.getAllForMother(user.id);
       setAppointments(resp.appointments);
+    } catch { /* ignore */ }
+
+    // Ultrasound records (used for real measurements in journey tracker)
+    try {
+      const records = await ultrasoundService.getMyRecords();
+      setUltrasoundRecords(records);
     } catch { /* ignore */ }
   }, [user?.id]);
 
@@ -387,11 +396,13 @@ export function EnhancedMotherDashboard({ isFirstLogin = false }: MotherDashboar
       await checkinService.create(motherProfileId, {
         response: checkInSelected,
         comment: checkInComment.trim() || undefined,
+        symptoms: selectedSymptoms,
         channel: 'app',
       });
       setCheckInResponse(checkInSelected);
       setShowCheckInModal(false);
       setCheckInSelected(null);
+      setSelectedSymptoms([]);
       setCheckInComment('');
       toast({
         title: checkInSelected === 'ok' ? "Check-in recorded" : "Check-in Recorded",
@@ -411,6 +422,24 @@ export function EnhancedMotherDashboard({ isFirstLogin = false }: MotherDashboar
   };
 
 
+  // Calculate current week and dynamic tip
+  const { currentWeek, dailyTip } = useMemo(() => {
+    if (!profile?.due_date) return { currentWeek: 0, dailyTip: "Take time to connect with your baby today. Place your hands on your belly and talk or sing to them." };
+
+    const today = new Date();
+    today.setHours(0, 0, 0, 0);
+    const due = new Date(profile.due_date);
+    due.setHours(0, 0, 0, 0);
+
+    const conceptionDate = new Date(due.getTime() - 280 * 24 * 60 * 60 * 1000);
+    const daysPregnant = Math.floor((today.getTime() - conceptionDate.getTime()) / (1000 * 60 * 60 * 24));
+    
+    let week = Math.floor(daysPregnant / 7);
+    week = Math.max(1, Math.min(week, 42));
+
+    const tip = fetalDevelopmentData[week]?.motherTip || "Rest, hydrate, and listen to your body.";
+    return { currentWeek: week, dailyTip: tip };
+  }, [profile?.due_date]);
 
   // Calculate progress percentage
   const progressPercentage = (weeklyProgress.week / weeklyProgress.totalWeeks) * 100;
@@ -502,7 +531,7 @@ export function EnhancedMotherDashboard({ isFirstLogin = false }: MotherDashboar
   };
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-pink-50 via-white to-purple-50">
+    <div className="min-h-screen bg-gradient-to-br from-slate-50 via-white to-teal-50/30">
 
       {/* Photo Upload Modal */}
       <Dialog open={showPhotoUpload} onOpenChange={setShowPhotoUpload}>
@@ -560,7 +589,7 @@ export function EnhancedMotherDashboard({ isFirstLogin = false }: MotherDashboar
 
 
       {/* Check-in Modal */}
-      <Dialog open={showCheckInModal} onOpenChange={(open) => { setShowCheckInModal(open); if (!open) { setCheckInSelected(null); setCheckInComment(''); } }}>
+      <Dialog open={showCheckInModal} onOpenChange={(open) => { setShowCheckInModal(open); if (!open) { setCheckInSelected(null); setSelectedSymptoms([]); setCheckInComment(''); } }}>
         <DialogContent className="max-w-md">
           <DialogHeader>
             <DialogTitle className="text-center text-2xl">How are you feeling today?</DialogTitle>
@@ -606,6 +635,30 @@ export function EnhancedMotherDashboard({ isFirstLogin = false }: MotherDashboar
               )}
             </button>
           </div>
+
+          {checkInSelected === 'not_ok' && (
+            <div className="space-y-2 mt-4">
+              <label className="text-sm font-medium">Select any symptoms you're experiencing:</label>
+              <div className="flex flex-wrap gap-2">
+                {["Headache", "Nausea", "Swelling", "Bleeding", "Dizziness", "Reduced movement", "Fever", "Back pain", "Abdominal pain", "Other"].map(symptom => (
+                  <Badge 
+                    key={symptom}
+                    variant={selectedSymptoms.includes(symptom) ? "default" : "outline"}
+                    className="cursor-pointer hover:bg-slate-100"
+                    onClick={() => {
+                      setSelectedSymptoms(prev => 
+                        prev.includes(symptom) 
+                          ? prev.filter(s => s !== symptom) 
+                          : [...prev, symptom]
+                      );
+                    }}
+                  >
+                    {symptom}
+                  </Badge>
+                ))}
+              </div>
+            </div>
+          )}
 
           {/* Step 2 â€” optional comment + submit */}
           {checkInSelected && (
@@ -654,7 +707,7 @@ export function EnhancedMotherDashboard({ isFirstLogin = false }: MotherDashboar
                 <Baby className="h-6 w-6 text-white" />
               </div>
               <div>
-                <h1 className="font-bold text-lg bg-gradient-to-r from-pink-500 to-purple-600 bg-clip-text text-transparent">
+                <h1 className="font-bold text-lg bg-gradient-to-r from-teal-700 to-cyan-600 bg-clip-text text-transparent">
                   RemyAfya
                 </h1>
                 <p className="text-xs text-muted-foreground">Mother's Dashboard</p>
@@ -730,7 +783,12 @@ export function EnhancedMotherDashboard({ isFirstLogin = false }: MotherDashboar
         </div>
 
         {/* Pregnancy Progress Card */}
-        {profile?.due_date && <PregnancyJourneyTracker dueDate={profile.due_date} />}
+        {profile?.due_date && (
+          <PregnancyJourneyTracker
+            dueDate={profile.due_date}
+            ultrasoundData={ultrasoundRecords}
+          />
+        )}
 
         {/* Quick Actions */}
         <div className="grid grid-cols-2 md:grid-cols-4 gap-3 mb-6">
@@ -800,8 +858,7 @@ export function EnhancedMotherDashboard({ isFirstLogin = false }: MotherDashboar
                 </CardHeader>
                 <CardContent>
                   <p className="text-sm text-muted-foreground">
-                    "Take time to connect with your baby today. Place your hands on your belly and talk or sing to them.
-                    They can hear your voice and find it soothing!"
+                    "{dailyTip}"
                   </p>
                 </CardContent>
               </Card>

@@ -14,6 +14,7 @@ export interface CheckIn {
   mother_name:  string | null;
   response:     CheckInResponse;
   comment:      string | null;
+  symptoms:     string[];
   channel:      CheckInChannel;
   created_at:   string;   // ISO 8601
 }
@@ -21,6 +22,7 @@ export interface CheckIn {
 export interface CreateCheckInRequest {
   response: CheckInResponse;
   comment?: string;
+  symptoms?: string[];
   channel?: CheckInChannel;
 }
 
