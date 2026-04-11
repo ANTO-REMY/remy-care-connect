@@ -245,7 +245,7 @@ export function RoleSettingsPage({ role }: RoleSettingsPageProps) {
     } finally {
       setAppointmentsLoading(false);
     }
-  }, [role, user]);
+  }, [role, userId]);
 
   const loadDeletedEscalations = useCallback(async (resolvedProfile?: SettingsProfile | null) => {
     if (role === "mother") {
@@ -281,7 +281,7 @@ export function RoleSettingsPage({ role }: RoleSettingsPageProps) {
     } finally {
       setEscalationsLoading(false);
     }
-  }, [role]);
+  }, [role, profile]);
 
   const loadAllSettingsData = useCallback(async () => {
     const resolvedProfile = await loadProfile();

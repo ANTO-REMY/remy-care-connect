@@ -726,8 +726,8 @@ export function EnhancedNurseDashboard({ isFirstLogin = false }: NurseDashboardP
       toast({ title: "Ultrasound Recorded", description: "Successfully saved fetal measurements." });
       setShowUltrasoundModal(false);
       setUltrasoundForm({ motherId: null, week_number: '', fetal_weight_grams: '', fetal_length_cm: '', heart_rate_bpm: '', notes: '', scan_date: new Date().toISOString().split('T')[0] });
-    } catch (e: any) {
-      toast({ title: "Submission Failed", description: e.message || "Failed to save ultrasound data.", variant: "destructive" });
+    } catch (e: unknown) {
+      toast({ title: "Submission Failed", description: (e as Error).message || "Failed to save ultrasound data.", variant: "destructive" });
     } finally {
       setUltrasoundSubmitting(false);
     }
@@ -916,7 +916,7 @@ export function EnhancedNurseDashboard({ isFirstLogin = false }: NurseDashboardP
                           setUltrasoundForm({
                             ...ultrasoundForm,
                             motherId: typeof selectedCase.motherId === "string"
-                              ? parseInt(selectedCase.motherId as any)
+                              ? parseInt(selectedCase.motherId)
                               : selectedCase.motherId,
                           });
                           setShowCaseDetails(false);

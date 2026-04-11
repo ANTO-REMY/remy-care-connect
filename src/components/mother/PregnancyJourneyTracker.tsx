@@ -305,4 +305,5 @@ export function PregnancyJourneyTracker({ dueDate, ultrasoundData }: PregnancyJo
 }
 
 // Export the development data so the Daily Tip card can use it
+// eslint-disable-next-line react-refresh/only-export-components
 export { fetalDevelopmentData };

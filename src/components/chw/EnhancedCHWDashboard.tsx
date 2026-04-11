@@ -464,8 +464,8 @@ export function EnhancedCHWDashboard({ isFirstLogin = false }: CHWDashboardProps
       toast({ title: "Ultrasound Recorded", description: "Successfully saved fetal measurements." });
       setShowUltrasoundModal(false);
       setUltrasoundForm({ motherId: null, week_number: '', fetal_weight_grams: '', fetal_length_cm: '', heart_rate_bpm: '', notes: '', scan_date: new Date().toISOString().split('T')[0] });
-    } catch (e: any) {
-      toast({ title: "Submission Failed", description: e.message || "Failed to save ultrasound data.", variant: "destructive" });
+    } catch (e: unknown) {
+      toast({ title: "Submission Failed", description: (e as Error).message || "Failed to save ultrasound data.", variant: "destructive" });
     } finally {
       setUltrasoundSubmitting(false);
     }
@@ -635,7 +635,7 @@ export function EnhancedCHWDashboard({ isFirstLogin = false }: CHWDashboardProps
         notes: e.notes ?? "",
         nurseUserId: e.nurse_user_id,
       }));
-      setRealEscalations(mapped as any);
+      setRealEscalations(mapped as unknown as (EscalationCase & { id: number | string })[]);
     } catch { /* ignore */ }
 
     // Assigned mothers
@@ -2393,7 +2393,7 @@ export function EnhancedCHWDashboard({ isFirstLogin = false }: CHWDashboardProps
                                   appointmentType: "consultation",
                                   recurrence: "none",
                                   notes: `Regarding Escalation: ${caseItem.issueType} - ${caseItem.notes}`,
-                                  nurseUserId: (caseItem as any).nurseUserId
+                                  nurseUserId: (caseItem as unknown as { nurseUserId: string }).nurseUserId
                                 });
                                 setShowScheduleModal(true);
                               }}
