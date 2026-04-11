@@ -32,7 +32,7 @@ import resourceService, { Resource } from '@/services/resourceService';
 import { Alert, AlertDescription } from '@/components/ui/alert';
 import { assignmentService, type Assignment, type AssignedMother } from "@/services/assignmentService";
 import { appointmentService, type Appointment } from "@/services/appointmentService";
-import { nurseService } from "@/services/nurseService";
+import { nurseService, type NurseCHW } from "@/services/nurseService";
 import { notificationService, type UserNotification } from "@/services/notificationService";
 import { useSocket, useSocketStatus, joinProfileRoom } from "@/hooks/useSocket";
 import { ConnectionBanner } from "@/components/ConnectionBanner";
@@ -175,8 +175,12 @@ export function EnhancedNurseDashboard({ isFirstLogin = false }: NurseDashboardP
     scan_date: new Date().toISOString().split('T')[0],
   });
   const [ultrasoundSubmitting, setUltrasoundSubmitting] = useState(false);
-  // Real CHW assignments for the CHW Team tab
+  // Real CHW assignments for the CHW Team tab (legacy cascading usage)
   const [realCHWAssignments, setRealCHWAssignments] = useState<Assignment[] | null>(null);
+
+  // Real Supervised CHW Team exactly tailored for the nurse's ward
+  const [nurseCHWs, setNurseCHWs] = useState<NurseCHW[]>([]);
+  const [nurseCHWsLoading, setNurseCHWsLoading] = useState(false);
   
   // Resources state
   const [resources, setResources] = useState<Resource[]>([]);
@@ -609,11 +613,20 @@ export function EnhancedNurseDashboard({ isFirstLogin = false }: NurseDashboardP
       setRealEscalations(mapped as typeof mockEscalatedCases);
     } catch { /* ignore */ }
 
-    // CHW assignments
+    // CHW assignments (still used by appointment cascading dropdowns)
     try {
       const assignResp = await assignmentService.getAssignmentsForNurse(profileId, 'active');
       setRealCHWAssignments(assignResp.assignments);
     } catch { /* ignore */ }
+
+    // CHW Team List (Real data restricted to nurse's ward)
+    try {
+      setNurseCHWsLoading(true);
+      const chwsResp = await nurseService.getSupervisedCHWs(profileId);
+      setNurseCHWs(chwsResp);
+    } catch { /* ignore */ } finally {
+      setNurseCHWsLoading(false);
+    }
 
     // Appointments
     try {
@@ -1950,73 +1963,88 @@ export function EnhancedNurseDashboard({ isFirstLogin = false }: NurseDashboardP
 
           {/* CHWs Tab */}
           <TabsContent value="chws" className="space-y-4">
-            <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-4">
-              {displayCHWs.map((chw) => (
-                <Card key={chw.id} className="hover:shadow-lg transition-shadow">
-                  <CardContent className="p-4">
-                    <div className="flex items-start gap-3">
-                      <Avatar className="h-12 w-12">
-                        <AvatarImage src={chw.avatar} />
-                        <AvatarFallback className="bg-blue-100 text-blue-600">
-                          {chw.name.charAt(0)}
-                        </AvatarFallback>
-                      </Avatar>
-                      <div className="flex-1">
-                        <h4 className="font-semibold">{chw.name}</h4>
-                        <div className="flex items-center gap-1 text-sm text-muted-foreground">
-                          <MapPin className="h-3 w-3" />
-                          {chw.location}
+            <Card>
+              <CardContent className="p-0">
+                <div className="hidden md:grid grid-cols-12 gap-4 px-4 py-3 text-xs font-semibold text-muted-foreground border-b bg-muted/30">
+                  <div className="col-span-4">Community Health Worker</div>
+                  <div className="col-span-3">Location & Status</div>
+                  <div className="col-span-2 text-center">Workload</div>
+                  <div className="col-span-3 text-right">Actions</div>
+                </div>
+                {nurseCHWsLoading ? (
+                  <div className="flex items-center justify-center py-16 text-muted-foreground">
+                    <Loader2 className="h-6 w-6 animate-spin mr-2" /> Loading CHW Team...
+                  </div>
+                ) : nurseCHWs.length === 0 ? (
+                  <div className="text-center py-16 px-4 bg-gray-50/50">
+                    <div className="bg-white p-3 rounded-full w-fit mx-auto shadow-sm mb-4">
+                      <Users className="h-8 w-8 text-muted-foreground" />
+                    </div>
+                    <p className="text-lg font-medium">No CHWs Assigned</p>
+                    <p className="text-sm text-muted-foreground">There are no Community Health Workers registered in your ward currently.</p>
+                  </div>
+                ) : (
+                  nurseCHWs.map((chw) => (
+                    <div
+                      key={chw.id}
+                      className="grid grid-cols-1 md:grid-cols-12 gap-4 px-4 py-4 border-b last:border-b-0 hover:bg-slate-50 items-center transition-colors"
+                    >
+                      <div className="md:col-span-4 flex items-center gap-3 min-w-0">
+                        <Avatar className="h-10 w-10 border shadow-sm">
+                          <AvatarImage src={chw.avatar} />
+                          <AvatarFallback className="bg-blue-100 text-blue-700 font-medium tracking-wider">
+                            {chw.name.substring(0, 2).toUpperCase()}
+                          </AvatarFallback>
+                        </Avatar>
+                        <div className="min-w-0">
+                          <p className="font-semibold text-slate-900 truncate tracking-tight">{chw.name}</p>
+                          <p className="text-xs text-muted-foreground truncate">{chw.phone_number}</p>
                         </div>
-                        <div className="flex items-center gap-1 text-sm text-muted-foreground">
-                          <Clock className="h-3 w-3" />
-                          Last active: {chw.lastActive}
+                      </div>
+                      
+                      <div className="md:col-span-3 text-sm flex flex-col justify-center text-muted-foreground">
+                        <div className="flex items-center gap-1.5">
+                          <MapPin className="h-3 w-3 shrink-0" />
+                          <span className="truncate">{chw.location || "Unknown Ward"}</span>
+                        </div>
+                        <div className="flex items-center gap-1.5 mt-1">
+                          <Clock className="h-3 w-3 shrink-0" />
+                          <span className="text-xs truncate">Active {new Date(chw.last_active).toLocaleDateString()}</span>
                         </div>
                       </div>
-                    </div>
 
-                    <Separator className="my-3" />
+                      <div className="md:col-span-2 flex flex-col items-center justify-center gap-1.5">
+                        <Badge variant="outline" className="w-[100px] justify-center bg-white shadow-sm font-normal">
+                          <Users className="h-3 w-3 mr-1" /> {chw.assigned_mothers} Mothers
+                        </Badge>
+                        <Badge variant={chw.active_cases > 0 ? "destructive" : "secondary"} className={`w-[100px] justify-center shadow-sm font-normal ${chw.active_cases === 0 && 'bg-slate-100 text-slate-600'}`}>
+                          <AlertTriangle className="h-3 w-3 mr-1" /> {chw.active_cases} Cases
+                        </Badge>
+                      </div>
 
-                    <div className="grid grid-cols-3 gap-2 text-center">
-                      <div>
-                        <p className="text-xl font-bold">{chw.assignedMothers}</p>
-                        <p className="text-xs text-muted-foreground">Mothers</p>
-                      </div>
-                      <div>
-                        <p className={`text-xl font-bold ${chw.activeCases > 0 ? 'text-red-600' : ''}`}>
-                          {chw.activeCases}
-                        </p>
-                        <p className="text-xs text-muted-foreground">Active Cases</p>
-                      </div>
-                      <div>
-                        <p className="text-xl font-bold">{chw.performance}%</p>
-                        <p className="text-xs text-muted-foreground">Performance</p>
+                      <div className="md:col-span-3 flex items-center justify-end gap-2 flex-wrap sm:flex-nowrap">
+                        <Button 
+                          size="sm" 
+                          variant="outline" 
+                          className="h-8 shadow-sm flex-1 sm:flex-none"
+                          onClick={() => window.open(`https://wa.me/${chw.phone_number.replace(/\D/g, '')}`, '_blank')}
+                        >
+                          <MessageCircle className="h-3.5 w-3.5 mr-1.5 text-green-600" /> WhatsApp
+                        </Button>
+                        <Button 
+                          size="sm" 
+                          variant="outline" 
+                          className="h-8 shadow-sm flex-1 sm:flex-none border-blue-200 text-blue-700 hover:bg-blue-50"
+                          onClick={() => window.open(`tel:${chw.phone_number}`, '_self')}
+                        >
+                          <Phone className="h-3.5 w-3.5 mr-1.5" /> Call
+                        </Button>
                       </div>
                     </div>
-
-                    <div className="flex gap-2 mt-3">
-                      <Button
-                        size="sm"
-                        variant="outline"
-                        className="flex-1"
-                        onClick={() => openWhatsApp(chw.phone)}
-                      >
-                        <MessageCircle className="h-4 w-4 mr-1" />
-                        Message
-                      </Button>
-                      <Button
-                        size="sm"
-                        variant="outline"
-                        className="flex-1"
-                        onClick={() => window.open(`tel:${chw.phone}`, '_self')}
-                      >
-                        <Phone className="h-4 w-4 mr-1" />
-                        Call
-                      </Button>
-                    </div>
-                  </CardContent>
-                </Card>
-              ))}
-            </div>
+                  ))
+                )}
+              </CardContent>
+            </Card>
           </TabsContent>
 
           {/* Resources Tab */}

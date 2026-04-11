@@ -21,6 +21,19 @@ export interface CompleteProfileRequest {
   license_number: string;
 }
 
+export interface NurseCHW {
+  id: number;
+  user_id: number;
+  name: string;
+  phone_number: string;
+  location: string;
+  assigned_mothers: number;
+  active_cases: number;
+  performance: number;
+  last_active: string;
+  avatar: string;
+}
+
 class NurseService {
   /**
    * Complete nurse profile after registration
@@ -57,6 +70,14 @@ class NurseService {
    */
   async getAllNurses(): Promise<Nurse[]> {
     return apiClient.get<Nurse[]>('/nurses');
+  }
+
+  /**
+   * Get CHWs supervised by a specific nurse
+   */
+  async getSupervisedCHWs(nurseId: number): Promise<NurseCHW[]> {
+    const response = await apiClient.get<{chws: NurseCHW[]}>(`/nurses/${nurseId}/chws`);
+    return response.chws;
   }
 }
 
