@@ -5,8 +5,9 @@ import {
   Camera, Heart, Apple, Bell, Calendar, Clock,
   ChevronRight, Sparkles, Utensils, Droplets, Moon, Sun,
   Activity, TrendingUp, FileText, Video, ExternalLink,
-  Play, Pause, Volume2, VolumeX, Loader2, Plus, ArrowLeft, Trash2, BookOpen
+  Play, Pause, Volume2, VolumeX, Loader2, Plus, ArrowLeft, Trash2, BookOpen, Pencil
 } from "lucide-react";
+import type { LucideIcon } from "lucide-react";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle, CardFooter } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
@@ -22,6 +23,7 @@ import { useAuth } from "@/contexts/AuthContext";
 import { useToast } from "@/hooks/use-toast";
 import { uploadPhoto, getPhotoFileUrl, getMyPhoto } from "@/services/photoService";
 import { appointmentService, type Appointment } from "@/services/appointmentService";
+import { reminderService, type Reminder } from "@/services/reminderService";
 import { motherService } from "@/services/motherService";
 import { checkinService } from "@/services/checkinService";
 import { assignmentService } from "@/services/assignmentService";
@@ -42,14 +44,7 @@ import { DashboardAccountMenu } from "@/components/layout/DashboardAccountMenu";
 
 
 
-// Mock reminders data
-const dailyReminders = [
-  { id: 1, title: "Take Prenatal Vitamins", time: "8:00 AM", completed: true, type: "medication", icon: "MED" },
-  { id: 2, title: "Drink 8 glasses of water", time: "Throughout day", completed: false, type: "hydration", icon: "H2O" },
-  { id: 3, title: "30-minute walk", time: "5:00 PM", completed: false, type: "exercise", icon: "WALK" },
-  { id: 4, title: "Daily check-in", time: "9:00 PM", completed: false, type: "health", icon: "CHECK" },
-  { id: 5, title: "Read pregnancy article", time: "Anytime", completed: false, type: "education", icon: "READ" },
-];
+// No more mock reminders
 
 
 
@@ -68,6 +63,111 @@ interface MotherDashboardProps {
   isFirstLogin?: boolean;
 }
 
+type ReminderVisual = {
+  icon: LucideIcon;
+  toneClass: string;
+  bgClass: string;
+  borderClass: string;
+};
+
+const REMINDER_TYPE_ICON_MAP: Record<string, string> = {
+  medication: 'MED',
+  hydration: 'H2O',
+  exercise: 'WALK',
+  health: 'CHECK',
+  education: 'READ',
+  custom: 'BELL',
+};
+
+const REMINDER_TYPE_OPTIONS: Array<{ value: string; label: string }> = [
+  { value: 'medication', label: 'Medication' },
+  { value: 'hydration', label: 'Hydration' },
+  { value: 'exercise', label: 'Exercise' },
+  { value: 'health', label: 'Health Check' },
+  { value: 'education', label: 'Education' },
+  { value: 'custom', label: 'Custom' },
+];
+
+function getReminderVisual(reminder: Reminder): ReminderVisual {
+  const code = (reminder.icon || '').toUpperCase();
+  const type = (reminder.type || '').toLowerCase();
+
+  if (code === 'H2O' || type === 'hydration') {
+    return {
+      icon: Droplets,
+      toneClass: 'text-sky-700',
+      bgClass: 'bg-sky-100/80',
+      borderClass: 'border-sky-200',
+    };
+  }
+
+  if (code === 'MED' || type === 'medication') {
+    return {
+      icon: Heart,
+      toneClass: 'text-rose-700',
+      bgClass: 'bg-rose-100/80',
+      borderClass: 'border-rose-200',
+    };
+  }
+
+  if (code === 'WALK' || type === 'exercise') {
+    return {
+      icon: Activity,
+      toneClass: 'text-emerald-700',
+      bgClass: 'bg-emerald-100/80',
+      borderClass: 'border-emerald-200',
+    };
+  }
+
+  if (code === 'CHECK' || type === 'health') {
+    return {
+      icon: CheckCircle,
+      toneClass: 'text-lime-700',
+      bgClass: 'bg-lime-100/80',
+      borderClass: 'border-lime-200',
+    };
+  }
+
+  if (code === 'READ' || type === 'education') {
+    return {
+      icon: BookOpen,
+      toneClass: 'text-indigo-700',
+      bgClass: 'bg-indigo-100/80',
+      borderClass: 'border-indigo-200',
+    };
+  }
+
+  if (code === 'CAL' || type === 'appointment') {
+    return {
+      icon: Calendar,
+      toneClass: 'text-violet-700',
+      bgClass: 'bg-violet-100/80',
+      borderClass: 'border-violet-200',
+    };
+  }
+
+  return {
+    icon: Bell,
+    toneClass: 'text-amber-700',
+    bgClass: 'bg-amber-100/80',
+    borderClass: 'border-amber-200',
+  };
+}
+
+function ReminderIconBadge({ reminder, compact = false }: { reminder: Reminder; compact?: boolean }) {
+  const visual = getReminderVisual(reminder);
+  const Icon = visual.icon;
+
+  return (
+    <div
+      className={`inline-flex items-center rounded-xl border px-2 py-1 ${visual.bgClass} ${visual.borderClass}`}
+      aria-label={`${reminder.type} reminder icon`}
+    >
+      <Icon className={`${compact ? 'h-3.5 w-3.5' : 'h-4 w-4'} ${visual.toneClass}`} />
+    </div>
+  );
+}
+
 export function EnhancedMotherDashboard({ isFirstLogin = false }: MotherDashboardProps) {
   const { user, logout } = useAuth();
   const { toast } = useToast();
@@ -78,7 +178,7 @@ export function EnhancedMotherDashboard({ isFirstLogin = false }: MotherDashboar
   const [showPhotoUpload, setShowPhotoUpload] = useState(false);
   const [profileImage, setProfileImage] = useState<string | null>(null);
   const [activeTab, setActiveTab] = useState("overview");
-  const [reminders, setReminders] = useState(dailyReminders);
+  const [reminders, setReminders] = useState<Reminder[]>([]);
   const [showCheckInModal, setShowCheckInModal] = useState(false);
   const [checkInResponse, setCheckInResponse] = useState<'ok' | 'not_ok' | null>(null);
   const [motherProfileId, setMotherProfileId] = useState<number | null>(null);
@@ -106,8 +206,18 @@ export function EnhancedMotherDashboard({ isFirstLogin = false }: MotherDashboar
   const [notifications, setNotifications] = useState<UserNotification[]>([]);
   const [unreadNotificationCount, setUnreadNotificationCount] = useState(0);
   const motherProfileIdRef = useRef<number | null>(null);
-  // Assigned CHW's user_id â€” used when mother schedules an appointment
+  // Assigned CHW's user_id - used when mother schedules an appointment
   const [assignedCHWUserId, setAssignedCHWUserId] = useState<number | null>(null);
+
+  // Custom Reminders
+  const [showAddReminderModal, setShowAddReminderModal] = useState(false);
+  const [newReminderTitle, setNewReminderTitle] = useState("");
+  const [newReminderTime, setNewReminderTime] = useState("");
+  const [newReminderType, setNewReminderType] = useState("custom");
+  const [addReminderSubmitting, setAddReminderSubmitting] = useState(false);
+
+  const [editingReminder, setEditingReminder] = useState<Reminder | null>(null);
+  const [editReminderSubmitting, setEditReminderSubmitting] = useState(false);
 
   // Resources state
   const [resources, setResources] = useState<Resource[]>([]);
@@ -140,6 +250,12 @@ export function EnhancedMotherDashboard({ isFirstLogin = false }: MotherDashboar
     try {
       const records = await ultrasoundService.getMyRecords();
       setUltrasoundRecords(records);
+    } catch { /* ignore */ }
+
+    // Reminders
+    try {
+      const remResp = await reminderService.list();
+      setReminders(remResp.reminders);
     } catch { /* ignore */ }
   }, [user?.id]);
 
@@ -215,6 +331,11 @@ export function EnhancedMotherDashboard({ isFirstLogin = false }: MotherDashboar
   }, { enabled: !!user?.id });
   useSocket('checkin:new', () => refreshData(), { enabled: !!user?.id });
   useSocket('notification:new', () => refreshNotifications(), { enabled: !!user?.id });
+  
+  // Reminder real-time events
+  useSocket('reminder:created', () => refreshData(), { enabled: !!user?.id });
+  useSocket('reminder:updated', () => refreshData(), { enabled: !!user?.id });
+  useSocket('reminder:deleted', () => refreshData(), { enabled: !!user?.id });
   // Reconnect sync: replace state wholesale with the server snapshot
   useSocket<{ appointments?: Appointment[] }>('sync', (data) => {
     if (data.appointments) setAppointments(data.appointments);
@@ -376,13 +497,90 @@ export function EnhancedMotherDashboard({ isFirstLogin = false }: MotherDashboar
   };
 
   // Toggle reminder completion
-  const toggleReminder = (id: number) => {
+  const toggleReminder = async (id: number | string) => {
+    // If it's an appointment masquerading as a reminder, we don't toggle it here
+    if (typeof id === 'string' && id.startsWith('appt_')) {
+      toast({ title: "It's an appointment", description: "Appointments are marked completed by your healthcare provider." });
+      return;
+    }
+    
+    // Optimistic UI update
     setReminders(prev => prev.map(r =>
       r.id === id ? { ...r, completed: !r.completed } : r
     ));
+
+    try {
+      await reminderService.toggle(Number(id));
+    } catch (err) {
+        // Revert on error
+        toast({ title: "Error", description: "Failed to update reminder.", variant: "destructive" });
+        setReminders(prev => prev.map(r =>
+            r.id === id ? { ...r, completed: !r.completed } : r
+        ));
+    }
   };
 
+  const handleAddCustomReminder = async () => {
+    if (!newReminderTitle.trim() || !newReminderTime.trim()) {
+      toast({ title: "Incomplete", description: "Please provide a title and time for your reminder.", variant: "destructive" });
+      return;
+    }
+    setAddReminderSubmitting(true);
+    try {
+      const iconCode = REMINDER_TYPE_ICON_MAP[newReminderType] || 'BELL';
+      await reminderService.create({
+        title: newReminderTitle,
+        time: newReminderTime,
+        type: newReminderType,
+        icon: iconCode,
+      });
+      toast({ title: "Reminder added" });
+      setShowAddReminderModal(false);
+      setNewReminderTitle("");
+      setNewReminderTime("");
+      setNewReminderType("custom");
+      refreshData();
+    } catch (err: unknown) {
+      toast({ title: "Failed to add reminder", description: (err as Error).message || "An error occurred.", variant: "destructive" });
+    } finally {
+      setAddReminderSubmitting(false);
+    }
+  };
 
+  const handleEditReminder = async () => {
+    if (!editingReminder) return;
+    if (!editingReminder.title.trim() || !editingReminder.time.trim()) {
+      toast({ title: "Incomplete", description: "Please provide a title and time for your reminder.", variant: "destructive" });
+      return;
+    }
+    setEditReminderSubmitting(true);
+    try {
+      await reminderService.update(Number(editingReminder.id), {
+        title: editingReminder.title,
+        time: editingReminder.time,
+      });
+      toast({ title: "Reminder updated" });
+      setEditingReminder(null);
+      refreshData();
+    } catch (err: unknown) {
+      toast({ title: "Failed to update reminder", description: (err as Error).message || "An error occurred.", variant: "destructive" });
+    } finally {
+      setEditReminderSubmitting(false);
+    }
+  };
+
+  const handleDeleteReminder = async (e: React.MouseEvent, id: number | string) => {
+    e.stopPropagation();
+    if (!window.confirm("Are you sure you want to delete this reminder?")) return;
+    
+    try {
+      await reminderService.delete(Number(id));
+      toast({ title: "Reminder deleted" });
+      refreshData();
+    } catch (err: unknown) {
+      toast({ title: "Failed to delete reminder", description: (err as Error).message || "An error occurred.", variant: "destructive" });
+    }
+  };
 
   // Handle check-in
   const handleCheckIn = async () => {
@@ -925,7 +1123,7 @@ export function EnhancedMotherDashboard({ isFirstLogin = false }: MotherDashboar
                         }`}
                     >
                       <div className="flex items-center gap-3">
-                        <span className="text-2xl">{reminder.icon}</span>
+                        <ReminderIconBadge reminder={reminder} compact />
                         <div>
                           <p className={`font-medium ${reminder.completed ? 'line-through text-muted-foreground' : ''}`}>
                             {reminder.title}
@@ -1431,8 +1629,8 @@ export function EnhancedMotherDashboard({ isFirstLogin = false }: MotherDashboar
                   <CardContent className="p-4">
                     <div className="flex items-center justify-between">
                       <div className="flex items-center gap-4">
-                        <div className={`text-3xl ${reminder.completed ? 'grayscale' : ''}`}>
-                          {reminder.icon}
+                        <div className={reminder.completed ? 'opacity-60' : ''}>
+                          <ReminderIconBadge reminder={reminder} />
                         </div>
                         <div>
                           <p className={`font-medium ${reminder.completed ? 'line-through text-muted-foreground' : ''}`}>
@@ -1447,11 +1645,36 @@ export function EnhancedMotherDashboard({ isFirstLogin = false }: MotherDashboar
                           </div>
                         </div>
                       </div>
-                      <div className={`w-6 h-6 rounded-full border-2 flex items-center justify-center transition-colors ${reminder.completed
-                        ? 'bg-green-500 border-green-500'
-                        : 'border-gray-300'
-                        }`}>
-                        {reminder.completed && <CheckCircle className="h-4 w-4 text-white" />}
+                      <div className="flex items-center gap-3">
+                        {reminder.type !== 'appointment' && (
+                          <div className="flex items-center gap-1">
+                              <Button 
+                                variant="ghost" 
+                                size="icon" 
+                                className="h-7 w-7 text-muted-foreground hover:text-primary z-10"
+                                onClick={(e) => {
+                                    e.stopPropagation();
+                                    setEditingReminder(reminder);
+                                }}
+                              >
+                                <Pencil className="h-4 w-4" />
+                              </Button>
+                              <Button 
+                                variant="ghost" 
+                                size="icon" 
+                                className="h-7 w-7 text-muted-foreground hover:text-destructive z-10"
+                                onClick={(e) => handleDeleteReminder(e, reminder.id)}
+                              >
+                                <Trash2 className="h-4 w-4" />
+                              </Button>
+                          </div>
+                        )}
+                        <div className={`w-6 h-6 rounded-full border-2 flex items-center justify-center transition-colors ${reminder.completed
+                          ? 'bg-green-500 border-green-500'
+                          : 'border-gray-300'
+                          }`}>
+                          {reminder.completed && <CheckCircle className="h-4 w-4 text-white" />}
+                        </div>
                       </div>
                     </div>
                   </CardContent>
@@ -1460,10 +1683,98 @@ export function EnhancedMotherDashboard({ isFirstLogin = false }: MotherDashboar
             </div>
 
             {/* Add Custom Reminder */}
-            <Button variant="outline" className="w-full">
-              <Bell className="h-4 w-4 mr-2" />
-              Add Custom Reminder
-            </Button>
+            <Dialog open={showAddReminderModal} onOpenChange={setShowAddReminderModal}>
+              <DialogTrigger asChild>
+                <Button variant="outline" className="w-full">
+                  <Bell className="h-4 w-4 mr-2" />
+                  Add Custom Reminder
+                </Button>
+              </DialogTrigger>
+              <DialogContent>
+                <DialogHeader>
+                  <DialogTitle>Add a Custom Reminder</DialogTitle>
+                  <DialogDescription>Create a personal reminder to help you stay on track.</DialogDescription>
+                </DialogHeader>
+                <div className="space-y-4 py-4">
+                  <div className="space-y-2">
+                    <Label htmlFor="title">What do you need to remember?</Label>
+                    <Input 
+                        id="title" 
+                        placeholder="e.g., Take Iron Supplement" 
+                        value={newReminderTitle} 
+                        onChange={(e) => setNewReminderTitle(e.target.value)} 
+                    />
+                  </div>
+                  <div className="space-y-2">
+                    <Label htmlFor="time">When should you do this daily?</Label>
+                    <Input 
+                        id="time" 
+                        type="time"
+                        value={newReminderTime} 
+                        onChange={(e) => setNewReminderTime(e.target.value)} 
+                    />
+                  </div>
+                  <div className="space-y-2">
+                    <Label htmlFor="reminder-type">Reminder type</Label>
+                    <Select value={newReminderType} onValueChange={setNewReminderType}>
+                      <SelectTrigger id="reminder-type">
+                        <SelectValue placeholder="Pick reminder type" />
+                      </SelectTrigger>
+                      <SelectContent>
+                        {REMINDER_TYPE_OPTIONS.map((option) => (
+                          <SelectItem key={option.value} value={option.value}>
+                            {option.label}
+                          </SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                  </div>
+                </div>
+                <div className="flex justify-end gap-2">
+                  <Button variant="outline" onClick={() => setShowAddReminderModal(false)}>Cancel</Button>
+                  <Button onClick={handleAddCustomReminder} disabled={addReminderSubmitting}>
+                    {addReminderSubmitting ? <><Loader2 className="mr-2 h-4 w-4 animate-spin" /> Adding</> : 'Add Reminder'}
+                  </Button>
+                </div>
+              </DialogContent>
+            </Dialog>
+
+            {/* Edit Reminder Modal */}
+            <Dialog open={!!editingReminder} onOpenChange={(open) => !open && setEditingReminder(null)}>
+              <DialogContent>
+                <DialogHeader>
+                  <DialogTitle>Edit Reminder</DialogTitle>
+                  <DialogDescription>Update the details of your reminder.</DialogDescription>
+                </DialogHeader>
+                {editingReminder && (
+                  <div className="space-y-4 py-4">
+                    <div className="space-y-2">
+                      <Label htmlFor="edit-title">Task Name</Label>
+                      <Input 
+                          id="edit-title" 
+                          value={editingReminder.title} 
+                          onChange={(e) => setEditingReminder({...editingReminder, title: e.target.value})} 
+                      />
+                    </div>
+                    <div className="space-y-2">
+                      <Label htmlFor="edit-time">Time</Label>
+                      <Input 
+                          id="edit-time" 
+                          type="time" 
+                          value={editingReminder.time} 
+                          onChange={(e) => setEditingReminder({...editingReminder, time: e.target.value})} 
+                      />
+                    </div>
+                  </div>
+                )}
+                <div className="flex justify-end gap-2">
+                  <Button variant="outline" onClick={() => setEditingReminder(null)}>Cancel</Button>
+                  <Button onClick={handleEditReminder} disabled={editReminderSubmitting}>
+                    {editReminderSubmitting ? <><Loader2 className="mr-2 h-4 w-4 animate-spin" /> Saving</> : 'Save Changes'}
+                  </Button>
+                </div>
+              </DialogContent>
+            </Dialog>
           </TabsContent>
         </Tabs>
       </main>
