@@ -839,7 +839,7 @@ export function EnhancedCHWDashboard({ isFirstLogin = false }: CHWDashboardProps
             <div className="relative">
               <Avatar className="h-32 w-32">
                 <AvatarImage src={profileImage || undefined} />
-                <AvatarFallback className="bg-gradient-to-br from-blue-500 to-indigo-600 text-white text-4xl">
+                <AvatarFallback className="bg-teal-500 text-white text-4xl">
                   {user?.first_name?.charAt(0).toUpperCase() || "C"}
                 </AvatarFallback>
               </Avatar>
@@ -1593,11 +1593,11 @@ export function EnhancedCHWDashboard({ isFirstLogin = false }: CHWDashboardProps
               >
                 <ArrowLeft className="h-5 w-5" />
               </Button>
-              <div className="bg-gradient-to-br from-blue-500 to-indigo-600 p-2 rounded-xl">
+              <div className="bg-teal-500 p-2 rounded-xl">
                 <Users className="h-6 w-6 text-white" />
               </div>
               <div>
-                <h1 className="font-bold text-lg bg-gradient-to-r from-blue-600 to-indigo-600 bg-clip-text text-transparent">
+                <h1 className="font-bold text-lg text-teal-600">
                   RemyAfya
                 </h1>
                 <p className="text-xs text-muted-foreground">CHW Dashboard</p>
@@ -1672,68 +1672,68 @@ export function EnhancedCHWDashboard({ isFirstLogin = false }: CHWDashboardProps
 
         {/* Stats Overview */}
         <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-8">
-          <Card className="bg-gradient-to-br from-blue-500 to-blue-600 text-white border-0">
+          <Card className="bg-teal-500 text-white border-0">
             <CardContent className="p-4">
               <div className="flex items-center justify-between">
                 <div>
-                  <p className="text-blue-100 text-sm">Total Mothers</p>
+                  <p className="text-teal-100 text-sm">Total Mothers</p>
                   <p className="text-3xl font-bold">{displayMothers.length}</p>
                 </div>
-                <Users className="h-8 w-8 text-blue-200" />
+                <Users className="h-8 w-8 text-teal-200" />
               </div>
               <div className="flex items-center gap-1 mt-2 text-sm">
                 <ArrowUpRight className="h-4 w-4 text-green-300" />
                 <span className="text-green-300">+{weeklyStats.registrationChange}</span>
-                <span className="text-blue-200">this week</span>
+                <span className="text-teal-200">this week</span>
               </div>
             </CardContent>
           </Card>
 
-          <Card className="bg-gradient-to-br from-green-500 to-green-600 text-white border-0">
+          <Card className="bg-teal-500 text-white border-0">
             <CardContent className="p-4">
               <div className="flex items-center justify-between">
                 <div>
-                  <p className="text-green-100 text-sm">Doing Well</p>
+                  <p className="text-teal-100 text-sm">Doing Well</p>
                   <p className="text-3xl font-bold">{displayMothers.filter(m => m.status === 'ok').length}</p>
                 </div>
-                <CheckCircle className="h-8 w-8 text-green-200" />
+                <CheckCircle className="h-8 w-8 text-teal-200" />
               </div>
               <div className="flex items-center gap-1 mt-2 text-sm">
                 <ArrowUpRight className="h-4 w-4 text-green-300" />
                 <span className="text-green-300">+{weeklyStats.checkInChange}</span>
-                <span className="text-green-200">check-ins</span>
+                <span className="text-teal-200">check-ins</span>
               </div>
             </CardContent>
           </Card>
 
-          <Card className="bg-gradient-to-br from-red-500 to-red-600 text-white border-0">
+          <Card className="bg-teal-500 text-white border-0">
             <CardContent className="p-4">
               <div className="flex items-center justify-between">
                 <div>
-                  <p className="text-red-100 text-sm">Need Attention</p>
+                  <p className="text-teal-100 text-sm">Need Attention</p>
                   <p className="text-3xl font-bold">{mothersWithIssues.length}</p>
                 </div>
-                <AlertTriangle className="h-8 w-8 text-red-200" />
+                <AlertTriangle className="h-8 w-8 text-teal-200" />
               </div>
               <div className="flex items-center gap-1 mt-2 text-sm">
                 <ArrowDownRight className="h-4 w-4 text-green-300" />
                 <span className="text-green-300">{weeklyStats.issuesChange}</span>
-                <span className="text-red-200">from last week</span>
+                <span className="text-teal-200">from last week</span>
               </div>
             </CardContent>
           </Card>
 
-          <Card className="bg-gradient-to-br from-amber-500 to-amber-600 text-white border-0">
+          <Card className="bg-teal-500 text-white border-0">
             <CardContent className="p-4">
               <div className="flex items-center justify-between">
                 <div>
-                  <p className="text-amber-100 text-sm">Escalated</p>
+                  <p className="text-teal-100 text-sm">Escalated</p>
                   <p className="text-3xl font-bold">{(realEscalations ?? []).length}</p>
                 </div>
-                <Upload className="h-8 w-8 text-amber-200" />
+                <Upload className="h-8 w-8 text-teal-200" />
               </div>
               <div className="flex items-center gap-1 mt-2 text-sm">
-                <span className="text-amber-200">Pending review</span>
+                <span className="text-teal-200">Pending review</span>
               </div>
             </CardContent>
           </Card>

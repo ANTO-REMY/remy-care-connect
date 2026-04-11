@@ -546,7 +546,7 @@ export function EnhancedMotherDashboard({ isFirstLogin = false }: MotherDashboar
             <div className="relative">
               <Avatar className="h-32 w-32">
                 <AvatarImage src={profileImage || undefined} />
-                <AvatarFallback className="bg-primary text-primary-foreground text-4xl">
+                <AvatarFallback className="bg-teal-500 text-white text-4xl">
                   {user?.first_name?.charAt(0).toUpperCase() || 'M'}
                 </AvatarFallback>
               </Avatar>
@@ -703,11 +703,11 @@ export function EnhancedMotherDashboard({ isFirstLogin = false }: MotherDashboar
               >
                 <ArrowLeft className="h-5 w-5" />
               </Button>
-              <div className="bg-gradient-to-br from-pink-400 to-purple-500 p-2 rounded-xl">
+              <div className="bg-teal-500 p-2 rounded-xl">
                 <Baby className="h-6 w-6 text-white" />
               </div>
               <div>
-                <h1 className="font-bold text-lg bg-gradient-to-r from-teal-700 to-cyan-600 bg-clip-text text-transparent">
+                <h1 className="font-bold text-lg text-teal-600">
                   RemyAfya
                 </h1>
                 <p className="text-xs text-muted-foreground">Mother's Dashboard</p>

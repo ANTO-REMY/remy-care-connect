@@ -748,7 +748,7 @@ export function EnhancedNurseDashboard({ isFirstLogin = false }: NurseDashboardP
             <div className="relative">
               <Avatar className="h-32 w-32">
                 <AvatarImage src={profileImage || undefined} />
-                <AvatarFallback className="bg-gradient-to-br from-purple-500 to-pink-600 text-white text-4xl">
+                <AvatarFallback className="bg-teal-500 text-white text-4xl">
                   {user?.first_name?.charAt(0).toUpperCase() || "N"}
                 </AvatarFallback>
               </Avatar>
@@ -1379,11 +1379,11 @@ export function EnhancedNurseDashboard({ isFirstLogin = false }: NurseDashboardP
               >
                 <ArrowLeft className="h-5 w-5" />
               </Button>
-              <div className="bg-gradient-to-br from-purple-500 to-pink-600 p-2 rounded-xl hidden sm:block">
+              <div className="bg-teal-500 p-2 rounded-xl hidden sm:block">
                 <Stethoscope className="h-6 w-6 text-white" />
               </div>
               <div>
-                <h1 className="font-bold text-lg bg-gradient-to-r from-purple-600 to-pink-600 bg-clip-text text-transparent">
+                <h1 className="font-bold text-lg text-teal-600">
                   RemyAfya
                 </h1>
                 <p className="text-xs text-muted-foreground">Nurse Dashboard</p>
@@ -1463,50 +1463,50 @@ export function EnhancedNurseDashboard({ isFirstLogin = false }: NurseDashboardP
 
         {/* Stats Overview */}
         <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-8">
-          <Card className="bg-gradient-to-br from-purple-500 to-purple-600 text-white border-0">
+          <Card className="bg-teal-500 text-white border-0">
             <CardContent className="p-4">
               <div className="flex items-center justify-between">
                 <div>
-                  <p className="text-purple-100 text-sm">Total Cases</p>
+                  <p className="text-teal-100 text-sm">Total Cases</p>
                   <p className="text-3xl font-bold">{allCases.length}</p>
                 </div>
-                <ClipboardCheck className="h-8 w-8 text-purple-200" />
+                <ClipboardCheck className="h-8 w-8 text-teal-200" />
               </div>
             </CardContent>
           </Card>
 
-          <Card className="bg-gradient-to-br from-green-500 to-green-600 text-white border-0">
+          <Card className="bg-teal-500 text-white border-0">
             <CardContent className="p-4">
               <div className="flex items-center justify-between">
                 <div>
-                  <p className="text-green-100 text-sm">Resolved</p>
+                  <p className="text-teal-100 text-sm">Resolved</p>
                   <p className="text-3xl font-bold">{allCases.filter(c => c.status === 'resolved').length}</p>
                 </div>
-                <CheckCircle2 className="h-8 w-8 text-green-200" />
+                <CheckCircle2 className="h-8 w-8 text-teal-200" />
               </div>
             </CardContent>
           </Card>
 
-          <Card className="bg-gradient-to-br from-amber-500 to-amber-600 text-white border-0">
+          <Card className="bg-teal-500 text-white border-0">
             <CardContent className="p-4">
               <div className="flex items-center justify-between">
                 <div>
-                  <p className="text-amber-100 text-sm">Pending</p>
+                  <p className="text-teal-100 text-sm">Pending</p>
                   <p className="text-3xl font-bold">{allCases.filter(c => c.status === 'pending').length}</p>
                 </div>
-                <Clock4 className="h-8 w-8 text-amber-200" />
+                <Clock4 className="h-8 w-8 text-teal-200" />
               </div>
             </CardContent>
           </Card>
 
-          <Card className="bg-gradient-to-br from-red-500 to-red-600 text-white border-0">
+          <Card className="bg-teal-500 text-white border-0">
             <CardContent className="p-4">
               <div className="flex items-center justify-between">
                 <div>
-                  <p className="text-red-100 text-sm">Critical</p>
+                  <p className="text-teal-100 text-sm">Critical</p>
                   <p className="text-3xl font-bold">{allCases.filter(c => c.priority === 'critical').length}</p>
                 </div>
-                <AlertTriangle className="h-8 w-8 text-red-200" />
+                <AlertTriangle className="h-8 w-8 text-teal-200" />
               </div>
             </CardContent>
           </Card>
