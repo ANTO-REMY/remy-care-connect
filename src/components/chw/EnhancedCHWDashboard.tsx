@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback, useRef } from "react";
+import { useState, useEffect, useCallback, useRef, useMemo } from "react";
 import { useNavigate } from "react-router-dom";
 import {
   Users, AlertTriangle, Upload, Calendar, CheckCircle,
@@ -32,103 +32,16 @@ import { appointmentService, type Appointment } from "@/services/appointmentServ
 import { chwService } from "@/services/chwService";
 import { apiClient } from "@/lib/apiClient";
 import { checkinService, type CheckIn } from "@/services/checkinService";
-import { ultrasoundService } from "@/services/ultrasoundService";
+import { ultrasoundService, type UltrasoundRecord } from "@/services/ultrasoundService";
+import { weightService, type WeightLog } from "@/services/weightService";
 import { notificationService, type UserNotification } from "@/services/notificationService";
 import { useSocket, useSocketStatus, joinProfileRoom } from "@/hooks/useSocket";
 import { ConnectionBanner } from "@/components/ConnectionBanner";
 import resourceService, { Resource } from '@/services/resourceService';
 import { Alert, AlertDescription } from '@/components/ui/alert';
 import { DashboardAccountMenu } from "@/components/layout/DashboardAccountMenu";
-
-// Mock data for mothers
-const mockMothers = [
-  {
-    id: 1,
-    name: "Mary Wanjiku",
-    phone_number: "+254712345678",
-    status: "ok",
-    last_check_in: "Today, 8:30 AM",
-    weeks_pregnant: 28,
-    location: "Kibera",
-    due_date: "2024-05-15",
-    risk_level: "low",
-    avatar: "https://images.unsplash.com/photo-1438761681033-6461ffad8d80?w=100&h=100&fit=crop",
-    check_in_history: [
-      { date: "2024-02-20", status: "ok" },
-      { date: "2024-02-19", status: "ok" },
-      { date: "2024-02-18", status: "not_ok" },
-    ]
-  },
-  {
-    id: 2,
-    name: "Grace Akinyi",
-    phone_number: "+254723456789",
-    status: "not_ok",
-    last_check_in: "Yesterday, 6:00 PM",
-    weeks_pregnant: 32,
-    location: "Kibera",
-    due_date: "2024-04-20",
-    risk_level: "high",
-    avatar: "https://images.unsplash.com/photo-1544005313-94ddf0286df2?w=100&h=100&fit=crop",
-    notes: "Reported headaches and swelling",
-    check_in_history: [
-      { date: "2024-02-20", status: "not_ok" },
-      { date: "2024-02-19", status: "ok" },
-      { date: "2024-02-18", status: "ok" },
-    ]
-  },
-  {
-    id: 3,
-    name: "Esther Muthoni",
-    phone_number: "+254734567890",
-    status: "no_response",
-    last_check_in: "3 days ago",
-    weeks_pregnant: 24,
-    location: "Mathare",
-    due_date: "2024-06-10",
-    risk_level: "medium",
-    avatar: "https://images.unsplash.com/photo-1489424731084-a5d8b219a5bb?w=100&h=100&fit=crop",
-    check_in_history: [
-      { date: "2024-02-17", status: "ok" },
-      { date: "2024-02-16", status: "ok" },
-      { date: "2024-02-15", status: "ok" },
-    ]
-  },
-  {
-    id: 4,
-    name: "Joyce Kemunto",
-    phone_number: "+254745678901",
-    status: "ok",
-    last_check_in: "Today, 9:15 AM",
-    weeks_pregnant: 36,
-    location: "Kibera",
-    due_date: "2024-03-25",
-    risk_level: "low",
-    avatar: "https://images.unsplash.com/photo-1488426862026-3ee34a7d66df?w=100&h=100&fit=crop",
-    check_in_history: [
-      { date: "2024-02-20", status: "ok" },
-      { date: "2024-02-19", status: "ok" },
-      { date: "2024-02-18", status: "ok" },
-    ]
-  },
-  {
-    id: 5,
-    name: "Faith Chebet",
-    phone_number: "+254756789012",
-    status: "ok",
-    last_check_in: "Today, 7:45 AM",
-    weeks_pregnant: 20,
-    location: "Mathare",
-    due_date: "2024-07-15",
-    risk_level: "low",
-    avatar: "https://images.unsplash.com/photo-1507003211169-0a1dd7228f2d?w=100&h=100&fit=crop",
-    check_in_history: [
-      { date: "2024-02-20", status: "ok" },
-      { date: "2024-02-19", status: "ok" },
-      { date: "2024-02-18", status: "ok" },
-    ]
-  },
-];
+import { combineInsights, getMaternalWeightInsight, getUltrasoundInsight } from "@/lib/clinicalInsights";
+import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
 
 // Mock data for escalated cases
 const mockEscalatedCases = [
@@ -162,6 +75,24 @@ interface CHWDashboardProps {
   isFirstLogin?: boolean;
 }
 
+interface MotherListItem {
+  id: number;
+  user_id: number;
+  name: string;
+  phone_number: string;
+  status: "ok" | "not_ok" | "no_response";
+  last_check_in: string;
+  last_check_in_at?: string | null;
+  weeks_pregnant: number;
+  location: string;
+  due_date: string;
+  risk_level: "low" | "medium" | "high";
+  last_ultrasound_at?: string | null;
+  avatar: string | null;
+  check_in_history: { date: string; status: string }[];
+  notes?: string;
+}
+
 export function EnhancedCHWDashboard({ isFirstLogin = false }: CHWDashboardProps) {
   const { user, logout } = useAuth();
   const { toast } = useToast();
@@ -169,7 +100,7 @@ export function EnhancedCHWDashboard({ isFirstLogin = false }: CHWDashboardProps
 
   const [showPhotoUpload, setShowPhotoUpload] = useState(false);
   const [profileImage, setProfileImage] = useState<string | null>(null);
-  const [selectedMother, setSelectedMother] = useState<typeof mockMothers[0] | null>(null);
+  const [selectedMother, setSelectedMother] = useState<MotherListItem | null>(null);
   const [showMotherDetails, setShowMotherDetails] = useState(false);
   const [searchQuery, setSearchQuery] = useState("");
   const [statusFilter, setStatusFilter] = useState<string>("all");
@@ -251,22 +182,28 @@ export function EnhancedCHWDashboard({ isFirstLogin = false }: CHWDashboardProps
   const [resources, setResources] = useState<Resource[]>([]);
   const [resourcesLoading, setResourcesLoading] = useState(true);
   const [resourcesError, setResourcesError] = useState<string | null>(null);
+  const [motherUltrasoundHistory, setMotherUltrasoundHistory] = useState<UltrasoundRecord[]>([]);
+  const [motherWeightHistory, setMotherWeightHistory] = useState<WeightLog[]>([]);
+  const [motherClinicalLoading, setMotherClinicalLoading] = useState(false);
+  const [motherClinicalError, setMotherClinicalError] = useState<string | null>(null);
 
   // Ref keeps the latest chwProfileId available inside the polling callback
   const chwProfileIdRef = useRef<number | null>(null);
 
-  // Unified display list: real API data (no mock fallback)
-  const displayMothers = (realMothers ?? []).map(m => ({
+  // Unified display list: backend-driven mother summary data.
+  const displayMothers: MotherListItem[] = (realMothers ?? []).map(m => ({
     id: m.mother_id,
     user_id: m.user_id,
     name: m.name,
-    phone_number: m.phone ?? "",
-    status: "ok" as "ok" | "not_ok" | "no_response",
-    last_check_in: m.assigned_at ? new Date(m.assigned_at).toLocaleDateString() : "-",
-    weeks_pregnant: 0,
+    phone_number: m.phone_number ?? "",
+    status: m.checkin_status === "not_ok" ? "not_ok" : m.checkin_status === "ok" ? "ok" : "no_response",
+    last_check_in: m.last_check_in_at ? new Date(m.last_check_in_at).toLocaleDateString() : "No check-in yet",
+    last_check_in_at: m.last_check_in_at ?? null,
+    weeks_pregnant: m.weeks_pregnant ?? 0,
     location: m.location ?? "Unknown",
-    due_date: "",
-    risk_level: "low" as "low" | "medium" | "high",
+    due_date: m.due_date ?? "",
+    risk_level: (m.risk_level ?? "medium") as "low" | "medium" | "high",
+    last_ultrasound_at: m.last_ultrasound_at ?? null,
     avatar: null as string | null,
     check_in_history: [] as { date: string; status: string }[],
     notes: undefined as string | undefined,
@@ -347,6 +284,44 @@ export function EnhancedCHWDashboard({ isFirstLogin = false }: CHWDashboardProps
   const isCheckInEscalated = (checkIn: CheckIn): boolean => {
     return hasActiveEscalationForCheckIn(checkIn.id);
   };
+
+  const sortedUltrasound = useMemo(
+    () => motherUltrasoundHistory
+      .slice()
+      .sort((a, b) => {
+        const aTime = new Date(a.scan_date || a.created_at).getTime();
+        const bTime = new Date(b.scan_date || b.created_at).getTime();
+        return bTime - aTime;
+      }),
+    [motherUltrasoundHistory]
+  );
+  const sortedWeight = useMemo(
+    () => motherWeightHistory
+      .slice()
+      .sort((a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime()),
+    [motherWeightHistory]
+  );
+  const latestUltrasound = sortedUltrasound[0];
+  const previousUltrasound = sortedUltrasound[1];
+  const latestWeight = sortedWeight[0];
+  const previousWeight = sortedWeight[1];
+  const weightDelta = latestWeight && previousWeight
+    ? latestWeight.weight_kg - previousWeight.weight_kg
+    : null;
+  const ultrasoundStaleDays = latestUltrasound
+    ? Math.floor((Date.now() - new Date(latestUltrasound.scan_date || latestUltrasound.created_at).getTime()) / (1000 * 60 * 60 * 24))
+    : null;
+  const weightStaleDays = latestWeight
+    ? Math.floor((Date.now() - new Date(latestWeight.created_at).getTime()) / (1000 * 60 * 60 * 24))
+    : null;
+  const ultrasoundInsight = getUltrasoundInsight({ latest: latestUltrasound, staleDays: ultrasoundStaleDays });
+  const weightInsight = getMaternalWeightInsight({ latest: latestWeight, previous: previousWeight, staleDays: weightStaleDays });
+  const combinedInsight = combineInsights(ultrasoundInsight, weightInsight);
+  const insightAlertClass = combinedInsight.status === "urgent"
+    ? "border-red-300 bg-red-50"
+    : combinedInsight.status === "watch"
+      ? "border-amber-300 bg-amber-50"
+      : "border-emerald-300 bg-emerald-50";
 
   const handleEscalation = async () => {
     if (!escalationForm.motherId || !escalationForm.issueType || !escalationForm.description) {
@@ -441,9 +416,32 @@ export function EnhancedCHWDashboard({ isFirstLogin = false }: CHWDashboardProps
     setEscalationForm({ motherId: "", checkInId: "", nurseId: "", issueType: "", description: "", priority: "high" });
   };
 
-  const handleMotherClick = (mother: typeof displayMothers[0]) => {
-    setSelectedMother(mother as typeof mockMothers[0]);
+  const loadClinicalSnapshot = useCallback(async (motherId: number) => {
+    setMotherClinicalLoading(true);
+    setMotherClinicalError(null);
+    try {
+      const [ultrasound, weight] = await Promise.all([
+        ultrasoundService.getMotherRecords(motherId),
+        weightService.getMotherWeightLogs(motherId),
+      ]);
+      setMotherUltrasoundHistory(ultrasound);
+      setMotherWeightHistory(weight);
+    } catch (err: unknown) {
+      setMotherUltrasoundHistory([]);
+      setMotherWeightHistory([]);
+      setMotherClinicalError((err as Error).message || "Unable to load clinical history.");
+    } finally {
+      setMotherClinicalLoading(false);
+    }
+  }, []);
+
+  const handleMotherClick = (mother: MotherListItem) => {
+    setSelectedMother(mother);
+    setMotherUltrasoundHistory([]);
+    setMotherWeightHistory([]);
+    setMotherClinicalError(null);
     setShowMotherDetails(true);
+    void loadClinicalSnapshot(mother.id);
   };
 
   const handleUltrasoundSubmit = async () => {
@@ -461,6 +459,10 @@ export function EnhancedCHWDashboard({ isFirstLogin = false }: CHWDashboardProps
         heart_rate_bpm: ultrasoundForm.heart_rate_bpm ? parseInt(ultrasoundForm.heart_rate_bpm) : undefined,
         notes: ultrasoundForm.notes.trim() || undefined,
       });
+      if (selectedMother && ultrasoundForm.motherId === selectedMother.id) {
+        void loadClinicalSnapshot(selectedMother.id);
+      }
+      await refreshData();
       toast({ title: "Ultrasound Recorded", description: "Successfully saved fetal measurements." });
       setShowUltrasoundModal(false);
       setUltrasoundForm({ motherId: null, week_number: '', fetal_weight_grams: '', fetal_length_cm: '', heart_rate_bpm: '', notes: '', scan_date: new Date().toISOString().split('T')[0] });
@@ -638,10 +640,31 @@ export function EnhancedCHWDashboard({ isFirstLogin = false }: CHWDashboardProps
       setRealEscalations(mapped as any);
     } catch { /* ignore */ }
 
-    // Assigned mothers
+    // Assigned mothers (summary payload #1)
     try {
       const mothersResp = await assignmentService.getMothersForCHW(profileId, 'active');
-      setRealMothers(mothersResp.mothers);
+      let merged = mothersResp.mothers;
+
+      // Latest ultrasound summaries (summary payload #2) to harden list values from DB
+      try {
+        const ultrasoundSummaries = await assignmentService.getLatestUltrasoundSummariesForCHW(profileId);
+        const byMotherId = new Map(ultrasoundSummaries.summaries.map(s => [s.mother_id, s]));
+        merged = mothersResp.mothers.map(m => {
+          const summary = byMotherId.get(m.mother_id);
+          if (!summary) return m;
+          return {
+            ...m,
+            last_ultrasound_at: summary.last_ultrasound_at ?? m.last_ultrasound_at ?? null,
+            weeks_pregnant: (m.weeks_pregnant && m.weeks_pregnant > 0)
+              ? m.weeks_pregnant
+              : (summary.last_ultrasound_week ?? m.weeks_pregnant ?? 0),
+          };
+        });
+      } catch {
+        // Keep base mothers payload when ultrasound summary endpoint fails.
+      }
+
+      setRealMothers(merged);
     } catch { /* ignore */ }
 
     // Appointments
@@ -710,7 +733,10 @@ export function EnhancedCHWDashboard({ isFirstLogin = false }: CHWDashboardProps
       setAppointments(prev => prev.filter(a => a.id !== id));
     }
   }, { enabled: chwProfileId !== null });
-  useSocket<CheckIn>('checkin:new', (ci) => setRecentCheckIns(prev => prev.some(c => c.id === ci.id) ? prev : [ci, ...prev]), { enabled: chwProfileId !== null });
+  useSocket<CheckIn>('checkin:new', async (ci) => {
+    setRecentCheckIns(prev => prev.some(c => c.id === ci.id) ? prev : [ci, ...prev]);
+    await refreshData();
+  }, { enabled: chwProfileId !== null });
   useSocket<{ id: number; user_id: number }>('checkin:deleted', ({ id, user_id }) => {
     if (user_id === user?.id) {
       setRecentCheckIns(prev => prev.filter(ci => ci.id !== id));
@@ -726,6 +752,7 @@ export function EnhancedCHWDashboard({ isFirstLogin = false }: CHWDashboardProps
   useSocket('escalation:created', () => refreshData(), { enabled: chwProfileId !== null });
   useSocket('escalation:updated', () => refreshData(), { enabled: chwProfileId !== null });
   useSocket('escalation:deleted', () => refreshData(), { enabled: chwProfileId !== null });
+  useSocket('ultrasound:created', () => refreshData(), { enabled: chwProfileId !== null });
   // Assignment events â€” refresh to pick up changes to assigned mothers list
   useSocket('assignment:created', () => refreshData(), { enabled: chwProfileId !== null });
   useSocket('assignment:status_changed', () => refreshData(), { enabled: chwProfileId !== null });
@@ -746,6 +773,7 @@ export function EnhancedCHWDashboard({ isFirstLogin = false }: CHWDashboardProps
   useSocket('assignment:created', () => refreshNotifications(), { enabled: chwProfileId !== null });
   useSocket('assignment:status_changed', () => refreshNotifications(), { enabled: chwProfileId !== null });
   useSocket('checkin:new', () => refreshNotifications(), { enabled: chwProfileId !== null });
+  useSocket('ultrasound:created', () => refreshNotifications(), { enabled: chwProfileId !== null });
 
   // One-time setup: photo, CHW profile, nurses list, then initial data load
   useEffect(() => {
@@ -825,6 +853,7 @@ export function EnhancedCHWDashboard({ isFirstLogin = false }: CHWDashboardProps
   };
 
   return (
+    <TooltipProvider>
     <div className="min-h-screen bg-gradient-to-br from-blue-50 via-white to-indigo-50">
       {/* Photo Upload Modal */}
       <Dialog open={showPhotoUpload} onOpenChange={setShowPhotoUpload}>
@@ -974,12 +1003,107 @@ export function EnhancedCHWDashboard({ isFirstLogin = false }: CHWDashboardProps
                   </div>
                 </div>
 
+                <div>
+                  <h4 className="font-medium mb-3">Clinical Snapshot</h4>
+                  {motherClinicalLoading ? (
+                    <Card>
+                      <CardContent className="p-4 text-sm text-muted-foreground">Loading clinical history...</CardContent>
+                    </Card>
+                  ) : motherClinicalError ? (
+                    <Card className="border-red-200 bg-red-50">
+                      <CardContent className="p-4 text-sm text-red-700">{motherClinicalError}</CardContent>
+                    </Card>
+                  ) : (
+                    <div className="grid md:grid-cols-2 gap-4">
+                      <Card className="bg-gradient-to-br from-blue-50 to-cyan-50">
+                        <CardHeader className="pb-2">
+                          <CardTitle className="text-sm">Latest Ultrasound</CardTitle>
+                        </CardHeader>
+                        <CardContent className="space-y-1 text-sm">
+                          {latestUltrasound ? (
+                            <>
+                              <p className="font-medium">
+                                Week {latestUltrasound.week_number} • {new Date(latestUltrasound.scan_date || latestUltrasound.created_at).toLocaleDateString()}
+                              </p>
+                              <p className="text-xs text-muted-foreground">
+                                Last updated: {new Date(latestUltrasound.created_at).toLocaleString()}
+                              </p>
+                              <p>Weight: {latestUltrasound.fetal_weight_grams ? `${latestUltrasound.fetal_weight_grams} g` : 'Not recorded'}</p>
+                              <p>Length: {latestUltrasound.fetal_length_cm ? `${latestUltrasound.fetal_length_cm} cm` : 'Not recorded'}</p>
+                              <p>Heart rate: {latestUltrasound.heart_rate_bpm ? `${latestUltrasound.heart_rate_bpm} bpm` : 'Not recorded'}</p>
+                              <Tooltip>
+                                <TooltipTrigger asChild>
+                                  <p className="text-[11px] text-muted-foreground cursor-help">What do these values mean?</p>
+                                </TooltipTrigger>
+                                <TooltipContent>
+                                  <p className="max-w-[260px] text-xs">
+                                    These are the most recent fetal scan values. Combine these with week number and trend direction to guide follow-up.
+                                  </p>
+                                </TooltipContent>
+                              </Tooltip>
+                              {previousUltrasound && (
+                                <p className="text-xs text-muted-foreground">
+                                  Prev: week {previousUltrasound.week_number} on {new Date(previousUltrasound.scan_date || previousUltrasound.created_at).toLocaleDateString()}
+                                </p>
+                              )}
+                            </>
+                          ) : (
+                            <p className="text-muted-foreground">No ultrasound history yet. Consider recording a scan at the next scheduled follow-up.</p>
+                          )}
+                        </CardContent>
+                      </Card>
+                      <Card className="bg-gradient-to-br from-emerald-50 to-lime-50">
+                        <CardHeader className="pb-2">
+                          <CardTitle className="text-sm">Maternal Weight</CardTitle>
+                        </CardHeader>
+                        <CardContent className="space-y-1 text-sm">
+                          {latestWeight ? (
+                            <>
+                              <p className="font-medium">
+                                {latestWeight.weight_kg.toFixed(1)} kg • {new Date(latestWeight.created_at).toLocaleDateString()}
+                              </p>
+                              <p className="text-xs text-muted-foreground">
+                                Last updated: {new Date(latestWeight.created_at).toLocaleString()}
+                              </p>
+                              <p>
+                                Trend: {weightDelta === null ? 'Need one more log' : `${weightDelta > 0 ? '+' : ''}${weightDelta.toFixed(1)} kg since previous`}
+                              </p>
+                              <p className="text-xs text-muted-foreground">Recent logs: {sortedWeight.slice(0, 3).map(l => `${l.weight_kg.toFixed(1)}kg`).join(' • ')}</p>
+                              <Tooltip>
+                                <TooltipTrigger asChild>
+                                  <p className="text-[11px] text-muted-foreground cursor-help">How to interpret trend?</p>
+                                </TooltipTrigger>
+                                <TooltipContent>
+                                  <p className="max-w-[260px] text-xs">
+                                    Trend compares the latest two maternal weight logs. Large or abrupt changes may need closer review.
+                                  </p>
+                                </TooltipContent>
+                              </Tooltip>
+                            </>
+                          ) : (
+                            <p className="text-muted-foreground">No weight history yet. Encourage weekly weight logging for stronger clinical follow-up.</p>
+                          )}
+                        </CardContent>
+                      </Card>
+                    </div>
+                  )}
+                  {!motherClinicalLoading && !motherClinicalError && (
+                    <Alert className={`mt-3 ${insightAlertClass}`}>
+                      <AlertDescription>
+                        <span className="font-semibold capitalize">{combinedInsight.status}</span>
+                        {" • "}
+                        {combinedInsight.message}
+                      </AlertDescription>
+                    </Alert>
+                  )}
+                </div>
+
                 {/* Quick Actions -> Replaced with Ultrasound for now */}
                 <div className="flex gap-2">
                   <Button
                     className="w-full bg-teal-600 hover:bg-teal-700"
                     onClick={() => {
-                      setUltrasoundForm({ ...ultrasoundForm, motherId: typeof selectedMother.id === 'string' ? parseInt(selectedMother.id) : selectedMother.id });
+                      setUltrasoundForm({ ...ultrasoundForm, motherId: selectedMother.id });
                       setShowMotherDetails(false);
                       setShowUltrasoundModal(true);
                     }}
@@ -1786,71 +1910,74 @@ export function EnhancedCHWDashboard({ isFirstLogin = false }: CHWDashboardProps
               </Button>
             </div>
 
-            {/* Mothers Grid */}
-            <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-4">
-              {filteredMothers.map((mother) => (
-                <Card
-                  key={mother.id}
-                  className="cursor-pointer hover:shadow-lg transition-all group"
-                  onClick={() => handleMotherClick(mother)}
-                >
-                  <CardContent className="p-4">
-                    <div className="flex items-start gap-3">
-                      <Avatar className="h-12 w-12">
-                        <AvatarImage src={mother.avatar} />
+            {/* Mothers List (default scalable view) */}
+            <Card>
+              <CardContent className="p-0">
+                <div className="hidden md:grid grid-cols-12 gap-4 px-4 py-3 text-xs font-semibold text-muted-foreground border-b">
+                  <div className="col-span-3">Mother</div>
+                  <div className="col-span-1 text-center">Weeks</div>
+                  <div className="col-span-3">Last Check-in</div>
+                  <div className="col-span-2">Last Ultrasound</div>
+                  <div className="col-span-3 text-right">Actions</div>
+                </div>
+                {filteredMothers.map((mother) => (
+                  <div
+                    key={mother.id}
+                    className="grid grid-cols-1 md:grid-cols-12 gap-4 px-4 py-4 border-b last:border-b-0 hover:bg-slate-50 cursor-pointer items-center"
+                    onClick={() => handleMotherClick(mother)}
+                  >
+                    <div className="md:col-span-3 flex items-center gap-3 min-w-0">
+                      <Avatar className="h-10 w-10">
+                        <AvatarImage src={mother.avatar ?? undefined} />
                         <AvatarFallback className="bg-primary text-primary-foreground">
                           {mother.name.charAt(0)}
                         </AvatarFallback>
                       </Avatar>
-                      <div className="flex-1 min-w-0">
-                        <div className="flex items-start justify-between">
-                          <div>
-                            <p className="font-medium truncate">{mother.name}</p>
-                            <p className="text-xs text-muted-foreground">{mother.phone_number}</p>
-                          </div>
-                          <Badge className={`${getStatusColor(mother.status)} text-xs`}>
-                            {getStatusText(mother.status)}
-                          </Badge>
-                        </div>
-                        <div className="flex items-center gap-2 mt-2 text-xs text-muted-foreground">
-                          <MapPin className="h-3 w-3" />
-                          {mother.location}
-                          <span>|</span>
-                          <Baby className="h-3 w-3" />
-                          {mother.weeks_pregnant} weeks
-                        </div>
-                        <div className="flex items-center gap-2 mt-2">
-                          {getRiskBadge(mother.risk_level)}
-                          <span className="text-xs text-muted-foreground">
-                            Last: {mother.last_check_in}
-                          </span>
-                        </div>
+                      <div className="min-w-0">
+                        <p className="font-medium truncate">{mother.name}</p>
+                        <p className="text-xs text-muted-foreground truncate">{mother.phone_number}</p>
                       </div>
                     </div>
-
-                    <Separator className="my-3" />
-
-                    <div className="flex gap-2">
+                    <div className="md:col-span-1 text-sm flex items-center justify-center gap-1.5 text-muted-foreground">
+                      <Baby className="h-3.5 w-3.5" />
+                      {mother.weeks_pregnant}
+                    </div>
+                    <div className="md:col-span-3 flex items-center flex-wrap gap-2">
+                      <Badge className={`${getStatusColor(mother.status)} text-xs whitespace-nowrap`}>{getStatusText(mother.status)}</Badge>
+                      <span className="text-xs text-muted-foreground whitespace-nowrap">{mother.last_check_in}</span>
+                    </div>
+                    <div className="md:col-span-2 text-xs text-muted-foreground flex items-center">
+                      {mother.last_ultrasound_at ? new Date(mother.last_ultrasound_at).toLocaleDateString() : "No scan yet"}
+                    </div>
+                    <div className="md:col-span-3 flex items-center justify-end gap-3 flex-wrap">
+                      {getRiskBadge(mother.risk_level)}
                       <Button
                         size="sm"
-                        className="w-full bg-teal-600 hover:bg-teal-700 text-xs"
+                        className="bg-teal-600 hover:bg-teal-700 text-xs"
                         onClick={(e) => {
                           e.stopPropagation();
+                          if (mother.last_ultrasound_at) {
+                            const hoursSinceLast = (Date.now() - new Date(mother.last_ultrasound_at).getTime()) / (1000 * 60 * 60);
+                            if (hoursSinceLast < 24) {
+                              const ok = window.confirm("An ultrasound was recorded in the last 24 hours. Record another now?");
+                              if (!ok) return;
+                            }
+                          }
                           setUltrasoundForm({
                             ...ultrasoundForm,
-                            motherId: typeof mother.id === "string" ? parseInt(mother.id) : mother.id,
+                            motherId: mother.id,
                           });
                           setShowUltrasoundModal(true);
                         }}
                       >
                         <Baby className="h-3 w-3 mr-1" />
-                        Record Ultrasound
+                        {mother.last_ultrasound_at ? "Record Again" : "Record Ultrasound"}
                       </Button>
                     </div>
-                  </CardContent>
-                </Card>
-              ))}
-            </div>
+                  </div>
+                ))}
+              </CardContent>
+            </Card>
 
             {filteredMothers.length === 0 && (
               <Card className="p-8 text-center">
@@ -2508,6 +2635,7 @@ export function EnhancedCHWDashboard({ isFirstLogin = false }: CHWDashboardProps
         </Tabs>
       </main>
     </div>
+    </TooltipProvider>
   );
 }
 

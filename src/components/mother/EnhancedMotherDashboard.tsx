@@ -31,6 +31,7 @@ import { notificationService, type UserNotification } from "@/services/notificat
 import resourceService, { Resource } from "@/services/resourceService";
 import nutritionService, { DietaryRecommendation } from "@/services/nutritionService";
 import { ultrasoundService, type UltrasoundRecord } from "@/services/ultrasoundService";
+import { weightService, type WeightLog } from "@/services/weightService";
 import { Textarea } from "@/components/ui/textarea";
 import { Input } from "@/components/ui/input";
 import { DateTimePicker } from "@/components/ui/datetime-picker";
@@ -232,6 +233,11 @@ export function EnhancedMotherDashboard({ isFirstLogin = false }: MotherDashboar
   // Real profile data
   const [profile, setProfile] = useState<{ due_date?: string } | null>(null);
   const [ultrasoundRecords, setUltrasoundRecords] = useState<UltrasoundRecord[]>([]);
+  const [weightLogs, setWeightLogs] = useState<WeightLog[]>([]);
+  const [ultrasoundRecordsLoading, setUltrasoundRecordsLoading] = useState(true);
+  const [weightLogsLoading, setWeightLogsLoading] = useState(true);
+  const ultrasoundLoadedRef = useRef(false);
+  const weightLoadedRef = useRef(false);
 
   /**
    * Silently refresh appointments + motherProfileId every 15 s.
@@ -248,9 +254,29 @@ export function EnhancedMotherDashboard({ isFirstLogin = false }: MotherDashboar
 
     // Ultrasound records (used for real measurements in journey tracker)
     try {
+      if (!ultrasoundLoadedRef.current) setUltrasoundRecordsLoading(true);
       const records = await ultrasoundService.getMyRecords();
       setUltrasoundRecords(records);
     } catch { /* ignore */ }
+    finally {
+      if (!ultrasoundLoadedRef.current) {
+        setUltrasoundRecordsLoading(false);
+        ultrasoundLoadedRef.current = true;
+      }
+    }
+
+    // Weight logs (used for maternal trend context)
+    try {
+      if (!weightLoadedRef.current) setWeightLogsLoading(true);
+      const logs = await weightService.getMyWeightLogs();
+      setWeightLogs(logs);
+    } catch { /* ignore */ }
+    finally {
+      if (!weightLoadedRef.current) {
+        setWeightLogsLoading(false);
+        weightLoadedRef.current = true;
+      }
+    }
 
     // Reminders
     try {
@@ -258,6 +284,12 @@ export function EnhancedMotherDashboard({ isFirstLogin = false }: MotherDashboar
       setReminders(remResp.reminders);
     } catch { /* ignore */ }
   }, [user?.id]);
+
+  const handleWeightLogged = useCallback((newLog: WeightLog) => {
+    setWeightLogs(prev => [newLog, ...prev.filter(log => log.id !== newLog.id)]);
+    setWeightLogsLoading(false);
+    weightLoadedRef.current = true;
+  }, []);
 
   const loadHiddenAppointments = useCallback(async () => {
     if (!user?.id) return;
@@ -330,6 +362,7 @@ export function EnhancedMotherDashboard({ isFirstLogin = false }: MotherDashboar
     }
   }, { enabled: !!user?.id });
   useSocket('checkin:new', () => refreshData(), { enabled: !!user?.id });
+  useSocket('ultrasound:created', () => refreshData(), { enabled: !!user?.id });
   useSocket('notification:new', () => refreshNotifications(), { enabled: !!user?.id });
   
   // Reminder real-time events
@@ -985,52 +1018,13 @@ export function EnhancedMotherDashboard({ isFirstLogin = false }: MotherDashboar
           <PregnancyJourneyTracker
             dueDate={profile.due_date}
             ultrasoundData={ultrasoundRecords}
+            ultrasoundLoading={ultrasoundRecordsLoading}
+            weightLogs={weightLogs}
+            weightLogsLoading={weightLogsLoading}
+            onWeightLogged={handleWeightLogged}
+            onCheckInClick={() => setShowCheckInModal(true)}
           />
         )}
-
-        {/* Quick Actions */}
-        <div className="grid grid-cols-2 md:grid-cols-4 gap-3 mb-6">
-          <button
-            onClick={() => setShowCheckInModal(true)}
-            className="flex flex-col items-center p-4 rounded-xl bg-green-50 hover:bg-green-100 border border-green-200 transition-colors"
-          >
-            <div className="bg-green-100 p-3 rounded-full mb-2">
-              <CheckCircle className="h-6 w-6 text-green-600" />
-            </div>
-            <span className="text-sm font-medium text-green-700">Daily Check-in</span>
-          </button>
-
-          <button
-            onClick={() => setActiveTab("nutrition")}
-            className="flex flex-col items-center p-4 rounded-xl bg-orange-50 hover:bg-orange-100 border border-orange-200 transition-colors"
-          >
-            <div className="bg-orange-100 p-3 rounded-full mb-2">
-              <Utensils className="h-6 w-6 text-orange-600" />
-            </div>
-            <span className="text-sm font-medium text-orange-700">Nutrition</span>
-          </button>
-
-          <button
-            onClick={() => setActiveTab("articles")}
-            className="flex flex-col items-center p-4 rounded-xl bg-blue-50 hover:bg-blue-100 border border-blue-200 transition-colors"
-          >
-            <div className="bg-blue-100 p-3 rounded-full mb-2">
-              <BookOpen className="h-6 w-6 text-blue-600" />
-            </div>
-            <span className="text-sm font-medium text-blue-700">Learn</span>
-          </button>
-
-          <button
-            onClick={() => setActiveTab("reminders")}
-            className="flex flex-col items-center p-4 rounded-xl bg-purple-50 hover:bg-purple-100 border border-purple-200 transition-colors"
-          >
-            <div className="bg-purple-100 p-3 rounded-full mb-2">
-              <Bell className="h-6 w-6 text-purple-600" />
-            </div>
-            <span className="text-sm font-medium text-purple-700">Reminders</span>
-          </button>
-        </div>
-
 
         {/* Main Tabs Content */}
         <Tabs value={activeTab} onValueChange={setActiveTab} className="space-y-6">

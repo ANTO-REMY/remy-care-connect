@@ -6,13 +6,21 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from '@/components/ui/dialog';
-import { weightService } from '@/services/weightService';
+import { weightService, type WeightLog } from '@/services/weightService';
 import { useToast } from '@/hooks/use-toast';
+import type { UltrasoundRecord } from '@/services/ultrasoundService';
+import { combineInsights, getMaternalWeightInsight, getUltrasoundInsight } from '@/lib/clinicalInsights';
+import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
 
 interface PregnancyJourneyTrackerProps {
   dueDate: string;
   /** Real ultrasound data — if present for the current week, replaces estimates */
-  ultrasoundData?: { week_number: number; fetal_weight_grams: number | null; fetal_length_cm: number | null; heart_rate_bpm: number | null }[];
+  ultrasoundData?: UltrasoundRecord[];
+  ultrasoundLoading?: boolean;
+  weightLogs?: WeightLog[];
+  weightLogsLoading?: boolean;
+  onWeightLogged?: (log: WeightLog) => void;
+  onCheckInClick?: () => void;
 }
 
 // Data mapping for baby size, weight, length, milestone, tip, and symptoms by week
@@ -64,7 +72,15 @@ const fetalDevelopmentData: Record<number, {
   42: { size: "Watermelon", weight: "3.7kg", length: "51.8cm", milestone: "Your care team will likely plan for delivery this week.", motherTip: "Follow your doctor's guidance for a safe delivery.", symptoms: ["Strong contractions", "Pelvic pressure"] },
 };
 
-export function PregnancyJourneyTracker({ dueDate, ultrasoundData }: PregnancyJourneyTrackerProps) {
+export function PregnancyJourneyTracker({
+  dueDate,
+  ultrasoundData,
+  ultrasoundLoading = false,
+  weightLogs,
+  weightLogsLoading = false,
+  onWeightLogged,
+  onCheckInClick,
+}: PregnancyJourneyTrackerProps) {
   const [expanded, setExpanded] = useState(false);
   const [showWeightModal, setShowWeightModal] = useState(false);
   const [weightInput, setWeightInput] = useState('');
@@ -109,8 +125,15 @@ export function PregnancyJourneyTracker({ dueDate, ultrasoundData }: PregnancyJo
     const defaultStats = { size: "Baby", weight: "-", length: "-", milestone: "", motherTip: "", symptoms: [] as string[] };
     const stats = fetalDevelopmentData[week] || defaultStats;
 
-    // Check for real ultrasound data for the current week
-    const realData = ultrasoundData?.find(u => u.week_number === week);
+    // Use latest scan at or before current week.
+    const realData = (ultrasoundData ?? [])
+      .filter((u) => u.week_number <= week)
+      .sort((a, b) => {
+        if (a.week_number !== b.week_number) return b.week_number - a.week_number;
+        const aTime = new Date(a.scan_date || a.created_at).getTime();
+        const bTime = new Date(b.scan_date || b.created_at).getTime();
+        return bTime - aTime;
+      })[0];
 
     return {
       currentWeek: week,
@@ -130,8 +153,12 @@ export function PregnancyJourneyTracker({ dueDate, ultrasoundData }: PregnancyJo
     }
     setWeightSubmitting(true);
     try {
-      await weightService.logWeight({ weight_kg: kg });
-      toast({ title: "Weight Logged", description: `${kg} kg recorded for week ${currentWeek}.` });
+      const saved = await weightService.logWeight({ weight_kg: kg });
+      onWeightLogged?.(saved);
+      toast({
+        title: "Weight Logged",
+        description: `${saved.weight_kg.toFixed(1)} kg recorded${saved.week_number ? ` for week ${saved.week_number}` : ""}.`,
+      });
       setShowWeightModal(false);
       setWeightInput('');
     } catch {
@@ -154,9 +181,39 @@ export function PregnancyJourneyTracker({ dueDate, ultrasoundData }: PregnancyJo
     ? `${realMeasurements.fetal_length_cm}cm`
     : babyStats.length;
   const isVerified = !!realMeasurements;
+  const scanDateLabel = realMeasurements?.scan_date
+    ? new Date(realMeasurements.scan_date).toLocaleDateString()
+    : realMeasurements?.created_at
+      ? new Date(realMeasurements.created_at).toLocaleDateString()
+      : null;
+  const sortedWeightLogs = (weightLogs ?? [])
+    .slice()
+    .sort((a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime());
+  const latestWeightLog = sortedWeightLogs[0];
+  const previousWeightLog = sortedWeightLogs[1];
+  const weightDelta = latestWeightLog && previousWeightLog
+    ? latestWeightLog.weight_kg - previousWeightLog.weight_kg
+    : null;
+  const ultrasoundStaleDays = realMeasurements
+    ? Math.floor((Date.now() - new Date(realMeasurements.scan_date || realMeasurements.created_at).getTime()) / (1000 * 60 * 60 * 24))
+    : null;
+  const weightStaleDays = latestWeightLog
+    ? Math.floor((Date.now() - new Date(latestWeightLog.created_at).getTime()) / (1000 * 60 * 60 * 24))
+    : null;
+  const ultrasoundInsight = getUltrasoundInsight({ latest: realMeasurements, staleDays: ultrasoundStaleDays });
+  const weightInsight = getMaternalWeightInsight({ latest: latestWeightLog, previous: previousWeightLog, staleDays: weightStaleDays });
+  const combinedInsight = combineInsights(ultrasoundInsight, weightInsight);
+  const statusToneClass = combinedInsight.status === 'urgent'
+    ? 'bg-red-500/20 text-red-100 border-red-300/40'
+    : combinedInsight.status === 'watch'
+      ? 'bg-amber-500/20 text-amber-100 border-amber-300/40'
+      : 'bg-emerald-500/20 text-emerald-100 border-emerald-300/40';
+  const weightLastUpdatedLabel = latestWeightLog
+    ? `${new Date(latestWeightLog.created_at).toLocaleDateString()} ${new Date(latestWeightLog.created_at).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}`
+    : null;
 
   return (
-    <>
+    <TooltipProvider>
       <Card
         className="mb-6 bg-gradient-to-r from-[hsl(210,50%,15%)] via-[hsl(210,40%,25%)] to-[hsl(180,65%,55%)] text-white border-0 overflow-hidden cursor-pointer transition-all duration-300 hover:shadow-xl"
         onClick={() => setExpanded(!expanded)}
@@ -190,13 +247,45 @@ export function PregnancyJourneyTracker({ dueDate, ultrasoundData }: PregnancyJo
             <div className="flex gap-4">
               <div className="bg-white/10 rounded-xl p-4 text-center min-w-[80px]">
                 <p className="text-2xl font-bold">{displayWeight}</p>
-                <p className="text-xs text-white/70">{isVerified ? '✓ Weight' : 'Est. Weight'}</p>
+                <p className="text-xs text-white/70">{isVerified ? 'Measured Weight' : 'Estimated Weight'}</p>
+                <Tooltip>
+                  <TooltipTrigger asChild>
+                    <p className="text-[10px] text-white/60 cursor-help">What is this?</p>
+                  </TooltipTrigger>
+                  <TooltipContent>
+                    <p className="max-w-[220px] text-xs">
+                      Measured values come from your latest ultrasound. Estimated values use standard growth references for your current week.
+                    </p>
+                  </TooltipContent>
+                </Tooltip>
               </div>
               <div className="bg-white/10 rounded-xl p-4 text-center min-w-[80px]">
                 <p className="text-2xl font-bold">{displayLength}</p>
-                <p className="text-xs text-white/70">{isVerified ? '✓ Length' : 'Est. Length'}</p>
+                <p className="text-xs text-white/70">{isVerified ? 'Measured Length' : 'Estimated Length'}</p>
+                <Tooltip>
+                  <TooltipTrigger asChild>
+                    <p className="text-[10px] text-white/60 cursor-help">What is this?</p>
+                  </TooltipTrigger>
+                  <TooltipContent>
+                    <p className="max-w-[220px] text-xs">
+                      This is fetal length from your latest scan when available, or a week-based estimate when no recent scan is available.
+                    </p>
+                  </TooltipContent>
+                </Tooltip>
               </div>
             </div>
+          </div>
+          <div className="mt-2 text-xs text-white/70">
+            {ultrasoundLoading ? (
+              <span>Loading ultrasound history...</span>
+            ) : realMeasurements ? (
+              <span>
+                Latest scan: week {realMeasurements.week_number}
+                {scanDateLabel ? ` • ${scanDateLabel}` : ""}
+              </span>
+            ) : (
+              <span>No ultrasound scans yet — showing estimates.</span>
+            )}
           </div>
 
           <div className="mt-4 pt-4 border-t border-white/20 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-2">
@@ -204,68 +293,90 @@ export function PregnancyJourneyTracker({ dueDate, ultrasoundData }: PregnancyJo
               <Calendar className="h-4 w-4 text-white/70" />
               <span className="text-sm text-white/80">{nextMilestoneName}</span>
             </div>
-            <div className="flex items-center gap-2">
-              <span className="text-sm font-medium bg-white/15 px-3 py-1 rounded-full">
+            <div className="flex flex-1 justify-end items-center gap-2">
+              <span className="text-sm font-medium bg-white/15 px-3 py-1 rounded-full mr-2">
                 {daysUntilNextMilestone === 0 ? "Today!" : `${daysUntilNextMilestone} days away`}
               </span>
-              {expanded
-                ? <ChevronUp className="h-4 w-4 text-white/60" />
-                : <ChevronDown className="h-4 w-4 text-white/60" />
-              }
+              <Button 
+                variant="ghost" 
+                size="sm" 
+                className="hover:bg-white/10 text-white p-2 h-auto"
+                onClick={(e) => { e.stopPropagation(); setExpanded(!expanded); }}
+              >
+                {expanded
+                  ? <ChevronUp className="h-5 w-5" />
+                  : <ChevronDown className="h-5 w-5" />
+                }
+              </Button>
             </div>
+          </div>
+
+          {/* Persistent Action Bar */}
+          <div className="mt-4 grid grid-cols-2 gap-3">
+            <Button
+              className="bg-emerald-500/80 hover:bg-emerald-500 text-white font-medium border-0 shadow-sm transition-all"
+              onClick={(e) => { e.stopPropagation(); onCheckInClick?.(); }}
+            >
+              <Activity className="h-4 w-4 mr-2" />
+              Daily Check-in
+            </Button>
+            <Button
+              className="bg-white/20 hover:bg-white/30 text-white font-medium border-0 shadow-sm transition-all backdrop-blur-sm"
+              onClick={(e) => { e.stopPropagation(); setShowWeightModal(true); }}
+            >
+              <Scale className="h-4 w-4 mr-2" />
+              Log My Weight
+            </Button>
           </div>
 
           {/* Expanded Content */}
           {expanded && (
             <div className="mt-4 pt-4 border-t border-white/20 space-y-4 animate-in slide-in-from-top-2 duration-300">
-              {/* This Week's Milestone */}
-              {babyStats.milestone && (
-                <div className="bg-white/10 rounded-xl p-4">
-                  <p className="text-xs font-semibold text-white/60 uppercase tracking-wider mb-1">This Week's Development</p>
-                  <p className="text-sm">{babyStats.milestone}</p>
+              
+              {/* Metrics Grid */}
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                {/* Weight Card */}
+                <div className="bg-white/10 rounded-xl p-4 flex flex-col justify-center h-full">
+                  <p className="text-xs font-semibold text-white/60 uppercase tracking-wider mb-2">Your Weight</p>
+                  {weightLogsLoading ? (
+                    <p className="text-sm text-white/80">Loading...</p>
+                  ) : latestWeightLog ? (
+                    <>
+                      <p className="text-lg font-bold">{latestWeightLog.weight_kg.toFixed(1)} kg</p>
+                      <p className="text-[11px] text-white/65 mt-1">
+                        Updated {weightLastUpdatedLabel}
+                      </p>
+                      {weightDelta !== null && (
+                        <p className="text-xs text-emerald-200 mt-1 font-medium">
+                          {(weightDelta > 0 ? '+' : '') + weightDelta.toFixed(1)} kg since last log
+                        </p>
+                      )}
+                    </>
+                  ) : (
+                    <p className="text-sm text-white/80">No logs yet.</p>
+                  )}
                 </div>
-              )}
 
-              {/* Health Tip */}
-              {babyStats.motherTip && (
-                <div className="bg-white/10 rounded-xl p-4">
-                  <p className="text-xs font-semibold text-white/60 uppercase tracking-wider mb-1">Health Tip</p>
-                  <p className="text-sm">{babyStats.motherTip}</p>
+                {/* Heart Rate Card */}
+                <div className="bg-white/10 rounded-xl p-4 flex flex-col justify-center h-full">
+                  <p className="text-xs font-semibold text-white/60 uppercase tracking-wider mb-2">Baby's Heart Rate</p>
+                  {realMeasurements?.heart_rate_bpm ? (
+                    <div className="flex items-center gap-3">
+                      <Activity className="h-6 w-6 text-red-300 animate-pulse" />
+                      <p className="text-2xl font-bold">{realMeasurements.heart_rate_bpm} BPM</p>
+                    </div>
+                  ) : (
+                    <p className="text-sm text-white/80">No recent scan.</p>
+                  )}
                 </div>
-              )}
+              </div>
 
-              {/* Common Symptoms */}
-              {babyStats.symptoms.length > 0 && (
-                <div className="bg-white/10 rounded-xl p-4">
-                  <p className="text-xs font-semibold text-white/60 uppercase tracking-wider mb-2">Common Symptoms This Week</p>
-                  <div className="flex flex-wrap gap-2">
-                    {babyStats.symptoms.map((s, i) => (
-                      <span key={i} className="text-xs bg-white/15 px-2 py-1 rounded-full">{s}</span>
-                    ))}
-                  </div>
-                </div>
-              )}
-
-              {/* Heart Rate (from ultrasound) */}
-              {realMeasurements?.heart_rate_bpm && (
-                <div className="bg-white/10 rounded-xl p-4 flex items-center gap-3">
-                  <Activity className="h-5 w-5 text-red-300" />
-                  <div>
-                    <p className="text-xs font-semibold text-white/60 uppercase tracking-wider">Baby's Heart Rate</p>
-                    <p className="text-lg font-bold">{realMeasurements.heart_rate_bpm} BPM</p>
-                  </div>
-                </div>
-              )}
-
-              {/* Quick Action: Log Weight */}
-              <Button
-                variant="ghost"
-                className="w-full bg-white/10 hover:bg-white/20 text-white border border-white/20"
-                onClick={(e) => { e.stopPropagation(); setShowWeightModal(true); }}
-              >
-                <Scale className="h-4 w-4 mr-2" />
-                Log My Weight
-              </Button>
+              <div className={`rounded-xl border p-3 ${statusToneClass}`}>
+                <p className="text-[11px] font-semibold uppercase tracking-wider mb-1">
+                  Clinical status: {combinedInsight.status}
+                </p>
+                <p className="text-xs">{combinedInsight.message}</p>
+              </div>
             </div>
           )}
         </CardContent>
@@ -300,7 +411,7 @@ export function PregnancyJourneyTracker({ dueDate, ultrasoundData }: PregnancyJo
           </div>
         </DialogContent>
       </Dialog>
-    </>
+    </TooltipProvider>
   );
 }
 

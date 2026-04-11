@@ -22,9 +22,15 @@ export interface AssignedMother {
   mother_id: number;       // Mother profile ID (mothers table)
   user_id: number;         // User ID (users table) — used for appointment creation
   name: string;
-  phone: string | null;
+  phone_number: string | null;
   location: string | null;
   status: AssignmentStatus;
+  checkin_status?: 'ok' | 'not_ok' | null;
+  last_check_in_at?: string | null;
+  due_date?: string | null;
+  weeks_pregnant?: number | null;
+  risk_level?: 'low' | 'medium' | 'high' | null;
+  last_ultrasound_at?: string | null;
   assigned_at: string;
 }
 
@@ -38,6 +44,17 @@ export interface AssignedMothersResponse {
   total: number;
 }
 
+export interface MotherUltrasoundSummary {
+  mother_id: number;
+  last_ultrasound_at: string | null;
+  last_ultrasound_week: number | null;
+}
+
+export interface MotherUltrasoundSummaryResponse {
+  summaries: MotherUltrasoundSummary[];
+  total: number;
+}
+
 class AssignmentService {
   /**
    * Get all mothers assigned to a CHW.
@@ -46,6 +63,13 @@ class AssignmentService {
   async getMothersForCHW(chwId: number, status?: AssignmentStatus): Promise<AssignedMothersResponse> {
     const qs = status ? `?status=${status}` : '';
     return apiClient.get<AssignedMothersResponse>(`/chws/${chwId}/mothers${qs}`);
+  }
+
+  /**
+   * Get latest ultrasound summary rows for all active assigned mothers.
+   */
+  async getLatestUltrasoundSummariesForCHW(chwId: number): Promise<MotherUltrasoundSummaryResponse> {
+    return apiClient.get<MotherUltrasoundSummaryResponse>(`/chws/${chwId}/mothers/latest-ultrasounds`);
   }
 
   /**
