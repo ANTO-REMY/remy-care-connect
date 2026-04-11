@@ -50,15 +50,8 @@ export function MotherProfile({ onBack, motherData }: MotherProfileProps) {
         if (motherData) {
           profile = motherData;
         } else {
-          const storedId = localStorage.getItem('mother_profile_id');
-          const motherId = storedId ? Number(storedId) : NaN;
-          if (!motherId || isNaN(motherId)) {
-            // No profile yet - show editing mode for first-time profile completion
-            setIsEditing(true);
-            setLoading(false);
-            return;
-          }
-          profile = await motherService.getProfile(motherId);
+          // Use JWT-based endpoint — no cached ID needed
+          profile = await motherService.getMyProfile();
         }
 
         if (!profile || !isMounted) return;
@@ -74,9 +67,9 @@ export function MotherProfile({ onBack, motherData }: MotherProfileProps) {
         });
         setIsEditing(false); // Profile is always complete now
 
-        // Load next of kin data for this mother
+        // Load next of kin data for this mother (JWT-based)
         try {
-          const kinList = await motherService.getNextOfKin(profile.id);
+          const kinList = await motherService.getMyNextOfKin();
           if (!isMounted) return;
           const mapped = kinList.slice(0, 2).map(k => ({
             name: k.name,

@@ -64,6 +64,10 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
             };
             // Persist the authoritative data so same-tab refreshes are correct
             sessionStorage.setItem('user', JSON.stringify(fresh));
+            // Keep profile_id in sync for components that depend on it
+            if (serverUser.profile_id && serverUser.role === 'mother') {
+              sessionStorage.setItem('mother_profile_id', String(serverUser.profile_id));
+            }
             setUser(fresh);
           }
         } catch {
@@ -92,6 +96,11 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       const typedUser = response.user as User;
       setUser(typedUser);
       setIsAuthenticated(true);
+
+      // Persist role-specific profile ID so other components can use it
+      if (response.user.profile_id && response.user.role === 'mother') {
+        sessionStorage.setItem('mother_profile_id', String(response.user.profile_id));
+      }
 
       // Set first-login flag for ALL roles (each role has its own onboarding)
       setIsFirstLogin(authService.isFirstLogin(typedUser.id));

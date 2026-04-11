@@ -573,15 +573,13 @@ export function EnhancedMotherDashboard({ isFirstLogin = false }: MotherDashboar
           <div className="grid grid-cols-2 gap-4 pt-4">
             <button
               onClick={() => setCheckInSelected('ok')}
-              className={`flex flex-col items-center p-6 rounded-xl border-2 transition-all ${
-                checkInSelected === 'ok'
+              className={`flex flex-col items-center p-6 rounded-xl border-2 transition-all ${checkInSelected === 'ok'
                   ? 'bg-green-100 border-green-500 ring-2 ring-green-400'
                   : 'bg-green-50 border-green-200 hover:bg-green-100 hover:border-green-300'
-              }`}
+                }`}
             >
-              <div className={`w-16 h-16 rounded-full flex items-center justify-center mb-3 transition-colors ${
-                checkInSelected === 'ok' ? 'bg-green-200' : 'bg-green-100'
-              }`}>
+              <div className={`w-16 h-16 rounded-full flex items-center justify-center mb-3 transition-colors ${checkInSelected === 'ok' ? 'bg-green-200' : 'bg-green-100'
+                }`}>
                 <Sparkles className="h-8 w-8 text-green-600" />
               </div>
               <span className="font-semibold text-green-700">I'm feeling great!</span>
@@ -592,15 +590,13 @@ export function EnhancedMotherDashboard({ isFirstLogin = false }: MotherDashboar
             </button>
             <button
               onClick={() => setCheckInSelected('not_ok')}
-              className={`flex flex-col items-center p-6 rounded-xl border-2 transition-all ${
-                checkInSelected === 'not_ok'
+              className={`flex flex-col items-center p-6 rounded-xl border-2 transition-all ${checkInSelected === 'not_ok'
                   ? 'bg-red-100 border-red-500 ring-2 ring-red-400'
                   : 'bg-red-50 border-red-200 hover:bg-red-100 hover:border-red-300'
-              }`}
+                }`}
             >
-              <div className={`w-16 h-16 rounded-full flex items-center justify-center mb-3 transition-colors ${
-                checkInSelected === 'not_ok' ? 'bg-red-200' : 'bg-red-100'
-              }`}>
+              <div className={`w-16 h-16 rounded-full flex items-center justify-center mb-3 transition-colors ${checkInSelected === 'not_ok' ? 'bg-red-200' : 'bg-red-100'
+                }`}>
                 <Heart className="h-8 w-8 text-red-600" />
               </div>
               <span className="font-semibold text-red-700">Not feeling well</span>
@@ -615,7 +611,7 @@ export function EnhancedMotherDashboard({ isFirstLogin = false }: MotherDashboar
           {checkInSelected && (
             <div className="space-y-3 pt-2">
               <Textarea
-                placeholder="Add a note (optional) â€” describe how you feel..."
+                placeholder="Add a note (optional) describe how you feel..."
                 value={checkInComment}
                 onChange={(e) => setCheckInComment(e.target.value)}
                 rows={3}
@@ -624,11 +620,10 @@ export function EnhancedMotherDashboard({ isFirstLogin = false }: MotherDashboar
               <Button
                 onClick={handleCheckIn}
                 disabled={checkInSubmitting}
-                className={`w-full ${
-                  checkInSelected === 'ok'
+                className={`w-full ${checkInSelected === 'ok'
                     ? 'bg-green-600 hover:bg-green-700'
                     : 'bg-red-600 hover:bg-red-700'
-                } text-white`}
+                  } text-white`}
               >
                 {checkInSubmitting ? (
                   <><Loader2 className="h-4 w-4 mr-2 animate-spin" />Submitting...</>
@@ -1054,16 +1049,14 @@ export function EnhancedMotherDashboard({ isFirstLogin = false }: MotherDashboar
                     <Card key={appt.id} className={`hover:shadow-md transition-shadow ${isCancelled ? 'opacity-60' : ''}`}>
                       <CardContent className="p-4">
                         <div className="flex items-start gap-4">
-                          <div className={`p-3 rounded-xl ${
-                            isCompleted ? 'bg-green-100' :
-                            isCancelled ? 'bg-gray-100' :
-                            'bg-purple-100'
-                          }`}>
-                            <Calendar className={`h-5 w-5 ${
-                              isCompleted ? 'text-green-600' :
-                              isCancelled ? 'text-gray-400' :
-                              'text-purple-600'
-                            }`} />
+                          <div className={`p-3 rounded-xl ${isCompleted ? 'bg-green-100' :
+                              isCancelled ? 'bg-gray-100' :
+                                'bg-purple-100'
+                            }`}>
+                            <Calendar className={`h-5 w-5 ${isCompleted ? 'text-green-600' :
+                                isCancelled ? 'text-gray-400' :
+                                  'text-purple-600'
+                              }`} />
                           </div>
                           <div className="flex-1">
                             <div className="flex items-start justify-between gap-2">
@@ -1095,11 +1088,10 @@ export function EnhancedMotherDashboard({ isFirstLogin = false }: MotherDashboar
                               <div className="flex items-center gap-2 flex-shrink-0">
                                 <Badge
                                   variant="outline"
-                                  className={`text-xs whitespace-nowrap ${
-                                    isScheduled ? 'bg-green-50 text-green-700 border-green-200' :
-                                    isCompleted ? 'bg-blue-50 text-blue-700 border-blue-200' :
-                                    'bg-gray-50 text-gray-600 border-gray-200'
-                                  }`}
+                                  className={`text-xs whitespace-nowrap ${isScheduled ? 'bg-green-50 text-green-700 border-green-200' :
+                                      isCompleted ? 'bg-blue-50 text-blue-700 border-blue-200' :
+                                        'bg-gray-50 text-gray-600 border-gray-200'
+                                    }`}
                                 >
                                   {appt.status}
                                 </Badge>
@@ -1325,7 +1317,7 @@ export function EnhancedMotherDashboard({ isFirstLogin = false }: MotherDashboar
             ) : (
               <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
                 {resources.map((resource) => (
-                  <Card 
+                  <Card
                     key={resource.id}
                     className="hover:shadow-lg transition-all duration-300 cursor-pointer hover:-translate-y-1"
                     onClick={() => window.open(resource.url, '_blank', 'noopener,noreferrer')}

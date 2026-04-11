@@ -180,10 +180,17 @@ class MotherService {
   }
 
   /**
-   * Get next of kin for mother
+   * Get next of kin for mother (by ID — used by CHW/Nurse dashboards)
    */
   async getNextOfKin(motherId: number): Promise<NextOfKin[]> {
     return apiClient.get<NextOfKin[]>(`/nextofkin/${motherId}`);
+  }
+
+  /**
+   * Get next of kin for the currently authenticated mother (JWT-based)
+   */
+  async getMyNextOfKin(): Promise<NextOfKin[]> {
+    return apiClient.get<NextOfKin[]>('/nextofkin/me');
   }
 
   /**
