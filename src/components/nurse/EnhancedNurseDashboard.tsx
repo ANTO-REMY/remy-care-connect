@@ -761,7 +761,7 @@ export function EnhancedNurseDashboard({ isFirstLogin = false }: NurseDashboardP
             <div className="relative">
               <Avatar className="h-32 w-32">
                 <AvatarImage src={profileImage || undefined} />
-                <AvatarFallback className="bg-gradient-to-br from-purple-500 to-pink-600 text-white text-4xl">
+                <AvatarFallback className="bg-primary text-primary-foreground text-4xl">
                   {user?.first_name?.charAt(0).toUpperCase() || "N"}
                 </AvatarFallback>
               </Avatar>
@@ -867,31 +867,6 @@ export function EnhancedNurseDashboard({ isFirstLogin = false }: NurseDashboardP
                   </CardContent>
                 </Card>
 
-                {/* Vitals */}
-                <div className="grid grid-cols-3 gap-4">
-                  <Card className="bg-red-50 border-red-200">
-                    <CardContent className="p-4 text-center">
-                      <p className="text-xs text-red-600 mb-1">Blood Pressure</p>
-                      <p className="text-2xl font-bold text-red-700">{selectedCase.vitals.bloodPressure}</p>
-                      <p className="text-xs text-red-500">mmHg</p>
-                    </CardContent>
-                  </Card>
-                  <Card className="bg-blue-50 border-blue-200">
-                    <CardContent className="p-4 text-center">
-                      <p className="text-xs text-blue-600 mb-1">Heart Rate</p>
-                      <p className="text-2xl font-bold text-blue-700">{selectedCase.vitals.heartRate}</p>
-                      <p className="text-xs text-blue-500">bpm</p>
-                    </CardContent>
-                  </Card>
-                  <Card className="bg-amber-50 border-amber-200">
-                    <CardContent className="p-4 text-center">
-                      <p className="text-xs text-amber-600 mb-1">Temperature</p>
-                      <p className="text-2xl font-bold text-amber-700">{selectedCase.vitals.temperature}</p>
-                      <p className="text-xs text-amber-500">C</p>
-                    </CardContent>
-                  </Card>
-                </div>
-
                 {/* Issue Details */}
                 <Card>
                   <CardHeader className="pb-3">
@@ -924,7 +899,6 @@ export function EnhancedNurseDashboard({ isFirstLogin = false }: NurseDashboardP
                       </div>
                       <Button
                         size="sm"
-                        className="bg-teal-600 hover:bg-teal-700"
                         onClick={() => {
                           setUltrasoundForm({
                             ...ultrasoundForm,
@@ -983,7 +957,7 @@ export function EnhancedNurseDashboard({ isFirstLogin = false }: NurseDashboardP
                       : "Mark In Progress"}
                   </Button>
                   <Button
-                    className="flex-1 bg-green-600 hover:bg-green-700"
+                    className="flex-1"
                     onClick={handleResolveCase}
                     disabled={actionLoading || selectedCase?.status === 'resolved'}
                   >
@@ -1142,7 +1116,7 @@ export function EnhancedNurseDashboard({ isFirstLogin = false }: NurseDashboardP
                 Cancel
               </Button>
               <Button
-                className="flex-1 bg-purple-600 hover:bg-purple-700"
+                className="flex-1"
                 onClick={handleScheduleNurseAppointment}
                 disabled={nurseScheduleSubmitting || !nurseScheduleForm.motherId || !nurseScheduleForm.scheduledTime}
               >
@@ -1392,11 +1366,11 @@ export function EnhancedNurseDashboard({ isFirstLogin = false }: NurseDashboardP
               >
                 <ArrowLeft className="h-5 w-5" />
               </Button>
-              <div className="bg-gradient-to-br from-purple-500 to-pink-600 p-2 rounded-xl hidden sm:block">
+              <div className="bg-primary p-2 rounded-xl hidden sm:block">
                 <Stethoscope className="h-6 w-6 text-white" />
               </div>
               <div>
-                <h1 className="font-bold text-lg bg-gradient-to-r from-purple-600 to-pink-600 bg-clip-text text-transparent">
+                <h1 className="font-bold text-lg text-primary">
                   RemyAfya
                 </h1>
                 <p className="text-xs text-muted-foreground">Nurse Dashboard</p>
@@ -1476,50 +1450,58 @@ export function EnhancedNurseDashboard({ isFirstLogin = false }: NurseDashboardP
 
         {/* Stats Overview */}
         <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-8">
-          <Card className="bg-gradient-to-br from-purple-500 to-purple-600 text-white border-0">
+          <Card className="bg-primary text-primary-foreground border-0">
             <CardContent className="p-4">
               <div className="flex items-center justify-between">
                 <div>
-                  <p className="text-purple-100 text-sm">Total Cases</p>
+                  <p className="text-white/80 text-sm">Total Cases</p>
                   <p className="text-3xl font-bold">{allCases.length}</p>
                 </div>
-                <ClipboardCheck className="h-8 w-8 text-purple-200" />
+                <div className="h-10 w-10 rounded-xl bg-white/20 flex items-center justify-center">
+                  <ClipboardCheck className="h-6 w-6 text-white" />
+                </div>
               </div>
             </CardContent>
           </Card>
 
-          <Card className="bg-gradient-to-br from-green-500 to-green-600 text-white border-0">
+          <Card className="bg-primary text-primary-foreground border-0">
             <CardContent className="p-4">
               <div className="flex items-center justify-between">
                 <div>
-                  <p className="text-green-100 text-sm">Resolved</p>
+                  <p className="text-white/80 text-sm">Resolved</p>
                   <p className="text-3xl font-bold">{allCases.filter(c => c.status === 'resolved').length}</p>
                 </div>
-                <CheckCircle2 className="h-8 w-8 text-green-200" />
+                <div className="h-10 w-10 rounded-xl bg-green-500/25 flex items-center justify-center">
+                  <CheckCircle2 className="h-6 w-6 text-green-100" />
+                </div>
               </div>
             </CardContent>
           </Card>
 
-          <Card className="bg-gradient-to-br from-amber-500 to-amber-600 text-white border-0">
+          <Card className="bg-primary text-primary-foreground border-0">
             <CardContent className="p-4">
               <div className="flex items-center justify-between">
                 <div>
-                  <p className="text-amber-100 text-sm">Pending</p>
+                  <p className="text-white/80 text-sm">Pending</p>
                   <p className="text-3xl font-bold">{allCases.filter(c => c.status === 'pending').length}</p>
                 </div>
-                <Clock4 className="h-8 w-8 text-amber-200" />
+                <div className="h-10 w-10 rounded-xl bg-amber-500/25 flex items-center justify-center">
+                  <Clock4 className="h-6 w-6 text-amber-100" />
+                </div>
               </div>
             </CardContent>
           </Card>
 
-          <Card className="bg-gradient-to-br from-red-500 to-red-600 text-white border-0">
+          <Card className="bg-primary text-primary-foreground border-0">
             <CardContent className="p-4">
               <div className="flex items-center justify-between">
                 <div>
-                  <p className="text-red-100 text-sm">Critical</p>
+                  <p className="text-white/80 text-sm">Critical</p>
                   <p className="text-3xl font-bold">{allCases.filter(c => c.priority === 'critical').length}</p>
                 </div>
-                <AlertTriangle className="h-8 w-8 text-red-200" />
+                <div className="h-10 w-10 rounded-xl bg-red-500/25 flex items-center justify-center">
+                  <AlertTriangle className="h-6 w-6 text-red-100" />
+                </div>
               </div>
             </CardContent>
           </Card>
@@ -1675,8 +1657,7 @@ export function EnhancedNurseDashboard({ isFirstLogin = false }: NurseDashboardP
                             <div className="flex gap-2">
                               {showHiddenNurseEscalations ? (
                                 <Button 
-                                  size="sm" 
-                                  className="bg-blue-600 hover:bg-blue-700"
+                                  size="sm"
                                   onClick={(e) => {
                                     e.stopPropagation();
                                     handleRestoreNurseEscalation(caseItem.id);
@@ -1773,7 +1754,6 @@ export function EnhancedNurseDashboard({ isFirstLogin = false }: NurseDashboardP
 
             {!showHiddenNurseAppointments && (
                 <Button
-                  className="bg-purple-600 hover:bg-purple-700"
                   onClick={() => setShowNurseScheduleModal(true)}
                 >
                   <PlusCircle className="h-4 w-4 mr-2" />
@@ -1812,7 +1792,7 @@ export function EnhancedNurseDashboard({ isFirstLogin = false }: NurseDashboardP
                     : "No CHWs or mothers have requested appointments yet."}
                 </p>
                 {nurseAppointmentTab === 'yours' && (
-                  <Button onClick={() => setShowNurseScheduleModal(true)} className="bg-purple-600 hover:bg-purple-700">
+                  <Button onClick={() => setShowNurseScheduleModal(true)}>
                     <PlusCircle className="h-4 w-4 mr-2" />
                     Schedule First Appointment
                   </Button>
@@ -1935,7 +1915,6 @@ export function EnhancedNurseDashboard({ isFirstLogin = false }: NurseDashboardP
                               <div className="flex gap-2 mt-3">
                                 <Button
                                   size="sm"
-                                  className="bg-blue-600 hover:bg-blue-700"
                                   onClick={async () => {
                                     try {
                                       await appointmentService.restoreDeleted(appt.id);

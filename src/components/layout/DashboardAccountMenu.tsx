@@ -36,7 +36,7 @@ export function DashboardAccountMenu({
         <Button variant="ghost" className="relative h-10 w-10 rounded-full">
           <Avatar className="h-10 w-10 ring-2 ring-slate-200">
             <AvatarImage src={profileImage || undefined} />
-            <AvatarFallback className="bg-gradient-to-br from-sky-600 to-cyan-500 text-white">
+            <AvatarFallback className="bg-primary text-primary-foreground">
               {fallbackText}
             </AvatarFallback>
           </Avatar>

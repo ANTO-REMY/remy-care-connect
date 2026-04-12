@@ -938,7 +938,7 @@ export function EnhancedMotherDashboard({ isFirstLogin = false }: MotherDashboar
                 <Baby className="h-6 w-6 text-white" />
               </div>
               <div>
-                <h1 className="font-bold text-lg bg-gradient-to-r from-teal-700 to-cyan-600 bg-clip-text text-transparent">
+                <h1 className="font-bold text-lg text-primary">
                   RemyAfya
                 </h1>
                 <p className="text-xs text-muted-foreground">Mother's Dashboard</p>
@@ -1041,10 +1041,10 @@ export function EnhancedMotherDashboard({ isFirstLogin = false }: MotherDashboar
             {/* Today's Highlights */}
             <div className="grid md:grid-cols-2 gap-4">
               {/* Daily Tip */}
-              <Card className="bg-gradient-to-br from-amber-50 to-orange-50 border-amber-200">
+              <Card className="bg-blue-50 border-blue-200">
                 <CardHeader className="pb-3">
                   <div className="flex items-center gap-2">
-                    <Sparkles className="h-5 w-5 text-amber-500" />
+                    <Sparkles className="h-5 w-5 text-blue-500" />
                     <CardTitle className="text-base">Daily Tip</CardTitle>
                   </div>
                 </CardHeader>
@@ -1113,7 +1113,7 @@ export function EnhancedMotherDashboard({ isFirstLogin = false }: MotherDashboar
                   {reminders.slice(0, 3).map((reminder) => (
                     <div
                       key={reminder.id}
-                      className={`flex items-center justify-between p-3 rounded-lg transition-colors ${reminder.completed ? 'bg-green-50' : 'bg-gray-50'
+                      className={`flex items-center justify-between p-3 rounded-lg transition-colors ${reminder.completed ? 'bg-blue-50' : 'bg-gray-50'
                         }`}
                     >
                       <div className="flex items-center gap-3">
@@ -1616,7 +1616,7 @@ export function EnhancedMotherDashboard({ isFirstLogin = false }: MotherDashboar
               {reminders.map((reminder) => (
                 <Card
                   key={reminder.id}
-                  className={`transition-all cursor-pointer ${reminder.completed ? 'bg-green-50 border-green-200' : 'hover:shadow-md'
+                  className={`transition-all cursor-pointer ${reminder.completed ? 'bg-blue-50 border-blue-200' : 'hover:shadow-md'
                     }`}
                   onClick={() => toggleReminder(reminder.id)}
                 >
@@ -1664,7 +1664,7 @@ export function EnhancedMotherDashboard({ isFirstLogin = false }: MotherDashboar
                           </div>
                         )}
                         <div className={`w-6 h-6 rounded-full border-2 flex items-center justify-center transition-colors ${reminder.completed
-                          ? 'bg-green-500 border-green-500'
+                          ? 'bg-blue-500 border-blue-500'
                           : 'border-gray-300'
                           }`}>
                           {reminder.completed && <CheckCircle className="h-4 w-4 text-white" />}

@@ -128,6 +128,7 @@ export function EnhancedCHWDashboard({ isFirstLogin = false }: CHWDashboardProps
   const [hiddenAppointmentsLoading, setHiddenAppointmentsLoading] = useState(false);
   const [showHiddenAppointments, setShowHiddenAppointments] = useState(false);
   const [showScheduleModal, setShowScheduleModal] = useState(false);
+  const [scheduleContext, setScheduleContext] = useState<'general' | 'nurse_referral'>('general');
   const [appointmentTab, setAppointmentTab] = useState<'yours' | 'requested'>('yours');
   const [scheduleForm, setScheduleForm] = useState({
     motherId: "",
@@ -176,6 +177,8 @@ export function EnhancedCHWDashboard({ isFirstLogin = false }: CHWDashboardProps
   const [hiddenEscalations, setHiddenEscalations] = useState<typeof mockEscalatedCases>([]);
   const [hiddenEscalationsLoading, setHiddenEscalationsLoading] = useState(false);
   const [showHiddenEscalations, setShowHiddenEscalations] = useState(false);
+  const [showEscalatedCaseDetails, setShowEscalatedCaseDetails] = useState(false);
+  const [selectedEscalatedCase, setSelectedEscalatedCase] = useState<(typeof mockEscalatedCases)[0] | null>(null);
   const [notifications, setNotifications] = useState<UserNotification[]>([]);
   const [unreadNotificationCount, setUnreadNotificationCount] = useState(0);
   // Resources
@@ -245,6 +248,15 @@ export function EnhancedCHWDashboard({ isFirstLogin = false }: CHWDashboardProps
       case 'low': return <Badge variant="outline" className="bg-green-50 text-green-700 border-green-200">Low Risk</Badge>;
       case 'medium': return <Badge variant="outline" className="bg-amber-50 text-amber-700 border-amber-200">Medium Risk</Badge>;
       case 'high': return <Badge variant="outline" className="bg-red-50 text-red-700 border-red-200">High Risk</Badge>;
+    }
+  };
+
+  const getEscalationStatusBadgeClass = (status: string) => {
+    switch (status) {
+      case 'pending': return 'bg-amber-50 text-amber-700 border-amber-200';
+      case 'in_progress': return 'bg-blue-50 text-blue-700 border-blue-200';
+      case 'resolved': return 'bg-green-50 text-green-700 border-green-200';
+      default: return 'bg-gray-50 text-gray-700 border-gray-200';
     }
   };
 
@@ -485,14 +497,15 @@ export function EnhancedCHWDashboard({ isFirstLogin = false }: CHWDashboardProps
     setScheduleSubmitting(true);
     try {
       const motherEntry = displayMothers.find(m => String(m.id) === scheduleForm.motherId);
-      const motherUserId = (motherEntry as Record<string, unknown>)?.user_id as number ?? parseInt(scheduleForm.motherId);
+      const motherUserId = motherEntry?.user_id ?? parseInt(scheduleForm.motherId, 10);
       const appt = await appointmentService.create({
         mother_id: motherUserId,
         health_worker_id: scheduleForm.nurseUserId || user!.id,
         scheduled_time: scheduleForm.scheduledTime.toISOString(),
-        appointment_type: scheduleForm.appointmentType,
         notes: scheduleForm.notes.trim() || undefined,
-        recurrence_rule: scheduleForm.recurrence !== "none" ? scheduleForm.recurrence : undefined,
+        recurrence_rule: scheduleContext === 'nurse_referral'
+          ? undefined
+          : (scheduleForm.recurrence !== "none" ? scheduleForm.recurrence : undefined),
       });
       setAppointments(prev => prev.some(a => a.id === appt.id) ? prev : [appt, ...prev]);
       toast({
@@ -500,6 +513,7 @@ export function EnhancedCHWDashboard({ isFirstLogin = false }: CHWDashboardProps
         description: `Visit for ${motherEntry?.name ?? "mother"} on ${new Date(appt.scheduled_time).toLocaleString()}.`,
       });
       setShowScheduleModal(false);
+      setScheduleContext('general');
       setScheduleForm({ motherId: "", scheduledTime: undefined, appointmentType: "prenatal_checkup", notes: "", recurrence: "none", nurseUserId: undefined });
     } catch (err: unknown) {
       toast({
@@ -509,6 +523,13 @@ export function EnhancedCHWDashboard({ isFirstLogin = false }: CHWDashboardProps
       });
     } finally {
       setScheduleSubmitting(false);
+    }
+  };
+
+  const handleScheduleModalChange = (open: boolean) => {
+    setShowScheduleModal(open);
+    if (!open) {
+      setScheduleContext('general');
     }
   };
 
@@ -868,7 +889,7 @@ export function EnhancedCHWDashboard({ isFirstLogin = false }: CHWDashboardProps
             <div className="relative">
               <Avatar className="h-32 w-32">
                 <AvatarImage src={profileImage || undefined} />
-                <AvatarFallback className="bg-gradient-to-br from-blue-500 to-indigo-600 text-white text-4xl">
+                <AvatarFallback className="bg-primary text-primary-foreground text-4xl">
                   {user?.first_name?.charAt(0).toUpperCase() || "C"}
                 </AvatarFallback>
               </Avatar>
@@ -1101,7 +1122,7 @@ export function EnhancedCHWDashboard({ isFirstLogin = false }: CHWDashboardProps
                 {/* Quick Actions -> Replaced with Ultrasound for now */}
                 <div className="flex gap-2">
                   <Button
-                    className="w-full bg-teal-600 hover:bg-teal-700"
+                    className="w-full"
                     onClick={() => {
                       setUltrasoundForm({ ...ultrasoundForm, motherId: selectedMother.id });
                       setShowMotherDetails(false);
@@ -1285,15 +1306,17 @@ export function EnhancedCHWDashboard({ isFirstLogin = false }: CHWDashboardProps
       </Dialog>
 
       {/* Schedule Appointment Modal */}
-      <Dialog open={showScheduleModal} onOpenChange={setShowScheduleModal}>
+      <Dialog open={showScheduleModal} onOpenChange={handleScheduleModalChange}>
         <DialogContent className="sm:max-w-lg">
           <DialogHeader>
             <DialogTitle className="flex items-center gap-2">
               <CalendarCheck className="h-5 w-5 text-blue-600" />
-              Schedule a Home Visit
+              {scheduleContext === 'nurse_referral' ? 'Book Nurse Appointment' : 'Schedule a Home Visit'}
             </DialogTitle>
             <DialogDescription>
-              Book an appointment or home visit for one of your assigned mothers.
+              {scheduleContext === 'nurse_referral'
+                ? 'Book an appointment with a nurse for this escalated case.'
+                : 'Book an appointment or home visit for one of your assigned mothers.'}
             </DialogDescription>
           </DialogHeader>
           <div className="space-y-4 py-2">
@@ -1322,43 +1345,25 @@ export function EnhancedCHWDashboard({ isFirstLogin = false }: CHWDashboardProps
               />
             </div>
 
-            <div>
-              <label className="text-sm font-medium mb-2 block">Visit Type</label>
-              <Select
-                value={scheduleForm.appointmentType}
-                onValueChange={(v) => setScheduleForm({ ...scheduleForm, appointmentType: v })}
-              >
-                <SelectTrigger>
-                  <SelectValue placeholder="Visit type" />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="prenatal_checkup">Prenatal Checkup</SelectItem>
-                  <SelectItem value="home_visit">Home Visit</SelectItem>
-                  <SelectItem value="postnatal_checkup">Postnatal Checkup</SelectItem>
-                  <SelectItem value="follow_up">Follow-up Visit</SelectItem>
-                  <SelectItem value="emergency">Emergency Visit</SelectItem>
-                  <SelectItem value="other">Other</SelectItem>
-                </SelectContent>
-              </Select>
-            </div>
-
-            <div>
-              <label className="text-sm font-medium mb-2 block">Recurrence</label>
-              <Select
-                value={scheduleForm.recurrence}
-                onValueChange={(v) => setScheduleForm({ ...scheduleForm, recurrence: v })}
-              >
-                <SelectTrigger>
-                  <SelectValue placeholder="Recurrence" />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="none">No Recurrence</SelectItem>
-                  <SelectItem value="weekly">Weekly</SelectItem>
-                  <SelectItem value="biweekly">Bi-weekly</SelectItem>
-                  <SelectItem value="monthly">Monthly</SelectItem>
-                </SelectContent>
-              </Select>
-            </div>
+            {scheduleContext === 'general' && (
+              <div>
+                <label className="text-sm font-medium mb-2 block">Recurrence</label>
+                <Select
+                  value={scheduleForm.recurrence}
+                  onValueChange={(v) => setScheduleForm({ ...scheduleForm, recurrence: v })}
+                >
+                  <SelectTrigger>
+                    <SelectValue placeholder="Recurrence" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="none">No Recurrence</SelectItem>
+                    <SelectItem value="weekly">Weekly</SelectItem>
+                    <SelectItem value="biweekly">Bi-weekly</SelectItem>
+                    <SelectItem value="monthly">Monthly</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
+            )}
 
             <div>
               <label className="text-sm font-medium mb-2 block">Notes</label>
@@ -1373,16 +1378,16 @@ export function EnhancedCHWDashboard({ isFirstLogin = false }: CHWDashboardProps
           <div className="flex gap-2 pt-2">
             <Button
               onClick={handleScheduleAppointment}
-              className="flex-1 bg-blue-600 hover:bg-blue-700"
+              className="flex-1"
               disabled={scheduleSubmitting}
             >
               {scheduleSubmitting ? (
                 <><Activity className="h-4 w-4 mr-2 animate-spin" />Scheduling...</>
               ) : (
-                <><CalendarCheck className="h-4 w-4 mr-2" />Schedule Visit</>
+                <><CalendarCheck className="h-4 w-4 mr-2" />{scheduleContext === 'nurse_referral' ? 'Book Nurse Appointment' : 'Schedule Visit'}</>
               )}
             </Button>
-            <Button variant="outline" onClick={() => setShowScheduleModal(false)} disabled={scheduleSubmitting}>
+            <Button variant="outline" onClick={() => handleScheduleModalChange(false)} disabled={scheduleSubmitting}>
               Cancel
             </Button>
           </div>
@@ -1703,6 +1708,69 @@ export function EnhancedCHWDashboard({ isFirstLogin = false }: CHWDashboardProps
         </DialogContent>
       </Dialog>
 
+      {/* Escalated Case Details Dialog */}
+      <Dialog open={showEscalatedCaseDetails} onOpenChange={setShowEscalatedCaseDetails}>
+        <DialogContent className="sm:max-w-2xl max-h-[90vh] overflow-y-auto">
+          {selectedEscalatedCase && (
+            <>
+              <DialogHeader>
+                <DialogTitle className="text-xl">Case Details</DialogTitle>
+                <DialogDescription>
+                  Escalated on {new Date(selectedEscalatedCase.escalatedAt).toLocaleString()}
+                </DialogDescription>
+              </DialogHeader>
+
+              <div className="space-y-4 py-2">
+                <Card>
+                  <CardHeader className="pb-3">
+                    <div className="flex items-center justify-between gap-3">
+                      <div>
+                        <CardTitle className="text-lg">{selectedEscalatedCase.motherName}</CardTitle>
+                        <CardDescription>Issue: {selectedEscalatedCase.issueType}</CardDescription>
+                      </div>
+                      <div className="flex items-center gap-2">
+                        <Badge variant="outline" className={getEscalationStatusBadgeClass(selectedEscalatedCase.status)}>
+                          {selectedEscalatedCase.status.replace('_', ' ')}
+                        </Badge>
+                        <Badge variant="destructive">{selectedEscalatedCase.priority} priority</Badge>
+                      </div>
+                    </div>
+                  </CardHeader>
+                  <CardContent className="space-y-2 text-sm text-muted-foreground">
+                    <p><span className="font-medium text-foreground">Summary:</span> {selectedEscalatedCase.issue}</p>
+                    <p><span className="font-medium text-foreground">Notes:</span> {selectedEscalatedCase.notes || "No extra notes provided."}</p>
+                  </CardContent>
+                </Card>
+
+                <div className="flex gap-2">
+                  <Button
+                    variant="outline"
+                    onClick={() => {
+                      const motherEntry = displayMothers.find(m => m.name === selectedEscalatedCase.motherName);
+                      const mId = motherEntry ? String(motherEntry.id) : "";
+                      setScheduleForm({
+                        motherId: mId,
+                        scheduledTime: undefined,
+                        appointmentType: "consultation",
+                        recurrence: "none",
+                        notes: `Regarding Escalation: ${selectedEscalatedCase.issueType} - ${selectedEscalatedCase.notes}`,
+                        nurseUserId: (selectedEscalatedCase as any).nurseUserId,
+                      });
+                      setScheduleContext('nurse_referral');
+                      setShowEscalatedCaseDetails(false);
+                      setShowScheduleModal(true);
+                    }}
+                  >
+                    <CalendarCheck className="h-4 w-4 mr-2" />
+                    Book with Nurse
+                  </Button>
+                </div>
+              </div>
+            </>
+          )}
+        </DialogContent>
+      </Dialog>
+
       {/* Header */}
       <ConnectionBanner />
       <header className="sticky top-0 z-50 bg-white/80 backdrop-blur-md border-b">
@@ -1717,11 +1785,11 @@ export function EnhancedCHWDashboard({ isFirstLogin = false }: CHWDashboardProps
               >
                 <ArrowLeft className="h-5 w-5" />
               </Button>
-              <div className="bg-gradient-to-br from-blue-500 to-indigo-600 p-2 rounded-xl">
+              <div className="bg-primary p-2 rounded-xl">
                 <Users className="h-6 w-6 text-white" />
               </div>
               <div>
-                <h1 className="font-bold text-lg bg-gradient-to-r from-blue-600 to-indigo-600 bg-clip-text text-transparent">
+                <h1 className="font-bold text-lg text-primary">
                   RemyAfya
                 </h1>
                 <p className="text-xs text-muted-foreground">CHW Dashboard</p>
@@ -1796,68 +1864,76 @@ export function EnhancedCHWDashboard({ isFirstLogin = false }: CHWDashboardProps
 
         {/* Stats Overview */}
         <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-8">
-          <Card className="bg-gradient-to-br from-blue-500 to-blue-600 text-white border-0">
+          <Card className="bg-primary text-primary-foreground border-0">
             <CardContent className="p-4">
               <div className="flex items-center justify-between">
                 <div>
-                  <p className="text-blue-100 text-sm">Total Mothers</p>
+                  <p className="text-white/80 text-sm">Total Mothers</p>
                   <p className="text-3xl font-bold">{displayMothers.length}</p>
                 </div>
-                <Users className="h-8 w-8 text-blue-200" />
+                <div className="h-10 w-10 rounded-xl bg-white/20 flex items-center justify-center">
+                  <Users className="h-6 w-6 text-white" />
+                </div>
               </div>
               <div className="flex items-center gap-1 mt-2 text-sm">
                 <ArrowUpRight className="h-4 w-4 text-green-300" />
                 <span className="text-green-300">+{weeklyStats.registrationChange}</span>
-                <span className="text-blue-200">this week</span>
+                <span className="text-white/75">this week</span>
               </div>
             </CardContent>
           </Card>
 
-          <Card className="bg-gradient-to-br from-green-500 to-green-600 text-white border-0">
+          <Card className="bg-primary text-primary-foreground border-0">
             <CardContent className="p-4">
               <div className="flex items-center justify-between">
                 <div>
-                  <p className="text-green-100 text-sm">Doing Well</p>
+                  <p className="text-white/80 text-sm">Doing Well</p>
                   <p className="text-3xl font-bold">{displayMothers.filter(m => m.status === 'ok').length}</p>
                 </div>
-                <CheckCircle className="h-8 w-8 text-green-200" />
+                <div className="h-10 w-10 rounded-xl bg-green-500/25 flex items-center justify-center">
+                  <CheckCircle className="h-6 w-6 text-green-100" />
+                </div>
               </div>
               <div className="flex items-center gap-1 mt-2 text-sm">
                 <ArrowUpRight className="h-4 w-4 text-green-300" />
                 <span className="text-green-300">+{weeklyStats.checkInChange}</span>
-                <span className="text-green-200">check-ins</span>
+                <span className="text-white/75">check-ins</span>
               </div>
             </CardContent>
           </Card>
 
-          <Card className="bg-gradient-to-br from-red-500 to-red-600 text-white border-0">
+          <Card className="bg-primary text-primary-foreground border-0">
             <CardContent className="p-4">
               <div className="flex items-center justify-between">
                 <div>
-                  <p className="text-red-100 text-sm">Need Attention</p>
+                  <p className="text-white/80 text-sm">Need Attention</p>
                   <p className="text-3xl font-bold">{mothersWithIssues.length}</p>
                 </div>
-                <AlertTriangle className="h-8 w-8 text-red-200" />
+                <div className="h-10 w-10 rounded-xl bg-red-500/25 flex items-center justify-center">
+                  <AlertTriangle className="h-6 w-6 text-red-100" />
+                </div>
               </div>
               <div className="flex items-center gap-1 mt-2 text-sm">
                 <ArrowDownRight className="h-4 w-4 text-green-300" />
                 <span className="text-green-300">{weeklyStats.issuesChange}</span>
-                <span className="text-red-200">from last week</span>
+                <span className="text-white/75">from last week</span>
               </div>
             </CardContent>
           </Card>
 
-          <Card className="bg-gradient-to-br from-amber-500 to-amber-600 text-white border-0">
+          <Card className="bg-primary text-primary-foreground border-0">
             <CardContent className="p-4">
               <div className="flex items-center justify-between">
                 <div>
-                  <p className="text-amber-100 text-sm">Escalated</p>
+                  <p className="text-white/80 text-sm">Escalated</p>
                   <p className="text-3xl font-bold">{(realEscalations ?? []).length}</p>
                 </div>
-                <Upload className="h-8 w-8 text-amber-200" />
+                <div className="h-10 w-10 rounded-xl bg-amber-500/25 flex items-center justify-center">
+                  <Upload className="h-6 w-6 text-amber-100" />
+                </div>
               </div>
               <div className="flex items-center gap-1 mt-2 text-sm">
-                <span className="text-amber-200">Pending review</span>
+                <span className="text-white/75">Pending review</span>
               </div>
             </CardContent>
           </Card>
@@ -1953,7 +2029,7 @@ export function EnhancedCHWDashboard({ isFirstLogin = false }: CHWDashboardProps
                       {getRiskBadge(mother.risk_level)}
                       <Button
                         size="sm"
-                        className="bg-teal-600 hover:bg-teal-700 text-xs"
+                        className="text-xs"
                         onClick={(e) => {
                           e.stopPropagation();
                           if (mother.last_ultrasound_at) {
@@ -2158,8 +2234,10 @@ export function EnhancedCHWDashboard({ isFirstLogin = false }: CHWDashboardProps
                 </Button>
               ) : (
                 <Button
-                  className="bg-blue-600 hover:bg-blue-700"
-                  onClick={() => setShowScheduleModal(true)}
+                  onClick={() => {
+                    setScheduleContext('general');
+                    setShowScheduleModal(true);
+                  }}
                 >
                   <PlusCircle className="h-4 w-4 mr-2" />
                   Schedule Visit
@@ -2234,8 +2312,10 @@ export function EnhancedCHWDashboard({ isFirstLogin = false }: CHWDashboardProps
                   </p>
                   {appointmentTab === 'yours' && (
                     <Button
-                      className="bg-blue-600 hover:bg-blue-700"
-                      onClick={() => setShowScheduleModal(true)}
+                      onClick={() => {
+                        setScheduleContext('general');
+                        setShowScheduleModal(true);
+                      }}
                     >
                       <PlusCircle className="h-4 w-4 mr-2" />
                       Schedule First Visit
@@ -2476,12 +2556,7 @@ export function EnhancedCHWDashboard({ isFirstLogin = false }: CHWDashboardProps
                         </div>
                       </div>
                       <div className="flex items-center gap-2">
-                        <Badge variant="outline" className={
-                          caseItem.status === 'pending' ? 'bg-amber-50 text-amber-700 border-amber-200' :
-                          caseItem.status === 'in_progress' ? 'bg-blue-50 text-blue-700 border-blue-200' :
-                          caseItem.status === 'resolved' ? 'bg-green-50 text-green-700 border-green-200' :
-                          'bg-gray-50 text-gray-700 border-gray-200'
-                        }>
+                        <Badge variant="outline" className={getEscalationStatusBadgeClass(caseItem.status)}>
                           {caseItem.status.replace('_', ' ')}
                         </Badge>
                         <Badge variant="destructive" className={showHiddenEscalations ? "bg-gray-400" : ""}>{caseItem.priority} priority</Badge>
@@ -2497,7 +2572,7 @@ export function EnhancedCHWDashboard({ isFirstLogin = false }: CHWDashboardProps
                       <div className="flex gap-2 flex-wrap">
                         {showHiddenEscalations ? (
                           <Button 
-                            className="flex-1 bg-blue-600 hover:bg-blue-700"
+                            className="flex-1"
                             onClick={() => handleRestoreEscalation(caseItem.id)}
                           >
                             <PlusCircle className="h-4 w-4 mr-2" />
@@ -2505,9 +2580,15 @@ export function EnhancedCHWDashboard({ isFirstLogin = false }: CHWDashboardProps
                           </Button>
                         ) : (
                           <>
-                            <Button className="flex-1">
+                            <Button
+                              className="flex-1"
+                              onClick={() => {
+                                setSelectedEscalatedCase(caseItem);
+                                setShowEscalatedCaseDetails(true);
+                              }}
+                            >
                               <Stethoscope className="h-4 w-4 mr-2" />
-                              View Full Case
+                              View Case Details
                             </Button>
                             <Button
                               variant="outline"
@@ -2522,6 +2603,7 @@ export function EnhancedCHWDashboard({ isFirstLogin = false }: CHWDashboardProps
                                   notes: `Regarding Escalation: ${caseItem.issueType} - ${caseItem.notes}`,
                                   nurseUserId: (caseItem as any).nurseUserId
                                 });
+                                setScheduleContext('nurse_referral');
                                 setShowScheduleModal(true);
                               }}
                             >
