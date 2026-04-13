@@ -230,7 +230,7 @@ export default function OnboardingModal({ open, onComplete }: OnboardingModalPro
                         <div className="flex flex-col items-center gap-4 py-4">
                             <div
                                 onClick={() => fileInputRef.current?.click()}
-                                className="relative w-32 h-32 rounded-full border-4 border-dashed border-primary/40 flex items-center justify-center overflow-hidden bg-muted cursor-pointer hover:border-primary transition-colors group"
+                                className="relative w-24 h-24 sm:w-32 sm:h-32 rounded-full border-4 border-dashed border-primary/40 flex items-center justify-center overflow-hidden bg-muted cursor-pointer hover:border-primary transition-colors group"
                             >
                                 {previewUrl ? (
                                     <img src={previewUrl} alt="Preview" className="w-full h-full object-cover" />

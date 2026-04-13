@@ -42,6 +42,7 @@ import { Alert, AlertDescription } from '@/components/ui/alert';
 import { DashboardAccountMenu } from "@/components/layout/DashboardAccountMenu";
 import { combineInsights, getMaternalWeightInsight, getUltrasoundInsight } from "@/lib/clinicalInsights";
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
+import { RESPONSIVE_PADDING } from "@/components/ui/spacing.constants";
 
 // Mock data for escalated cases
 const mockEscalatedCases = [
@@ -963,23 +964,23 @@ export function EnhancedCHWDashboard({ isFirstLogin = false }: CHWDashboardProps
 
               <div className="space-y-6 py-4">
                 {/* Pregnancy Info */}
-                <div className="grid grid-cols-3 gap-4">
+                <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
                   <Card className="bg-gradient-to-br from-pink-50 to-purple-50">
-                    <CardContent className="p-4 text-center">
+                    <CardContent className={`${RESPONSIVE_PADDING.card} text-center`}>
                       <Baby className="h-6 w-6 mx-auto mb-2 text-pink-500" />
                       <p className="text-2xl font-bold">{selectedMother.weeks_pregnant}</p>
                       <p className="text-xs text-muted-foreground">Weeks Pregnant</p>
                     </CardContent>
                   </Card>
                   <Card className="bg-gradient-to-br from-blue-50 to-cyan-50">
-                    <CardContent className="p-4 text-center">
+                    <CardContent className={`${RESPONSIVE_PADDING.card} text-center`}>
                       <Calendar className="h-6 w-6 mx-auto mb-2 text-blue-500" />
                       <p className="text-lg font-bold">{new Date(selectedMother.due_date).toLocaleDateString('en-US', { month: 'short', day: 'numeric' })}</p>
                       <p className="text-xs text-muted-foreground">Due Date</p>
                     </CardContent>
                   </Card>
                   <Card className="bg-gradient-to-br from-green-50 to-emerald-50">
-                    <CardContent className="p-4 text-center">
+                    <CardContent className={`${RESPONSIVE_PADDING.card} text-center`}>
                       <CheckCircle className="h-6 w-6 mx-auto mb-2 text-green-500" />
                       <p className="text-lg font-bold">{selectedMother.last_check_in}</p>
                       <p className="text-xs text-muted-foreground">Last Check-in</p>
@@ -1028,11 +1029,11 @@ export function EnhancedCHWDashboard({ isFirstLogin = false }: CHWDashboardProps
                   <h4 className="font-medium mb-3">Clinical Snapshot</h4>
                   {motherClinicalLoading ? (
                     <Card>
-                      <CardContent className="p-4 text-sm text-muted-foreground">Loading clinical history...</CardContent>
+                      <CardContent className={`${RESPONSIVE_PADDING.card} text-sm text-muted-foreground`}>Loading clinical history...</CardContent>
                     </Card>
                   ) : motherClinicalError ? (
                     <Card className="border-red-200 bg-red-50">
-                      <CardContent className="p-4 text-sm text-red-700">{motherClinicalError}</CardContent>
+                      <CardContent className={`${RESPONSIVE_PADDING.card} text-sm text-red-700`}>{motherClinicalError}</CardContent>
                     </Card>
                   ) : (
                     <div className="grid md:grid-cols-2 gap-4">
@@ -1396,7 +1397,7 @@ export function EnhancedCHWDashboard({ isFirstLogin = false }: CHWDashboardProps
 
       {/* Escalate from Check-in Confirmation Dialog */}
       <Dialog open={showEscalateFromCheckinDialog} onOpenChange={setShowEscalateFromCheckinDialog}>
-        <DialogContent className="max-w-sm">
+        <DialogContent className="sm:max-w-sm">
           <DialogHeader>
             <DialogTitle className="flex items-center gap-2">
               <AlertCircle className="h-5 w-5 text-red-500" />
@@ -1449,7 +1450,7 @@ export function EnhancedCHWDashboard({ isFirstLogin = false }: CHWDashboardProps
 
       {/* â”€â”€ Edit Appointment Dialog (15-min window) â”€â”€ */}
       <Dialog open={editApptOpen} onOpenChange={setEditApptOpen}>
-        <DialogContent className="max-w-md">
+        <DialogContent className="sm:max-w-md">
           <DialogHeader>
             <DialogTitle>Edit Appointment</DialogTitle>
             <DialogDescription>You can edit this appointment within the 15-minute window.</DialogDescription>
@@ -1516,7 +1517,7 @@ export function EnhancedCHWDashboard({ isFirstLogin = false }: CHWDashboardProps
 
       {/* â”€â”€ Delete Appointment Confirmation â”€â”€ */}
       <Dialog open={deleteApptConfirm !== null} onOpenChange={(o) => { if (!o) setDeleteApptConfirm(null); }}>
-        <DialogContent className="max-w-sm">
+        <DialogContent className="sm:max-w-sm">
           <DialogHeader>
             <DialogTitle className="flex items-center gap-2 text-red-600">
               <AlertCircle className="h-5 w-5" />Remove Appointment From Your Dashboard?
@@ -1552,7 +1553,7 @@ export function EnhancedCHWDashboard({ isFirstLogin = false }: CHWDashboardProps
 
       {/* -- Delete Escalation Confirmation -- */}
       <Dialog open={deleteEscalConfirm !== null} onOpenChange={(o) => { if (!o) setDeleteEscalConfirm(null); }}>
-        <DialogContent className="max-w-sm">
+        <DialogContent className="sm:max-w-sm">
           <DialogHeader>
             <DialogTitle className="flex items-center gap-2 text-red-600">
               <AlertCircle className="h-5 w-5" />Delete Escalation?
@@ -1589,7 +1590,7 @@ export function EnhancedCHWDashboard({ isFirstLogin = false }: CHWDashboardProps
 
       {/* â”€â”€ Edit Escalation Dialog (15-min window) â”€â”€ */}
       <Dialog open={editEscalOpen} onOpenChange={setEditEscalOpen}>
-        <DialogContent className="max-w-md">
+        <DialogContent className="sm:max-w-md">
           <DialogHeader>
             <DialogTitle>Edit Escalation</DialogTitle>
             <DialogDescription>You can edit this escalation within the 15-minute window.</DialogDescription>
@@ -1674,7 +1675,7 @@ export function EnhancedCHWDashboard({ isFirstLogin = false }: CHWDashboardProps
 
       {/* â”€â”€ Delete Escalation Confirmation â”€â”€ */}
       <Dialog open={deleteEscalConfirm !== null} onOpenChange={(o) => { if (!o) setDeleteEscalConfirm(null); }}>
-        <DialogContent className="max-w-sm">
+        <DialogContent className="sm:max-w-sm">
           <DialogHeader>
             <DialogTitle className="flex items-center gap-2 text-red-600">
               <AlertCircle className="h-5 w-5" />Delete Escalation?
@@ -1863,9 +1864,9 @@ export function EnhancedCHWDashboard({ isFirstLogin = false }: CHWDashboardProps
         </div>
 
         {/* Stats Overview */}
-        <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-8">
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4 mb-8">
           <Card className="bg-primary text-primary-foreground border-0">
-            <CardContent className="p-4">
+            <CardContent className={RESPONSIVE_PADDING.card}>
               <div className="flex items-center justify-between">
                 <div>
                   <p className="text-white/80 text-sm">Total Mothers</p>
@@ -1884,7 +1885,7 @@ export function EnhancedCHWDashboard({ isFirstLogin = false }: CHWDashboardProps
           </Card>
 
           <Card className="bg-primary text-primary-foreground border-0">
-            <CardContent className="p-4">
+            <CardContent className={RESPONSIVE_PADDING.card}>
               <div className="flex items-center justify-between">
                 <div>
                   <p className="text-white/80 text-sm">Doing Well</p>
@@ -1903,7 +1904,7 @@ export function EnhancedCHWDashboard({ isFirstLogin = false }: CHWDashboardProps
           </Card>
 
           <Card className="bg-primary text-primary-foreground border-0">
-            <CardContent className="p-4">
+            <CardContent className={RESPONSIVE_PADDING.card}>
               <div className="flex items-center justify-between">
                 <div>
                   <p className="text-white/80 text-sm">Need Attention</p>
@@ -1922,7 +1923,7 @@ export function EnhancedCHWDashboard({ isFirstLogin = false }: CHWDashboardProps
           </Card>
 
           <Card className="bg-primary text-primary-foreground border-0">
-            <CardContent className="p-4">
+            <CardContent className={RESPONSIVE_PADDING.card}>
               <div className="flex items-center justify-between">
                 <div>
                   <p className="text-white/80 text-sm">Escalated</p>
@@ -1941,7 +1942,7 @@ export function EnhancedCHWDashboard({ isFirstLogin = false }: CHWDashboardProps
 
         {/* Main Tabs */}
         <Tabs value={activeTab} onValueChange={setActiveTab} className="space-y-6">
-          <TabsList className="grid grid-cols-4 w-full">
+          <TabsList className="grid grid-cols-2 md:grid-cols-4 w-full">
             <TabsTrigger value="mothers">My Mothers</TabsTrigger>
             <TabsTrigger value="appointments">Appointments</TabsTrigger>
             <TabsTrigger value="cases">Escalated Cases</TabsTrigger>
@@ -2098,7 +2099,7 @@ export function EnhancedCHWDashboard({ isFirstLogin = false }: CHWDashboardProps
                 </div>
               ) : displayedCheckIns.length === 0 ? (
                 <Card className="border-dashed border-2 border-gray-200 bg-gray-50/50">
-                  <CardContent className="p-6 text-center">
+                  <CardContent className={`${RESPONSIVE_PADDING.modal} text-center`}>
                     <Heart className="h-10 w-10 mx-auto mb-3 text-gray-300" />
                     <p className="text-muted-foreground text-sm">
                       {showHiddenCheckIns
@@ -2128,7 +2129,7 @@ export function EnhancedCHWDashboard({ isFirstLogin = false }: CHWDashboardProps
                       showHiddenCheckIns ? 'border-l-gray-400 bg-gray-50/50' :
                       ci.response === 'ok' ? 'border-l-green-500 bg-green-50/30' : 'border-l-red-500 bg-red-50/30'
                     }`}>
-                      <CardContent className="p-4">
+                      <CardContent className={RESPONSIVE_PADDING.card}>
                         <div className="flex items-start gap-3">
                           <Avatar className="h-10 w-10">
                             <AvatarFallback className={`text-white text-sm font-semibold ${
@@ -2334,7 +2335,7 @@ export function EnhancedCHWDashboard({ isFirstLogin = false }: CHWDashboardProps
                       key={appt.id}
                       className={`transition-all ${isUpcoming ? 'border-blue-200 bg-blue-50/30' : isPast ? 'border-green-200 bg-green-50/20' : 'border-gray-200 opacity-70'}`}
                     >
-                      <CardContent className="p-4">
+                      <CardContent className={RESPONSIVE_PADDING.card}>
                         <div className="flex items-start gap-4">
                           <div className={`p-3 rounded-xl flex-shrink-0 ${isUpcoming ? 'bg-blue-100' : isPast ? 'bg-green-100' : 'bg-gray-100'}`}>
                             {isUpcoming ? (
@@ -2675,7 +2676,7 @@ export function EnhancedCHWDashboard({ isFirstLogin = false }: CHWDashboardProps
               <div className="grid md:grid-cols-2 gap-4">
                 {resources.map((resource) => (
                   <Card key={resource.id} className="hover:shadow-lg transition-shadow">
-                    <CardContent className="p-4">
+                    <CardContent className={RESPONSIVE_PADDING.card}>
                       <div className="flex items-start gap-4">
                         <div className="text-4xl">{resource.thumbnail}</div>
                         <div className="flex-1">

@@ -577,7 +577,7 @@ export function ModernMotherDashboard() {
         </header>
 
         {/* â”€â”€ SCROLLABLE CONTENT â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€ */}
-        <main className="flex-1 overflow-y-auto p-6 space-y-6">
+        <main className="flex-1 overflow-y-auto p-3 sm:p-4 md:p-6 space-y-4 sm:space-y-6">
 
           {/* Page heading */}
           <div className="flex items-center justify-between">
@@ -610,7 +610,7 @@ export function ModernMotherDashboard() {
           </div>
 
           {/* â”€â”€ STAT CARDS â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€ */}
-          <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
             {/* Total Appointments */}
             <StatCard
               label="Total Appointments"
@@ -724,7 +724,8 @@ export function ModernMotherDashboard() {
                   No appointments yet
                 </div>
               ) : (
-                <table className="w-full text-sm">
+                <div className="overflow-x-auto">
+                  <table className="w-full min-w-[640px] text-sm">
                   <thead>
                     <tr className="bg-gray-50">
                       <th className="text-left px-5 py-2.5 text-xs font-semibold text-gray-500 uppercase tracking-wide">Type</th>
@@ -770,7 +771,8 @@ export function ModernMotherDashboard() {
                       </tr>
                     ))}
                   </tbody>
-                </table>
+                  </table>
+                </div>
               )}
             </div>
 
@@ -825,7 +827,7 @@ export function ModernMotherDashboard() {
           </div>
 
           {/* â”€â”€ QUICK ACTIONS STRIP â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€ */}
-          <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3">
             {[
               { label: "Daily Check-in",         icon: <Heart className="h-5 w-5" />,        accent: TEAL_ACC,  action: () => setShowCheckInModal(true) },
               { label: "Book Appointment",        icon: <Calendar className="h-5 w-5" />,     accent: "#8b5cf6", action: () => setShowScheduleModal(true) },
@@ -853,14 +855,14 @@ export function ModernMotherDashboard() {
 
       {/* Daily Check-in Modal */}
       <Dialog open={showCheckInModal} onOpenChange={(o) => { setShowCheckInModal(o); if (!o) { setCheckInSelected(null); setCheckInComment(""); } }}>
-        <DialogContent className="max-w-md">
+        <DialogContent className="sm:max-w-md">
           <DialogHeader>
             <DialogTitle className="text-center text-xl">How are you feeling today?</DialogTitle>
             <DialogDescription className="text-center text-sm">
               Your response helps us monitor your health
             </DialogDescription>
           </DialogHeader>
-          <div className="grid grid-cols-2 gap-3 pt-4">
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 pt-4">
             {([["ok", "Feeling Great!", "No concerns", "bg-teal-50 border-teal-200 hover:border-teal-400", "bg-teal-100 border-teal-500 ring-2 ring-teal-300", "text-teal-700"] ,
                ["not_ok", "Not Feeling Well", "Need support", "bg-rose-50 border-rose-200 hover:border-rose-400", "bg-rose-100 border-rose-500 ring-2 ring-rose-300", "text-rose-700"]] as const)
               .map(([val, title, sub, idle, active, textCls]) => (
@@ -909,7 +911,7 @@ export function ModernMotherDashboard() {
 
       {/* Schedule Appointment Modal */}
       <Dialog open={showScheduleModal} onOpenChange={setShowScheduleModal}>
-        <DialogContent className="max-w-md">
+        <DialogContent className="sm:max-w-md">
           <DialogHeader>
             <DialogTitle>Book Appointment</DialogTitle>
             <DialogDescription>Request a visit with your assigned health worker.</DialogDescription>
@@ -963,7 +965,7 @@ export function ModernMotherDashboard() {
 
       {/* Deleted Appointments Dialog */}
       <Dialog open={showHiddenApptsDialog} onOpenChange={setShowHiddenApptsDialog}>
-        <DialogContent className="max-w-2xl">
+        <DialogContent className="sm:max-w-2xl">
           <DialogHeader>
             <DialogTitle>Recently Deleted Appointments</DialogTitle>
             <DialogDescription>Appointments deleted from your dashboard in the last 15 days. You can restore them here.</DialogDescription>
@@ -1010,7 +1012,7 @@ export function ModernMotherDashboard() {
 
       {/* Photo Upload Modal */}
       <Dialog open={showPhotoUpload} onOpenChange={setShowPhotoUpload}>
-        <DialogContent className="max-w-sm">
+        <DialogContent className="sm:max-w-sm">
           <DialogHeader>
             <DialogTitle className="text-center">Update Profile Photo</DialogTitle>
           </DialogHeader>

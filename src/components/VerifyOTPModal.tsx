@@ -104,11 +104,11 @@ export function VerifyOTPModal({ open, onOpenChange, onVerified, onSubmit, onRes
             <p className="text-sm text-muted-foreground">Didn’t receive a code? You can resend it.</p>
           )}
 
-          <div className="flex w-full items-center justify-between gap-3">
-            <Button variant="outline" className="w-1/2" onClick={handleResend} disabled={isResending || isVerifying}>
+          <div className="flex w-full flex-col sm:flex-row items-stretch sm:items-center justify-between gap-3">
+            <Button variant="outline" className="flex-1 sm:w-1/2" onClick={handleResend} disabled={isResending || isVerifying}>
               {isResending ? 'Resending…' : 'Resend'}
             </Button>
-            <Button className="w-1/2" onClick={handleVerify} disabled={!isComplete || isVerifying}>
+            <Button className="flex-1 sm:w-1/2" onClick={handleVerify} disabled={!isComplete || isVerifying}>
               {isVerifying ? 'Verifying…' : 'Submit'}
             </Button>
           </div>

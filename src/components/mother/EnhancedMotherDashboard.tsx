@@ -42,6 +42,7 @@ import { useSocket, useSocketStatus } from "@/hooks/useSocket";
 import { ConnectionBanner } from "@/components/ConnectionBanner";
 import { PregnancyJourneyTracker, fetalDevelopmentData } from "./PregnancyJourneyTracker";
 import { DashboardAccountMenu } from "@/components/layout/DashboardAccountMenu";
+import { RESPONSIVE_PADDING } from "@/components/ui/spacing.constants";
 
 
 
@@ -821,7 +822,7 @@ export function EnhancedMotherDashboard({ isFirstLogin = false }: MotherDashboar
 
       {/* Check-in Modal */}
       <Dialog open={showCheckInModal} onOpenChange={(open) => { setShowCheckInModal(open); if (!open) { setCheckInSelected(null); setSelectedSymptoms([]); setCheckInComment(''); } }}>
-        <DialogContent className="max-w-md">
+        <DialogContent className="sm:max-w-md">
           <DialogHeader>
             <DialogTitle className="text-center text-2xl">How are you feeling today?</DialogTitle>
             <DialogDescription className="text-center">
@@ -1028,7 +1029,7 @@ export function EnhancedMotherDashboard({ isFirstLogin = false }: MotherDashboar
 
         {/* Main Tabs Content */}
         <Tabs value={activeTab} onValueChange={setActiveTab} className="space-y-6">
-          <TabsList className="grid grid-cols-5 w-full">
+          <TabsList className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-5 w-full">
             <TabsTrigger value="overview">Overview</TabsTrigger>
             <TabsTrigger value="appointments">Appointments</TabsTrigger>
             <TabsTrigger value="nutrition">Nutrition</TabsTrigger>
@@ -1166,7 +1167,7 @@ export function EnhancedMotherDashboard({ isFirstLogin = false }: MotherDashboar
                           </div>
                         </div>
                       </CardHeader>
-                      <CardContent className="p-4 pt-0">
+                      <CardContent>
                         <h4 className="font-medium line-clamp-2 mb-2 whitespace-normal">{resource.title}</h4>
                         <p className="text-sm text-muted-foreground line-clamp-2">
                           {resource.description}
@@ -1274,7 +1275,7 @@ export function EnhancedMotherDashboard({ isFirstLogin = false }: MotherDashboar
             ) : (displayedAppointments.length === 0) ? (
               <div className="space-y-3">
                 <Card className="border-dashed border-2 border-primary/30 bg-primary/5">
-                  <CardContent className="p-4 text-center">
+                  <CardContent className={`${RESPONSIVE_PADDING.card} text-center`}>
                     <Calendar className="h-10 w-10 mx-auto mb-2 text-primary/50" />
                     <p className="text-sm text-muted-foreground">
                       {showHiddenAppointments ? 'No deleted appointments in the last 15 days.' : (apptTab === 'yours' ? 'You haven\'t requested any appointments yet.' : 'No Health Worker appointments scheduled yet.')}
@@ -1296,7 +1297,7 @@ export function EnhancedMotherDashboard({ isFirstLogin = false }: MotherDashboar
                   const isCancelled = appt.status === 'canceled' || appt.status === 'cancelled';
                   return (
                     <Card key={appt.id} className={`hover:shadow-md transition-shadow ${isCancelled ? 'opacity-60' : ''}`}>
-                      <CardContent className="p-4">
+                      <CardContent className={RESPONSIVE_PADDING.card}>
                         <div className="flex items-start gap-4">
                           <div className={`p-3 rounded-xl ${isCompleted ? 'bg-green-100' :
                               isCancelled ? 'bg-gray-100' :
@@ -1438,7 +1439,7 @@ export function EnhancedMotherDashboard({ isFirstLogin = false }: MotherDashboar
               </div>
             ) : nutritionPlans.length === 0 ? (
               <Card>
-                <CardContent className="p-6 text-center text-muted-foreground">
+                <CardContent className={`${RESPONSIVE_PADDING.modal} text-center text-muted-foreground`}>
                   We’re preparing a personalized plan for you. Check back soon for culturally relevant meals.
                 </CardContent>
               </Card>
@@ -1620,7 +1621,7 @@ export function EnhancedMotherDashboard({ isFirstLogin = false }: MotherDashboar
                     }`}
                   onClick={() => toggleReminder(reminder.id)}
                 >
-                  <CardContent className="p-4">
+                  <CardContent className={RESPONSIVE_PADDING.card}>
                     <div className="flex items-center justify-between">
                       <div className="flex items-center gap-4">
                         <div className={reminder.completed ? 'opacity-60' : ''}>
@@ -1775,7 +1776,7 @@ export function EnhancedMotherDashboard({ isFirstLogin = false }: MotherDashboar
 
       {/* Appointment Delete Confirmation */}
       <Dialog open={deleteApptConfirm !== null} onOpenChange={(o) => { if (!o) setDeleteApptConfirm(null); }}>
-        <DialogContent className="max-w-sm">
+        <DialogContent className="sm:max-w-sm">
           <DialogHeader>
             <DialogTitle>Remove Appointment From Your Dashboard?</DialogTitle>
             <DialogDescription>

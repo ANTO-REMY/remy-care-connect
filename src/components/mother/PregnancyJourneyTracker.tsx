@@ -11,6 +11,7 @@ import { useToast } from '@/hooks/use-toast';
 import type { UltrasoundRecord } from '@/services/ultrasoundService';
 import { combineInsights, getMaternalWeightInsight, getUltrasoundInsight } from '@/lib/clinicalInsights';
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
+import { RESPONSIVE_PADDING } from '@/components/ui/spacing.constants';
 
 interface PregnancyJourneyTrackerProps {
   dueDate: string;
@@ -218,7 +219,7 @@ export function PregnancyJourneyTracker({
         className="mb-6 bg-gradient-to-r from-[hsl(210,50%,15%)] via-[hsl(210,40%,25%)] to-[hsl(180,65%,55%)] text-white border-0 overflow-hidden cursor-pointer transition-all duration-300 hover:shadow-xl"
         onClick={() => setExpanded(!expanded)}
       >
-        <CardContent className="p-6">
+        <CardContent className={RESPONSIVE_PADDING.card}>
           <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-4">
             <div className="flex-1">
               <div className="flex items-center gap-3 mb-3">
@@ -227,7 +228,7 @@ export function PregnancyJourneyTracker({
                 </div>
                 <div>
                   <p className="text-white/80 text-sm">Week {currentWeek} of 40</p>
-                  <p className="font-bold text-lg">Your baby is the size of a {babyStats.size.toLowerCase()}!</p>
+                  <p className="font-bold text-base sm:text-lg">Your baby is the size of a {babyStats.size.toLowerCase()}!</p>
                 </div>
               </div>
               <div className="space-y-2">
@@ -244,9 +245,9 @@ export function PregnancyJourneyTracker({
                   <span>3rd Tri</span>
               </div>
             </div>
-            <div className="flex gap-4">
-              <div className="bg-white/10 rounded-xl p-4 text-center min-w-[80px]">
-                <p className="text-2xl font-bold">{displayWeight}</p>
+            <div className="flex gap-3 sm:gap-4">
+              <div className="bg-white/10 rounded-xl p-3 sm:p-4 text-center min-w-[80px]">
+                <p className="text-xl sm:text-2xl font-bold">{displayWeight}</p>
                 <p className="text-xs text-white/70">{isVerified ? 'Measured Weight' : 'Estimated Weight'}</p>
                 <Tooltip>
                   <TooltipTrigger asChild>
@@ -259,8 +260,8 @@ export function PregnancyJourneyTracker({
                   </TooltipContent>
                 </Tooltip>
               </div>
-              <div className="bg-white/10 rounded-xl p-4 text-center min-w-[80px]">
-                <p className="text-2xl font-bold">{displayLength}</p>
+              <div className="bg-white/10 rounded-xl p-3 sm:p-4 text-center min-w-[80px]">
+                <p className="text-xl sm:text-2xl font-bold">{displayLength}</p>
                 <p className="text-xs text-white/70">{isVerified ? 'Measured Length' : 'Estimated Length'}</p>
                 <Tooltip>
                   <TooltipTrigger asChild>

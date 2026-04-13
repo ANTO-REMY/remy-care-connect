@@ -2,6 +2,8 @@ import type { Config } from "tailwindcss";
 
 export default {
 	darkMode: ["class"],
+	// Responsive baseline (mobile-first):
+	// sm: 640px, md: 768px, lg: 1024px, xl: 1280px, 2xl: 1536px
 	content: [
 		"./pages/**/*.{ts,tsx}",
 		"./components/**/*.{ts,tsx}",

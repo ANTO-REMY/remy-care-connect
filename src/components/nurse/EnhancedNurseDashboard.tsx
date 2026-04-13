@@ -38,6 +38,7 @@ import { useSocket, useSocketStatus, joinProfileRoom } from "@/hooks/useSocket";
 import { ConnectionBanner } from "@/components/ConnectionBanner";
 import { DashboardAccountMenu } from "@/components/layout/DashboardAccountMenu";
 import { ultrasoundService } from "@/services/ultrasoundService";
+import { RESPONSIVE_PADDING } from "@/components/ui/spacing.constants";
 
 // Mock data for escalated cases
 const mockEscalatedCases = [
@@ -844,7 +845,7 @@ export function EnhancedNurseDashboard({ isFirstLogin = false }: NurseDashboardP
                       </Avatar>
                       <div className="flex-1">
                         <h4 className="font-semibold text-lg">{selectedCase.motherName}</h4>
-                        <div className="grid grid-cols-2 gap-2 mt-2 text-sm">
+                        <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 mt-2 text-sm">
                           <div className="flex items-center gap-2 text-muted-foreground">
                             <Phone className="h-4 w-4" />
                             {selectedCase.motherPhone}
@@ -979,7 +980,7 @@ export function EnhancedNurseDashboard({ isFirstLogin = false }: NurseDashboardP
             <DialogDescription>Enter fetal measurements for the current week.</DialogDescription>
           </DialogHeader>
           <div className="space-y-4 py-4">
-            <div className="grid grid-cols-2 gap-4">
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
               <div className="space-y-2">
                 <label className="text-sm font-medium">Week Number *</label>
                 <Input type="number" min="1" max="42" placeholder="e.g. 20" value={ultrasoundForm.week_number} onChange={(e) => setUltrasoundForm(f => ({ ...f, week_number: e.target.value }))} />
@@ -989,7 +990,7 @@ export function EnhancedNurseDashboard({ isFirstLogin = false }: NurseDashboardP
                 <Input type="date" value={ultrasoundForm.scan_date} onChange={(e) => setUltrasoundForm(f => ({ ...f, scan_date: e.target.value }))} />
               </div>
             </div>
-            <div className="grid grid-cols-2 gap-4">
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
               <div className="space-y-2">
                 <label className="text-sm font-medium">Est. Weight (g)</label>
                 <Input type="number" placeholder="e.g. 300" value={ultrasoundForm.fetal_weight_grams} onChange={(e) => setUltrasoundForm(f => ({ ...f, fetal_weight_grams: e.target.value }))} />
@@ -1129,7 +1130,7 @@ export function EnhancedNurseDashboard({ isFirstLogin = false }: NurseDashboardP
 
       {/* â”€â”€ Edit Escalation Dialog (15-min window) â”€â”€ */}
       <Dialog open={editEscalOpen} onOpenChange={setEditEscalOpen}>
-        <DialogContent className="max-w-md">
+        <DialogContent className="sm:max-w-md">
           <DialogHeader>
             <DialogTitle>Edit Escalation</DialogTitle>
             <DialogDescription>You can edit this escalation within the 15-minute window.</DialogDescription>
@@ -1214,7 +1215,7 @@ export function EnhancedNurseDashboard({ isFirstLogin = false }: NurseDashboardP
 
       {/* â”€â”€ Delete Escalation Confirmation â”€â”€ */}
       <Dialog open={deleteEscalConfirm !== null} onOpenChange={(o) => { if (!o) setDeleteEscalConfirm(null); }}>
-        <DialogContent className="max-w-sm">
+        <DialogContent className="sm:max-w-sm">
           <DialogHeader>
             <DialogTitle className="flex items-center gap-2 text-red-600">
               <AlertCircle className="h-5 w-5" />Remove Escalation From Your Dashboard?
@@ -1250,7 +1251,7 @@ export function EnhancedNurseDashboard({ isFirstLogin = false }: NurseDashboardP
 
       {/* â”€â”€ Edit Appointment Dialog (15-min window) â”€â”€ */}
       <Dialog open={editApptOpen} onOpenChange={setEditApptOpen}>
-        <DialogContent className="max-w-md">
+        <DialogContent className="sm:max-w-md">
           <DialogHeader>
             <DialogTitle>Edit Appointment</DialogTitle>
             <DialogDescription>You can edit this appointment within the 15-minute window.</DialogDescription>
@@ -1318,7 +1319,7 @@ export function EnhancedNurseDashboard({ isFirstLogin = false }: NurseDashboardP
 
       {/* â”€â”€ Delete Appointment Confirmation â”€â”€ */}
       <Dialog open={deleteApptConfirm !== null} onOpenChange={(o) => { if (!o) setDeleteApptConfirm(null); }}>
-        <DialogContent className="max-w-sm">
+        <DialogContent className="sm:max-w-sm">
           <DialogHeader>
             <DialogTitle className="flex items-center gap-2 text-red-600">
               <AlertCircle className="h-5 w-5" />Remove Appointment From Your Dashboard?
@@ -1449,9 +1450,9 @@ export function EnhancedNurseDashboard({ isFirstLogin = false }: NurseDashboardP
         </div>
 
         {/* Stats Overview */}
-        <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-8">
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4 mb-8">
           <Card className="bg-primary text-primary-foreground border-0">
-            <CardContent className="p-4">
+            <CardContent className={RESPONSIVE_PADDING.card}>
               <div className="flex items-center justify-between">
                 <div>
                   <p className="text-white/80 text-sm">Total Cases</p>
@@ -1465,7 +1466,7 @@ export function EnhancedNurseDashboard({ isFirstLogin = false }: NurseDashboardP
           </Card>
 
           <Card className="bg-primary text-primary-foreground border-0">
-            <CardContent className="p-4">
+            <CardContent className={RESPONSIVE_PADDING.card}>
               <div className="flex items-center justify-between">
                 <div>
                   <p className="text-white/80 text-sm">Resolved</p>
@@ -1479,7 +1480,7 @@ export function EnhancedNurseDashboard({ isFirstLogin = false }: NurseDashboardP
           </Card>
 
           <Card className="bg-primary text-primary-foreground border-0">
-            <CardContent className="p-4">
+            <CardContent className={RESPONSIVE_PADDING.card}>
               <div className="flex items-center justify-between">
                 <div>
                   <p className="text-white/80 text-sm">Pending</p>
@@ -1493,7 +1494,7 @@ export function EnhancedNurseDashboard({ isFirstLogin = false }: NurseDashboardP
           </Card>
 
           <Card className="bg-primary text-primary-foreground border-0">
-            <CardContent className="p-4">
+            <CardContent className={RESPONSIVE_PADDING.card}>
               <div className="flex items-center justify-between">
                 <div>
                   <p className="text-white/80 text-sm">Critical</p>
@@ -1509,7 +1510,7 @@ export function EnhancedNurseDashboard({ isFirstLogin = false }: NurseDashboardP
 
         {/* Main Tabs */}
         <Tabs value={activeTab} onValueChange={setActiveTab} className="space-y-6">
-          <TabsList className="grid grid-cols-4 w-full">
+          <TabsList className="grid grid-cols-2 md:grid-cols-4 w-full">
             <TabsTrigger value="cases">Escalated Cases</TabsTrigger>
             <TabsTrigger value="appointments">Appointments</TabsTrigger>
             <TabsTrigger value="chws">CHW Team</TabsTrigger>
@@ -1613,7 +1614,7 @@ export function EnhancedNurseDashboard({ isFirstLogin = false }: NurseDashboardP
                     className={`transition-all ${showHiddenNurseEscalations ? "border-gray-200 bg-gray-50/20 shadow-none opacity-90" : "cursor-pointer hover:shadow-lg"}`}
                     onClick={() => !showHiddenNurseEscalations && handleCaseClick(caseItem)}
                   >
-                    <CardContent className="p-4">
+                    <CardContent className={RESPONSIVE_PADDING.card}>
                       <div className="flex items-start gap-4">
                         <Avatar className="h-14 w-14">
                           <AvatarImage src={caseItem.motherAvatar} />
@@ -1806,7 +1807,7 @@ export function EnhancedNurseDashboard({ isFirstLogin = false }: NurseDashboardP
                   const isCancelled = appt.status === 'canceled' || appt.status === 'cancelled';
                   return (
                     <Card key={appt.id} className={`transition-all hover:shadow-md ${ isCancelled ? 'opacity-60' : '' }`}>
-                      <CardContent className="p-4">
+                      <CardContent className={RESPONSIVE_PADDING.card}>
                         <div className="flex items-start gap-4">
                           <div className={`p-2 rounded-full ${ isScheduled ? 'bg-purple-100' : isCompleted ? 'bg-green-100' : 'bg-gray-100' }`}>
                             {isCompleted ? (
@@ -2042,7 +2043,7 @@ export function EnhancedNurseDashboard({ isFirstLogin = false }: NurseDashboardP
               <div className="grid md:grid-cols-2 gap-4">
                 {resources.map((resource) => (
                   <Card key={resource.id} className="hover:shadow-lg transition-shadow">
-                    <CardContent className="p-4">
+                    <CardContent className={RESPONSIVE_PADDING.card}>
                       <div className="flex items-start gap-4">
                         <div className="text-4xl">{resource.thumbnail || "📄"}</div>
                         <div className="flex-1">

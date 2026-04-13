@@ -250,7 +250,7 @@ export function NurseDashboard() {
                                 View Case
                               </Button>
                             </DialogTrigger>
-                            <DialogContent className="max-w-2xl">
+                            <DialogContent className="sm:max-w-2xl">
                               <DialogHeader>
                                 <DialogTitle>Case Details - {escalatedCase.motherName}</DialogTitle>
                                 <DialogDescription>

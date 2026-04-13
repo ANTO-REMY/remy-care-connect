@@ -75,7 +75,7 @@ export function PinInput({ value, onChange, name, label, required, visuallyHidde
             maxLength={1}
             autoComplete="off"
             aria-label={`${label} digit ${i + 1}`}
-            className="flex h-12 w-12 rounded-md border border-input bg-background px-3 py-2 text-center text-lg ring-offset-background file:border-0 file:bg-transparent file:text-sm file:font-medium placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50"
+            className="flex h-11 sm:h-12 w-11 sm:w-12 rounded-md border border-input bg-background px-3 py-2 text-center text-lg ring-offset-background file:border-0 file:bg-transparent file:text-sm file:font-medium placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50"
             value={values[i]}
             onChange={(e) => handleChange(e, i)}
             onKeyDown={(e) => handleKeyDown(e, i)}
