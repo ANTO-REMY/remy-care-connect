@@ -8,7 +8,7 @@ import { Label } from '@/components/ui/label';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { useAuth } from '@/contexts/AuthContext';
 import { toast } from '@/components/ui/sonner';
-import { normalizePhoneNumber } from '@/lib/utils';
+import { normalizePhoneNumber, validatePhoneNumber } from '@/lib/utils';
 import { RegisterModal } from '@/components/RegisterModal';
 
 export default function Login() {
@@ -20,13 +20,37 @@ export default function Login() {
         pin: '',
     });
     const [showRegisterModal, setShowRegisterModal] = useState(false);
+    const [awaitingOtp, setAwaitingOtp] = useState(false);
+    const [otpCode, setOtpCode] = useState('');
 
     const handleInputChange = (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement>) => {
-        setFormData({ ...formData, [e.target.name]: e.target.value });
+        const { name, value } = e.target;
+        if (name === 'phone') {
+            setFormData({ ...formData, phone: value.replace(/\D/g, '').slice(0, 10) });
+            setAwaitingOtp(false);
+            setOtpCode('');
+            return;
+        }
+
+        setFormData({ ...formData, [name]: value });
     };
 
     const handlePinChange = (val: string) => {
         setFormData({ ...formData, pin: val });
+        setAwaitingOtp(false);
+        setOtpCode('');
+    };
+
+    const requestLoginOtp = async (normalizedPhone: string) => {
+        const result = await login(normalizedPhone, formData.pin);
+        if (result.requiresOtp) {
+            setAwaitingOtp(true);
+            toast.success('OTP sent', {
+                description: result.message || 'Enter the code to complete sign in.',
+            });
+            return true;
+        }
+        return false;
     };
 
     const handleSubmit = async (e: React.FormEvent) => {
@@ -41,10 +65,41 @@ export default function Login() {
             return;
         }
 
+        if (!validatePhoneNumber(formData.phone)) {
+            toast.warning('Invalid phone format', {
+                description: 'Use 07xxxxxxxx format to sign in.',
+            });
+            setIsLoading(false);
+            return;
+        }
+
+        if (awaitingOtp && otpCode.length !== 5) {
+            toast.warning('OTP required', {
+                description: 'Enter the 5-digit OTP sent to your phone to continue.',
+            });
+            setIsLoading(false);
+            return;
+        }
+
         const normalizedPhone = normalizePhoneNumber(formData.phone);
 
         try {
-            const result = await login(normalizedPhone, formData.pin);
+            if (!awaitingOtp) {
+                const otpIssued = await requestLoginOtp(normalizedPhone);
+                if (otpIssued) {
+                    return;
+                }
+            }
+
+            const result = await login(normalizedPhone, formData.pin, otpCode);
+
+            if (result.requiresOtp) {
+                setAwaitingOtp(true);
+                toast.success('OTP resent', {
+                    description: result.message || 'Enter the latest code to complete sign in.',
+                });
+                return;
+            }
 
             if (result.success) {
                 toast.success('Welcome back! 👋', {
@@ -53,6 +108,7 @@ export default function Login() {
                 if (result.role === 'mother') navigate('/dashboard/mother');
                 else if (result.role === 'chw') navigate('/dashboard/chw');
                 else if (result.role === 'nurse') navigate('/dashboard/nurse');
+                else if (result.role === 'facility_staff') navigate('/dashboard/facility');
             } else {
                 toast.error('Sign in failed', {
                     description: result.error || 'Incorrect phone number or PIN. Please double-check and try again.',
@@ -104,6 +160,8 @@ export default function Login() {
                                         value={formData.phone}
                                         onChange={handleInputChange}
                                         className="pl-10"
+                                        inputMode="numeric"
+                                        maxLength={10}
                                         autoComplete="tel"
                                         required
                                     />
@@ -117,8 +175,53 @@ export default function Login() {
                                     <PinInput value={formData.pin} onChange={handlePinChange} name="pin" label="PIN" required />
                                 </div>
                             </div>
+
+                            {awaitingOtp && (
+                                <div className="space-y-2">
+                                    <Label htmlFor="login_otp-0">OTP Code *</Label>
+                                    <div className="flex justify-center">
+                                        <PinInput
+                                            value={otpCode}
+                                            onChange={setOtpCode}
+                                            name="login_otp"
+                                            label="OTP Code"
+                                            required
+                                            length={5}
+                                            visuallyHiddenLabel
+                                        />
+                                    </div>
+                                    <p className="text-xs text-muted-foreground text-center">Enter the 5-digit OTP sent to your phone.</p>
+                                    <Button
+                                        variant="ghost"
+                                        type="button"
+                                        className="w-full"
+                                        disabled={isLoading}
+                                        onClick={async () => {
+                                            if (!validatePhoneNumber(formData.phone) || !formData.pin) {
+                                                toast.warning('Phone and PIN required', {
+                                                    description: 'Enter phone and PIN first to resend OTP.',
+                                                });
+                                                return;
+                                            }
+                                            setIsLoading(true);
+                                            try {
+                                                const normalizedPhone = normalizePhoneNumber(formData.phone);
+                                                await requestLoginOtp(normalizedPhone);
+                                            } catch (error) {
+                                                toast.error('Could not resend OTP', {
+                                                    description: (error as Error).message,
+                                                });
+                                            } finally {
+                                                setIsLoading(false);
+                                            }
+                                        }}
+                                    >
+                                        {isLoading ? 'Resending OTP…' : 'Resend OTP'}
+                                    </Button>
+                                </div>
+                            )}
                             <Button type="submit" className="w-full" disabled={isLoading}>
-                                {isLoading ? 'Signing In…' : 'Sign In'}
+                                {isLoading ? (awaitingOtp ? 'Verifying OTP…' : 'Requesting OTP…') : (awaitingOtp ? 'Verify OTP & Sign In' : 'Continue')}
                             </Button>
                         </form>
                         <div className="mt-4 text-center text-sm">

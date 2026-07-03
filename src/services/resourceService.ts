@@ -1,4 +1,5 @@
 import { apiClient } from '@/lib/apiClient';
+import { getFacilityNurseFacilityId } from './nurseWorkflowMode';
 
 export interface Resource {
   id: number;
@@ -18,9 +19,17 @@ export interface ResourceFilters {
 
 class ResourceService {
   async list(filters?: ResourceFilters): Promise<Resource[]> {
+    const facilityId = getFacilityNurseFacilityId();
     const params = new URLSearchParams();
     if (filters?.role) {
       params.append('role', filters.role);
+    }
+
+    if (facilityId) {
+      const response = await apiClient.get<{ data: Resource[]; count: number }>(
+        `/facilities/${facilityId}/nurse-compat/resources${params.toString() ? `?${params}` : ''}`,
+      );
+      return response.data;
     }
     
     const response = await apiClient.get<{ data: Resource[]; count: number }>(
@@ -30,6 +39,15 @@ class ResourceService {
   }
 
   async get(id: number): Promise<Resource> {
+    const facilityId = getFacilityNurseFacilityId();
+    if (facilityId) {
+      const response = await apiClient.get<{ data: Resource[] }>(`/facilities/${facilityId}/nurse-compat/resources`);
+      const item = (response.data || []).find((resource) => resource.id === id);
+      if (!item) {
+        throw { message: 'Resource not found. The requested item may have been removed.', status: 404 };
+      }
+      return item;
+    }
     return apiClient.get<Resource>(`/resources/${id}`);
   }
 }

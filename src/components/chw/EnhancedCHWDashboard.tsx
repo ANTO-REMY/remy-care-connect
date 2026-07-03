@@ -94,6 +94,23 @@ interface MotherListItem {
   notes?: string;
 }
 
+const normalizePhoneNumber = (phone: string) => {
+  const trimmed = (phone || "").trim();
+  const cleaned = trimmed.replace(/[^0-9]/g, "");
+
+  if (cleaned.startsWith("07") && cleaned.length === 10) {
+    return `+254${cleaned.slice(1)}`;
+  }
+  if (cleaned.startsWith("254") && cleaned.length === 12) {
+    return `+${cleaned}`;
+  }
+  if (trimmed.startsWith("+254") && cleaned.length === 12) {
+    return `+254${cleaned.slice(3)}`;
+  }
+
+  return trimmed;
+};
+
 export function EnhancedCHWDashboard({ isFirstLogin = false }: CHWDashboardProps) {
   const { user, logout } = useAuth();
   const { toast } = useToast();
@@ -133,6 +150,7 @@ export function EnhancedCHWDashboard({ isFirstLogin = false }: CHWDashboardProps
   const [appointmentTab, setAppointmentTab] = useState<'yours' | 'requested'>('yours');
   const [scheduleForm, setScheduleForm] = useState({
     motherId: "",
+    motherPhone: "",
     scheduledTime: undefined as Date | undefined,
     appointmentType: "prenatal_checkup",
     notes: "",
@@ -487,20 +505,23 @@ export function EnhancedCHWDashboard({ isFirstLogin = false }: CHWDashboardProps
   };
 
   const handleScheduleAppointment = async () => {
-    if (!scheduleForm.motherId || !scheduleForm.scheduledTime) {
+    if (!scheduleForm.motherPhone || !scheduleForm.scheduledTime) {
       toast({
         title: "Missing Information",
-        description: "Please select a mother and pick a date & time.",
+        description: "Please enter the mother's phone number and pick a date & time.",
         variant: "destructive",
       });
       return;
     }
     setScheduleSubmitting(true);
     try {
-      const motherEntry = displayMothers.find(m => String(m.id) === scheduleForm.motherId);
-      const motherUserId = motherEntry?.user_id ?? parseInt(scheduleForm.motherId, 10);
+      const normalizedMotherPhone = normalizePhoneNumber(scheduleForm.motherPhone);
+      const motherEntry = displayMothers.find(m => normalizePhoneNumber(m.phone_number) === normalizedMotherPhone);
+      if (!motherEntry) {
+        throw new Error("No assigned mother matches that phone number.");
+      }
       const appt = await appointmentService.create({
-        mother_id: motherUserId,
+        mother_phone_number: normalizedMotherPhone,
         health_worker_id: scheduleForm.nurseUserId || user!.id,
         scheduled_time: scheduleForm.scheduledTime.toISOString(),
         notes: scheduleForm.notes.trim() || undefined,
@@ -515,7 +536,7 @@ export function EnhancedCHWDashboard({ isFirstLogin = false }: CHWDashboardProps
       });
       setShowScheduleModal(false);
       setScheduleContext('general');
-      setScheduleForm({ motherId: "", scheduledTime: undefined, appointmentType: "prenatal_checkup", notes: "", recurrence: "none", nurseUserId: undefined });
+      setScheduleForm({ motherId: "", motherPhone: "", scheduledTime: undefined, appointmentType: "prenatal_checkup", notes: "", recurrence: "none", nurseUserId: undefined });
     } catch (err: unknown) {
       toast({
         title: "Scheduling Failed",
@@ -1322,20 +1343,23 @@ export function EnhancedCHWDashboard({ isFirstLogin = false }: CHWDashboardProps
           </DialogHeader>
           <div className="space-y-4 py-2">
             <div>
-              <label className="text-sm font-medium mb-2 block">Mother <span className="text-red-500">*</span></label>
-              <Select
-                value={scheduleForm.motherId}
-                onValueChange={(v) => setScheduleForm({ ...scheduleForm, motherId: v })}
-              >
-                <SelectTrigger>
-                  <SelectValue placeholder="Select mother" />
-                </SelectTrigger>
-                <SelectContent>
-                  {displayMothers.map(m => (
-                    <SelectItem key={m.id} value={String(m.id)}>{m.name}</SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
+              <label className="text-sm font-medium mb-2 block">Mother Phone Number <span className="text-red-500">*</span></label>
+              <Input
+                value={scheduleForm.motherPhone}
+                onChange={(e) => setScheduleForm({ ...scheduleForm, motherPhone: e.target.value })}
+                placeholder="Enter mother's phone number"
+                inputMode="tel"
+              />
+              {scheduleForm.motherPhone && (
+                <p className="text-xs text-muted-foreground mt-2">
+                  {(() => {
+                    const motherEntry = displayMothers.find(m => normalizePhoneNumber(m.phone_number) === normalizePhoneNumber(scheduleForm.motherPhone));
+                    return motherEntry
+                      ? `Matched: ${motherEntry.name}`
+                      : "No assigned mother matches that phone number yet.";
+                  })()}
+                </p>
+              )}
             </div>
 
             <div>
@@ -1751,6 +1775,7 @@ export function EnhancedCHWDashboard({ isFirstLogin = false }: CHWDashboardProps
                       const mId = motherEntry ? String(motherEntry.id) : "";
                       setScheduleForm({
                         motherId: mId,
+                        motherPhone: motherEntry?.phone_number ?? "",
                         scheduledTime: undefined,
                         appointmentType: "consultation",
                         recurrence: "none",
@@ -1857,17 +1882,17 @@ export function EnhancedCHWDashboard({ isFirstLogin = false }: CHWDashboardProps
       {/* Main Content */}
       <main className="max-w-7xl mx-auto px-4 sm:px-6 py-6">
         {/* Welcome Section */}
-        <div className="mb-8">
+        <div className="mb-6">
           <h2 className="text-3xl font-bold text-foreground">
             Hello <span className="capitalize">{user?.first_name?.toLowerCase() || 'CHW'}</span>
           </h2>
         </div>
 
         {/* Stats Overview */}
-        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4 mb-8">
-          <Card className="bg-primary text-primary-foreground border-0">
-            <CardContent className={RESPONSIVE_PADDING.card}>
-              <div className="flex items-center justify-between">
+        <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-4 gap-4 mb-8 items-stretch">
+          <Card className="h-full bg-primary text-primary-foreground border-0 shadow-sm">
+            <CardContent className={`${RESPONSIVE_PADDING.card} h-full flex flex-col justify-between`}>
+              <div className="flex items-start justify-between gap-3">
                 <div>
                   <p className="text-white/80 text-sm">Total Mothers</p>
                   <p className="text-3xl font-bold">{displayMothers.length}</p>
@@ -1884,9 +1909,9 @@ export function EnhancedCHWDashboard({ isFirstLogin = false }: CHWDashboardProps
             </CardContent>
           </Card>
 
-          <Card className="bg-primary text-primary-foreground border-0">
-            <CardContent className={RESPONSIVE_PADDING.card}>
-              <div className="flex items-center justify-between">
+          <Card className="h-full bg-primary text-primary-foreground border-0 shadow-sm">
+            <CardContent className={`${RESPONSIVE_PADDING.card} h-full flex flex-col justify-between`}>
+              <div className="flex items-start justify-between gap-3">
                 <div>
                   <p className="text-white/80 text-sm">Doing Well</p>
                   <p className="text-3xl font-bold">{displayMothers.filter(m => m.status === 'ok').length}</p>
@@ -1903,9 +1928,9 @@ export function EnhancedCHWDashboard({ isFirstLogin = false }: CHWDashboardProps
             </CardContent>
           </Card>
 
-          <Card className="bg-primary text-primary-foreground border-0">
-            <CardContent className={RESPONSIVE_PADDING.card}>
-              <div className="flex items-center justify-between">
+          <Card className="h-full bg-primary text-primary-foreground border-0 shadow-sm">
+            <CardContent className={`${RESPONSIVE_PADDING.card} h-full flex flex-col justify-between`}>
+              <div className="flex items-start justify-between gap-3">
                 <div>
                   <p className="text-white/80 text-sm">Need Attention</p>
                   <p className="text-3xl font-bold">{mothersWithIssues.length}</p>
@@ -1922,9 +1947,9 @@ export function EnhancedCHWDashboard({ isFirstLogin = false }: CHWDashboardProps
             </CardContent>
           </Card>
 
-          <Card className="bg-primary text-primary-foreground border-0">
-            <CardContent className={RESPONSIVE_PADDING.card}>
-              <div className="flex items-center justify-between">
+          <Card className="h-full bg-primary text-primary-foreground border-0 shadow-sm">
+            <CardContent className={`${RESPONSIVE_PADDING.card} h-full flex flex-col justify-between`}>
+              <div className="flex items-start justify-between gap-3">
                 <div>
                   <p className="text-white/80 text-sm">Escalated</p>
                   <p className="text-3xl font-bold">{(realEscalations ?? []).length}</p>
@@ -2360,6 +2385,11 @@ export function EnhancedCHWDashboard({ isFirstLogin = false }: CHWDashboardProps
                                     hour: '2-digit', minute: '2-digit'
                                   })}
                                 </p>
+                                {appt.ticket_code && (
+                                  <p className="mt-2 text-xs text-muted-foreground">
+                                    Ticket Code: <span className="font-mono text-foreground">{appt.ticket_code}</span>
+                                  </p>
+                                )}
                               </div>
                               <div className="flex items-center gap-2">
                                 <Badge
@@ -2598,6 +2628,7 @@ export function EnhancedCHWDashboard({ isFirstLogin = false }: CHWDashboardProps
                                 const mId = motherEntry ? String(motherEntry.id) : "";
                                 setScheduleForm({
                                   motherId: mId,
+                                  motherPhone: motherEntry?.phone_number ?? "",
                                   scheduledTime: undefined,
                                   appointmentType: "consultation",
                                   recurrence: "none",
@@ -2721,4 +2752,3 @@ export function EnhancedCHWDashboard({ isFirstLogin = false }: CHWDashboardProps
     </TooltipProvider>
   );
 }
-

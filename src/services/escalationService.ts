@@ -4,6 +4,7 @@
  */
 
 import { apiClient } from '@/lib/apiClient';
+import { getFacilityNurseFacilityId } from './nurseWorkflowMode';
 
 export type EscalationStatus = 'pending' | 'in_progress' | 'resolved' | 'rejected';
 export type EscalationPriority = 'low' | 'medium' | 'high' | 'critical';
@@ -61,6 +62,21 @@ class EscalationService {
 
   /** List escalations with optional filters */
   async list(filters?: EscalationFilters): Promise<EscalationListResponse> {
+    const facilityId = getFacilityNurseFacilityId();
+    if (facilityId) {
+      const params = new URLSearchParams();
+      if (filters?.status) params.set('status', filters.status);
+      if (filters?.priority) params.set('priority', filters.priority);
+      if (typeof filters?.deleted_only === 'boolean') params.set('hidden_only', String(filters.deleted_only));
+      if (typeof filters?.include_deleted === 'boolean') params.set('include_hidden', String(filters.include_deleted));
+      const qs = params.toString();
+      const response = await apiClient.get<{ escalations: Escalation[]; total: number }>(`/facilities/${facilityId}/nurse-compat/escalations${qs ? `?${qs}` : ''}`);
+      return {
+        escalations: response.escalations || [],
+        total: response.total ?? (response.escalations || []).length,
+      };
+    }
+
     const params = new URLSearchParams();
     if (filters?.nurse_id)   params.set('nurse_id',   String(filters.nurse_id));
     if (filters?.chw_id)     params.set('chw_id',     String(filters.chw_id));
@@ -75,26 +91,48 @@ class EscalationService {
 
   /** Get a single escalation */
   async get(id: number): Promise<Escalation> {
+    const facilityId = getFacilityNurseFacilityId();
+    if (facilityId) {
+      return apiClient.get<Escalation>(`/facilities/${facilityId}/nurse-compat/escalations/${id}`);
+    }
     return apiClient.get<Escalation>(`/escalations/${id}`);
   }
 
   /** Update status (nurse action) */
   async updateStatus(id: number, status: EscalationStatus, notes?: string): Promise<Escalation> {
+    const facilityId = getFacilityNurseFacilityId();
+    if (facilityId) {
+      const response = await apiClient.patch<{ escalation: Escalation }>(`/facilities/${facilityId}/nurse-compat/escalations/${id}/status`, { status, notes });
+      return response.escalation;
+    }
     return apiClient.patch<Escalation>(`/escalations/${id}/status`, { status, notes });
   }
 
   /** Update other fields (notes, priority, issue_type, case_description) */
   async update(id: number, data: Partial<Pick<Escalation, 'notes' | 'priority' | 'issue_type' | 'case_description'>>): Promise<Escalation> {
+    const facilityId = getFacilityNurseFacilityId();
+    if (facilityId) {
+      const response = await apiClient.patch<{ escalation: Escalation }>(`/facilities/${facilityId}/nurse-compat/escalations/${id}`, data);
+      return response.escalation;
+    }
     return apiClient.patch<Escalation>(`/escalations/${id}`, data);
   }
 
   /** Soft-delete escalation from current user's dashboard (non-destructive) */
   async softDelete(id: number, reason?: string): Promise<{ message: string; escalation_id: number }> {
+    const facilityId = getFacilityNurseFacilityId();
+    if (facilityId) {
+      return apiClient.post<{ message: string; escalation_id: number }>(`/facilities/${facilityId}/nurse-compat/escalations/${id}/delete`, { reason });
+    }
     return apiClient.post<{ message: string; escalation_id: number }>(`/escalations/${id}/delete`, { reason });
   }
 
   /** Restore a previously soft-deleted escalation */
   async restoreDeleted(id: number): Promise<{ message: string; escalation_id: number }> {
+    const facilityId = getFacilityNurseFacilityId();
+    if (facilityId) {
+      return apiClient.delete<{ message: string; escalation_id: number }>(`/facilities/${facilityId}/nurse-compat/escalations/${id}/delete`);
+    }
     return apiClient.delete<{ message: string; escalation_id: number }>(`/escalations/${id}/delete`);
   }
 

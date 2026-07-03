@@ -1,7 +1,7 @@
 import { useState, useEffect } from 'react';
 import { PinInput } from '@/components/PinInput';
 import { useNavigate, useLocation, Link } from 'react-router-dom';
-import { MapPin, User, Phone, Lock, UserCheck, Stethoscope, Loader2, Mail } from 'lucide-react';
+import { MapPin, User, Phone, Lock, UserCheck, Loader2, Mail, Building2 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
@@ -13,15 +13,15 @@ import { toast } from '@/components/ui/sonner';
 import VerifyOTPModal from '@/components/VerifyOTPModal';
 import { normalizePhoneNumber, validatePhoneNumber } from '@/lib/utils';
 import { getSubCounties, getWards, SubCounty, Ward } from '@/services/locationService';
+import healthFacilityService, { HealthFacility, type WardFacilityMatchMode } from '@/services/healthFacilityService';
 
 export default function RegisterHealthWorker() {
   const navigate = useNavigate();
   const location = useLocation();
   const { register, verifyOTP } = useAuth();
-  // Determine role from navigation state, default to 'chw'
-  const initialRole = location.state && (location.state.role === 'nurse' || location.state.role === 'chw') ? location.state.role : 'chw';
+  // CHW-only registration (nurse role removed)
   const [showModal, setShowModal] = useState(false); // Modal not used when navigating from landing
-  const [selectedRole, setSelectedRole] = useState<'chw' | 'nurse'>(initialRole);
+  const [selectedRole] = useState<'chw'>('chw');
   const [isLoading, setIsLoading] = useState(false);
   const [showVerify, setShowVerify] = useState(false);
   const [formData, setFormData] = useState({
@@ -41,6 +41,12 @@ export default function RegisterHealthWorker() {
   const [selectedSubCountyId, setSelectedSubCountyId] = useState<number | null>(null);
   const [loadingSubCounties, setLoadingSubCounties] = useState(false);
   const [loadingWards, setLoadingWards] = useState(false);
+  
+  // Linked facilities state
+  const [linkedFacilities, setLinkedFacilities] = useState<HealthFacility[]>([]);
+  const [loadingFacilities, setLoadingFacilities] = useState(false);
+  const [selectedFacilityId, setSelectedFacilityId] = useState<number | null>(null);
+  const [facilityMatchMode, setFacilityMatchMode] = useState<WardFacilityMatchMode | null>(null);
 
   useEffect(() => {
     setLoadingSubCounties(true);
@@ -59,6 +65,70 @@ export default function RegisterHealthWorker() {
       .finally(() => setLoadingWards(false));
   }, [selectedSubCountyId]);
 
+  // Load linked facilities when ward is selected
+  useEffect(() => {
+    if (!formData.wardId) {
+      setLinkedFacilities([]);
+      setSelectedFacilityId(null);
+      setFacilityMatchMode(null);
+      return;
+    }
+
+    let isMounted = true;
+    setSelectedFacilityId(null);
+    setLoadingFacilities(true);
+
+    const loadFacilities = async () => {
+      try {
+        let response = await healthFacilityService.getFacilitiesByWard(formData.wardId!, {
+          amenity: 'hospital,clinic',
+          relevance_profile: 'maternal_referral',
+          limit: 20
+        });
+
+        if (response.facilities.length === 0) {
+          response = await healthFacilityService.getFacilitiesByWard(formData.wardId!, {
+            amenity: 'hospital,clinic',
+            relevance_profile: 'all',
+            limit: 20
+          });
+        }
+
+        if (!isMounted) return;
+
+        setLinkedFacilities(response.facilities);
+        setFacilityMatchMode(response.matched_by || null);
+        if (response.facilities.length > 0) {
+          toast.success(`Found ${response.facilities.length} facilities in your area`);
+        }
+      } catch {
+        if (!isMounted) return;
+        toast.error('Could not load linked facilities');
+        setLinkedFacilities([]);
+        setFacilityMatchMode(null);
+      } finally {
+        if (isMounted) {
+          setLoadingFacilities(false);
+        }
+      }
+    };
+
+    loadFacilities();
+
+    return () => {
+      isMounted = false;
+    };
+  }, [formData.wardId]);
+
+  const facilityMatchLabel =
+    facilityMatchMode === 'inferred_ward'
+      ? 'Matched using inferred ward boundaries (highest confidence).'
+      : facilityMatchMode === 'inferred_subcounty'
+        ? 'Matched by inferred sub-county fallback (medium confidence).'
+        : facilityMatchMode === 'text_fallback'
+          ? 'Matched by city/name fallback (lower confidence).'
+          : null;
+
   const handleConfirmPinChange = (val: string) => {
     setFormData({ ...formData, confirmPin: val });
   };
@@ -68,8 +138,7 @@ export default function RegisterHealthWorker() {
     setFormData({ ...formData, pin: val });
   };
 
-  const handleRoleSelect = (role: 'chw' | 'nurse') => {
-    setSelectedRole(role);
+  const handleRoleSelect = (role: 'chw') => {
     setShowModal(false);
   };
 
@@ -98,6 +167,12 @@ export default function RegisterHealthWorker() {
 
     const normalizedPhone = normalizePhoneNumber(formData.phone);
 
+    if (selectedFacilityId && !linkedFacilities.some((facility) => facility.id === selectedFacilityId)) {
+      toast.warning('Please re-select a linked facility for the current ward.');
+      setIsLoading(false);
+      return;
+    }
+
     if (formData.pin !== formData.confirmPin) {
       toast.error('PINs do not match', {
         description: 'Make sure both PIN fields are identical before continuing.',
@@ -116,6 +191,7 @@ export default function RegisterHealthWorker() {
         email: formData.email.trim() || undefined,
         license_number: formData.licenceNumber,
         ward_id: formData.wardId,
+        linked_facility_id: selectedFacilityId || undefined,
       });
 
       if (result.success) {
@@ -167,17 +243,6 @@ export default function RegisterHealthWorker() {
                   <div className="text-sm text-muted-foreground">Work directly with mothers in the community</div>
                 </div>
               </Button>
-              <Button
-                onClick={() => handleRoleSelect('nurse')}
-                variant="outline"
-                className="w-full h-auto p-6 flex flex-col items-center space-y-2 hover:bg-success/5"
-              >
-                <Stethoscope className="h-8 w-8 text-success" />
-                <div className="text-center">
-                  <div className="font-semibold">Nurse Supervisor</div>
-                  <div className="text-sm text-muted-foreground">Oversee critical cases and provide guidance</div>
-                </div>
-              </Button>
             </div>
           </DialogContent>
         </Dialog>
@@ -200,6 +265,7 @@ export default function RegisterHealthWorker() {
                 {
                   license_number: formData.licenceNumber,
                   ward_id: formData.wardId,
+                  linked_facility_id: selectedFacilityId || undefined,
                 }
               );
               return result.success;
@@ -225,20 +291,11 @@ export default function RegisterHealthWorker() {
             <span className="text-2xl font-bold text-primary">RemyAfya</span>
           </Link>
           <div className="flex items-center justify-center space-x-2 mb-2">
-            {selectedRole === 'chw' ? (
-              <UserCheck className="h-6 w-6 text-primary" />
-            ) : (
-              <Stethoscope className="h-6 w-6 text-success" />
-            )}
-            <h1 className="text-2xl font-bold text-primary">
-              {selectedRole === 'chw' ? 'Join as CHW' : 'Join as Nurse'}
-            </h1>
+            <UserCheck className="h-6 w-6 text-primary" />
+            <h1 className="text-2xl font-bold text-primary">Join as CHW</h1>
           </div>
           <p className="text-muted-foreground">
-            {selectedRole === 'chw'
-              ? 'Help mothers in your community thrive'
-              : 'Provide clinical oversight and guidance'
-            }
+            Help mothers in your community thrive
           </p>
         </div>
 
@@ -382,7 +439,10 @@ export default function RegisterHealthWorker() {
                   ) : (
                     <Select
                       value={formData.wardId?.toString() ?? ''}
-                      onValueChange={(v) => setFormData({ ...formData, wardId: Number(v) })}
+                      onValueChange={(v) => {
+                        setSelectedFacilityId(null);
+                        setFormData({ ...formData, wardId: Number(v) });
+                      }}
                       disabled={!selectedSubCountyId}
                     >
                       <SelectTrigger className="pl-10">
@@ -397,6 +457,45 @@ export default function RegisterHealthWorker() {
                   )}
                 </div>
               </div>
+
+              {/* Linked Hospital/Clinic Selection */}
+              {linkedFacilities.length > 0 && (
+                <div className="space-y-2">
+                  <Label>Linked Hospital/Clinic</Label>
+                  <div className="relative">
+                    <Building2 className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-muted-foreground z-10" />
+                    <Select
+                      value={selectedFacilityId?.toString() ?? ''}
+                      onValueChange={(v) => setSelectedFacilityId(Number(v))}
+                    >
+                      <SelectTrigger className="pl-10">
+                        <SelectValue placeholder="Select referral facility (optional)" />
+                      </SelectTrigger>
+                      <SelectContent>
+                        {linkedFacilities.map((facility) => (
+                          <SelectItem key={facility.id} value={facility.id.toString()}>
+                            {facility.name} {facility.city ? `- ${facility.city}` : ''} ({facility.amenity})
+                            {facility.link_confidence ? ` • ${facility.link_confidence} confidence` : ''}
+                          </SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                  </div>
+                  {facilityMatchLabel && (
+                    <p className="text-xs text-muted-foreground">{facilityMatchLabel}</p>
+                  )}
+                  <p className="text-xs text-muted-foreground">
+                    Select a facility for patient referrals in your area
+                  </p>
+                </div>
+              )}
+
+              {loadingFacilities && (
+                <div className="flex items-center gap-2 text-sm text-muted-foreground">
+                  <Loader2 className="h-4 w-4 animate-spin" />
+                  Loading linked facilities...
+                </div>
+              )}
 
               {/* PIN */}
               <div className="space-y-2">
@@ -443,16 +542,7 @@ export default function RegisterHealthWorker() {
               </Link>
             </div>
 
-            <div className="mt-2 text-center">
-              <Button
-                variant="ghost"
-                size="sm"
-                onClick={() => setShowModal(true)}
-                className="text-xs text-muted-foreground hover:text-accent"
-              >
-                Change role selection
-              </Button>
-            </div>
+
           </CardContent>
         </Card>
 

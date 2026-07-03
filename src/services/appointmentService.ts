@@ -4,6 +4,7 @@
  */
 
 import { apiClient } from '@/lib/apiClient';
+import { getFacilityNurseFacilityId } from './nurseWorkflowMode';
 
 export type AppointmentStatus = 'scheduled' | 'completed' | 'canceled' | 'cancelled';
 
@@ -24,12 +25,19 @@ export interface Appointment {
   escalated: boolean;
   escalation_reason: string | null;
   notes: string | null;
+  ticket_code?: string | null;
+  ticket_status?: 'active' | 'used' | 'canceled' | 'expired' | null;
+  validated_at?: string | null;
+  validated_by_user_id?: number | null;
+  validation_method?: string | null;
+  ticket_last_event_at?: string | null;
   created_at: string;
   updated_at: string;
 }
 
 export interface CreateAppointmentRequest {
-  mother_id: number;
+  mother_id?: number;
+  mother_phone_number?: string;
   health_worker_id: number;
   scheduled_time: string;      // ISO 8601
   appointment_type?: string;
@@ -61,6 +69,19 @@ export interface AppointmentFilters {
 class AppointmentService {
   /** Create a new appointment */
   async create(data: CreateAppointmentRequest): Promise<Appointment> {
+    const facilityId = getFacilityNurseFacilityId();
+    if (facilityId) {
+      const response = await apiClient.post<{ appointment: Appointment }>(`/facilities/${facilityId}/nurse-compat/appointments`, {
+        mother_id: data.mother_id,
+        mother_phone_number: data.mother_phone_number,
+        scheduled_time: data.scheduled_time,
+        appointment_type: data.appointment_type,
+        notes: data.notes,
+        status: data.status,
+      });
+      return response.appointment;
+    }
+
     return apiClient.post<Appointment>('/appointments', {
       status: 'scheduled',
       ...data,
@@ -69,6 +90,20 @@ class AppointmentService {
 
   /** List appointments with optional filters */
   async list(filters?: AppointmentFilters): Promise<AppointmentListResponse> {
+    const facilityId = getFacilityNurseFacilityId();
+    if (facilityId) {
+      const params = new URLSearchParams();
+      if (filters?.status) params.set('status', filters.status === 'cancelled' ? 'canceled' : filters.status);
+      if (typeof filters?.include_hidden === 'boolean') params.set('include_hidden', String(filters.include_hidden));
+      if (typeof filters?.hidden_only === 'boolean') params.set('hidden_only', String(filters.hidden_only));
+      const qs = params.toString();
+      const response = await apiClient.get<{ appointments: Appointment[]; total: number }>(`/facilities/${facilityId}/nurse-compat/appointments${qs ? `?${qs}` : ''}`);
+      return {
+        appointments: response.appointments || [],
+        total: response.total ?? (response.appointments || []).length,
+      };
+    }
+
     const params = new URLSearchParams();
     if (filters?.mother_id)        params.set('mother_id',         String(filters.mother_id));
     if (filters?.health_worker_id) params.set('health_worker_id',  String(filters.health_worker_id));
@@ -85,26 +120,59 @@ class AppointmentService {
 
   /** Get a single appointment */
   async get(id: number): Promise<Appointment> {
+    const facilityId = getFacilityNurseFacilityId();
+    if (facilityId) {
+      const response = await apiClient.get<{ appointments: Appointment[] }>(`/facilities/${facilityId}/nurse-compat/appointments?include_hidden=true`);
+      const item = (response.appointments || []).find((appt) => appt.id === id);
+      if (!item) {
+        throw { message: 'Resource not found. The requested item may have been removed.', status: 404 };
+      }
+      return item;
+    }
     return apiClient.get<Appointment>(`/appointments/${id}`);
   }
 
   /** Update mutable fields */
   async update(id: number, data: Partial<CreateAppointmentRequest>): Promise<Appointment> {
+    const facilityId = getFacilityNurseFacilityId();
+    if (facilityId) {
+      const response = await apiClient.patch<{ appointment: Appointment }>(`/facilities/${facilityId}/nurse-compat/appointments/${id}`, data);
+      return response.appointment;
+    }
     return apiClient.patch<Appointment>(`/appointments/${id}`, data);
   }
 
   /** Update status only */
   async updateStatus(id: number, status: AppointmentStatus): Promise<Appointment> {
+    const facilityId = getFacilityNurseFacilityId();
+    if (facilityId) {
+      const normalizedStatus = status === 'cancelled' ? 'canceled' : status;
+      const response = await apiClient.patch<{ appointment: Appointment }>(`/facilities/${facilityId}/nurse-compat/appointments/${id}/status`, { status: normalizedStatus });
+      return response.appointment;
+    }
     return apiClient.patch<Appointment>(`/appointments/${id}/status`, { status });
   }
 
   /** Delete an appointment */
   async delete(id: number): Promise<{ message: string }> {
+    const facilityId = getFacilityNurseFacilityId();
+    if (facilityId) {
+      const response = await apiClient.delete<{ message: string; appointment: Appointment }>(`/facilities/${facilityId}/nurse-compat/appointments/${id}`);
+      return { message: response.message };
+    }
     return apiClient.delete<{ message: string }>(`/appointments/${id}`);
   }
 
   /** Delete appointment from current user's dashboard only (non-destructive) */
   async softDelete(id: number, reason?: string): Promise<{ message: string; appointment_id: number }> {
+    const facilityId = getFacilityNurseFacilityId();
+    if (facilityId) {
+      const response = await apiClient.delete<{ message: string; appointment: Appointment }>(`/facilities/${facilityId}/nurse-compat/appointments/${id}`);
+      return {
+        message: response.message,
+        appointment_id: id,
+      };
+    }
     return apiClient.post<{ message: string; appointment_id: number }>(`/appointments/${id}/delete`, {
       reason,
     });
@@ -112,6 +180,14 @@ class AppointmentService {
 
   /** Restore a previously deleted appointment for current user */
   async restoreDeleted(id: number): Promise<{ message: string; appointment_id: number }> {
+    const facilityId = getFacilityNurseFacilityId();
+    if (facilityId) {
+      const response = await apiClient.post<{ message: string; appointment: Appointment }>(`/facilities/${facilityId}/nurse-compat/appointments/${id}/restore`);
+      return {
+        message: response.message,
+        appointment_id: id,
+      };
+    }
     return apiClient.delete<{ message: string; appointment_id: number }>(`/appointments/${id}/delete`);
   }
 

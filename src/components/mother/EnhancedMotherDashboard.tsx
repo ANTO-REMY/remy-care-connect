@@ -5,6 +5,7 @@ import {
   Camera, Heart, Apple, Bell, Calendar, Clock,
   ChevronRight, Sparkles, Utensils, Droplets, Moon, Sun,
   Activity, TrendingUp, FileText, Video, ExternalLink,
+  MapPin, LocateFixed,
   Play, Pause, Volume2, VolumeX, Loader2, Plus, ArrowLeft, Trash2, BookOpen, Pencil
 } from "lucide-react";
 import type { LucideIcon } from "lucide-react";
@@ -32,6 +33,11 @@ import resourceService, { Resource } from "@/services/resourceService";
 import nutritionService, { DietaryRecommendation } from "@/services/nutritionService";
 import { ultrasoundService, type UltrasoundRecord } from "@/services/ultrasoundService";
 import { weightService, type WeightLog } from "@/services/weightService";
+import healthFacilityService, {
+  type HealthFacility,
+  type MotherFacilityAppointment,
+  type ReportIssueData,
+} from "@/services/healthFacilityService";
 import { Textarea } from "@/components/ui/textarea";
 import { Input } from "@/components/ui/input";
 import { DateTimePicker } from "@/components/ui/datetime-picker";
@@ -43,6 +49,8 @@ import { ConnectionBanner } from "@/components/ConnectionBanner";
 import { PregnancyJourneyTracker, fetalDevelopmentData } from "./PregnancyJourneyTracker";
 import { DashboardAccountMenu } from "@/components/layout/DashboardAccountMenu";
 import { RESPONSIVE_PADDING } from "@/components/ui/spacing.constants";
+import { FacilitySearchCard } from "./FacilitySearchCard";
+import { FacilityDetailModal } from "./FacilityDetailModal";
 
 
 
@@ -88,6 +96,16 @@ const REMINDER_TYPE_OPTIONS: Array<{ value: string; label: string }> = [
   { value: 'health', label: 'Health Check' },
   { value: 'education', label: 'Education' },
   { value: 'custom', label: 'Custom' },
+];
+
+const FACILITY_AMENITY_OPTIONS = [
+  { value: 'all', label: 'All Types' },
+  { value: 'hospital', label: 'Hospital' },
+  { value: 'clinic', label: 'Clinic' },
+  { value: 'pharmacy', label: 'Pharmacy' },
+  { value: 'laboratory', label: 'Laboratory' },
+  { value: 'dentist', label: 'Dentist' },
+  { value: 'doctors', label: 'Doctors' },
 ];
 
 function getReminderVisual(reminder: Reminder): ReminderVisual {
@@ -221,6 +239,20 @@ export function EnhancedMotherDashboard({ isFirstLogin = false }: MotherDashboar
   const [editingReminder, setEditingReminder] = useState<Reminder | null>(null);
   const [editReminderSubmitting, setEditReminderSubmitting] = useState(false);
 
+  // Facility discovery (Milestone 2)
+  const [facilityQuery, setFacilityQuery] = useState("");
+  const [facilityAmenity, setFacilityAmenity] = useState("all");
+  const [facilityResults, setFacilityResults] = useState<HealthFacility[]>([]);
+  const [facilityLoading, setFacilityLoading] = useState(false);
+  const [facilityError, setFacilityError] = useState<string | null>(null);
+  const [facilityMode, setFacilityMode] = useState<'search' | 'nearby'>('search');
+  const [currentLocation, setCurrentLocation] = useState<{ lat: number; lng: number } | null>(null);
+  const [selectedFacility, setSelectedFacility] = useState<HealthFacility | null>(null);
+  const [facilityDetailOpen, setFacilityDetailOpen] = useState(false);
+  const [reportIssueSubmitting, setReportIssueSubmitting] = useState(false);
+  const [facilityBookingSubmitting, setFacilityBookingSubmitting] = useState(false);
+  const [facilityAppointments, setFacilityAppointments] = useState<MotherFacilityAppointment[]>([]);
+
   // Resources state
   const [resources, setResources] = useState<Resource[]>([]);
   const [resourcesLoading, setResourcesLoading] = useState(true);
@@ -251,6 +283,11 @@ export function EnhancedMotherDashboard({ isFirstLogin = false }: MotherDashboar
     try {
       const resp = await appointmentService.getAllForMother(user.id);
       setAppointments(resp.appointments);
+    } catch { /* ignore */ }
+
+    try {
+      const resp = await healthFacilityService.getMyAppointments();
+      setFacilityAppointments(resp.appointments || []);
     } catch { /* ignore */ }
 
     // Ultrasound records (used for real measurements in journey tracker)
@@ -616,6 +653,121 @@ export function EnhancedMotherDashboard({ isFirstLogin = false }: MotherDashboar
     }
   };
 
+  const loadFacilitySearch = useCallback(async (overrideQuery?: string, overrideAmenity?: string) => {
+    const effectiveQuery = overrideQuery !== undefined ? overrideQuery : facilityQuery;
+    const effectiveAmenity = overrideAmenity !== undefined ? overrideAmenity : facilityAmenity;
+
+    setFacilityLoading(true);
+    setFacilityError(null);
+    try {
+      const response = await healthFacilityService.search({
+        q: effectiveQuery.trim() || undefined,
+        amenity: effectiveAmenity !== 'all' ? effectiveAmenity : undefined,
+        limit: 20,
+      });
+      setFacilityResults(response.facilities || []);
+      setFacilityMode('search');
+    } catch (err: unknown) {
+      setFacilityError((err as Error).message || 'Unable to search facilities right now.');
+      setFacilityResults([]);
+    } finally {
+      setFacilityLoading(false);
+    }
+  }, [facilityAmenity, facilityQuery]);
+
+  const handleUseMyLocation = async () => {
+    setFacilityLoading(true);
+    setFacilityError(null);
+    try {
+      const location = await healthFacilityService.getCurrentLocation();
+      setCurrentLocation(location);
+
+      const response = await healthFacilityService.nearby({
+        lat: location.lat,
+        lng: location.lng,
+        radius_km: 10,
+        amenity: facilityAmenity !== 'all' ? facilityAmenity : undefined,
+        limit: 20,
+      });
+
+      setFacilityResults(response.facilities || []);
+      setFacilityMode('nearby');
+    } catch (err: unknown) {
+      setFacilityError((err as Error).message || 'Unable to fetch nearby facilities.');
+      setFacilityResults([]);
+    } finally {
+      setFacilityLoading(false);
+    }
+  };
+
+  const openFacilityDetails = async (facility: HealthFacility) => {
+    setFacilityDetailOpen(true);
+    setSelectedFacility(facility);
+    try {
+      const detailed = await healthFacilityService.getDetail(facility.id);
+      setSelectedFacility({
+        ...detailed,
+        distance_km: facility.distance_km,
+      });
+    } catch {
+      // Fall back to card-level data if detail endpoint fails.
+    }
+  };
+
+  const handleReportFacilityIssue = async (data: ReportIssueData) => {
+    if (!selectedFacility) return;
+    setReportIssueSubmitting(true);
+    try {
+      await healthFacilityService.reportIssue(selectedFacility.id, data);
+      toast({
+        title: 'Issue submitted',
+        description: 'Thank you. We will review this facility report.',
+      });
+
+      const detailed = await healthFacilityService.getDetail(selectedFacility.id);
+      setSelectedFacility({
+        ...detailed,
+        distance_km: selectedFacility.distance_km,
+      });
+    } catch (err: unknown) {
+      toast({
+        title: 'Issue submission failed',
+        description: (err as Error).message || 'Please try again shortly.',
+        variant: 'destructive',
+      });
+    } finally {
+      setReportIssueSubmitting(false);
+    }
+  };
+
+  const handleBookFacilityAppointment = async (payload: {
+    scheduled_time: string;
+    appointment_type?: string;
+    notes?: string;
+  }) => {
+    if (!selectedFacility) return;
+
+    setFacilityBookingSubmitting(true);
+    try {
+      await healthFacilityService.bookAppointment(selectedFacility.id, payload);
+      const response = await healthFacilityService.getMyAppointments();
+      setFacilityAppointments(response.appointments || []);
+      setFacilityDetailOpen(false);
+      toast({
+        title: 'Appointment booked',
+        description: `Your request was sent to ${selectedFacility.name}.`,
+      });
+    } catch (err: unknown) {
+      toast({
+        title: 'Booking failed',
+        description: (err as Error).message || 'Please try again shortly.',
+        variant: 'destructive',
+      });
+    } finally {
+      setFacilityBookingSubmitting(false);
+    }
+  };
+
   // Handle check-in
   const handleCheckIn = async () => {
     if (!checkInSelected) return;
@@ -724,6 +876,12 @@ export function EnhancedMotherDashboard({ isFirstLogin = false }: MotherDashboar
     })();
     return () => { isMounted = false; };
   }, [refreshData, user?.id]);
+
+  useEffect(() => {
+    if (activeTab !== 'facilities') return;
+    if (facilityResults.length > 0 || facilityLoading) return;
+    loadFacilitySearch('', facilityAmenity);
+  }, [activeTab, facilityResults.length, facilityLoading, facilityAmenity, loadFacilitySearch]);
 
   const totalNutritionCalories = useMemo(() => {
     return nutritionPlans.reduce((sum, plan) => sum + (plan.calories || 0), 0);
@@ -1029,9 +1187,10 @@ export function EnhancedMotherDashboard({ isFirstLogin = false }: MotherDashboar
 
         {/* Main Tabs Content */}
         <Tabs value={activeTab} onValueChange={setActiveTab} className="space-y-6">
-          <TabsList className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-5 w-full">
+          <TabsList className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-6 w-full">
             <TabsTrigger value="overview">Overview</TabsTrigger>
             <TabsTrigger value="appointments">Appointments</TabsTrigger>
+            <TabsTrigger value="facilities">Find Facilities</TabsTrigger>
             <TabsTrigger value="nutrition">Nutrition</TabsTrigger>
             <TabsTrigger value="articles">Articles</TabsTrigger>
             <TabsTrigger value="reminders">Reminders</TabsTrigger>
@@ -1181,8 +1340,133 @@ export function EnhancedMotherDashboard({ isFirstLogin = false }: MotherDashboar
             </div>
           </TabsContent>
 
+          {/* Facilities Tab */}
+          <TabsContent value="facilities" className="space-y-4">
+            <div className="flex flex-col md:flex-row md:items-end gap-3">
+              <div className="flex-1 space-y-2">
+                <Label htmlFor="facility-search">Search facilities</Label>
+                <Input
+                  id="facility-search"
+                  value={facilityQuery}
+                  onChange={(e) => setFacilityQuery(e.target.value)}
+                  placeholder="Facility name, town, or keyword"
+                />
+              </div>
+
+              <div className="w-full md:w-56 space-y-2">
+                <Label>Facility type</Label>
+                <Select
+                  value={facilityAmenity}
+                  onValueChange={setFacilityAmenity}
+                >
+                  <SelectTrigger>
+                    <SelectValue placeholder="All Types" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {FACILITY_AMENITY_OPTIONS.map((option) => (
+                      <SelectItem key={option.value} value={option.value}>
+                        {option.label}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+
+              <div className="flex gap-2">
+                <Button
+                  variant="outline"
+                  onClick={() => loadFacilitySearch()}
+                  disabled={facilityLoading}
+                >
+                  {facilityLoading && facilityMode === 'search' ? <Loader2 className="h-4 w-4 mr-2 animate-spin" /> : null}
+                  Search
+                </Button>
+
+                <Button
+                  onClick={handleUseMyLocation}
+                  disabled={facilityLoading}
+                >
+                  {facilityLoading && facilityMode === 'nearby' ? <Loader2 className="h-4 w-4 mr-2 animate-spin" /> : <LocateFixed className="h-4 w-4 mr-2" />}
+                  Near Me
+                </Button>
+              </div>
+            </div>
+
+            {currentLocation && facilityMode === 'nearby' && (
+              <Alert>
+                <MapPin className="h-4 w-4" />
+                <AlertDescription>
+                  Showing facilities within 10 km of your location ({currentLocation.lat.toFixed(3)}, {currentLocation.lng.toFixed(3)}).
+                </AlertDescription>
+              </Alert>
+            )}
+
+            {facilityError && (
+              <Alert variant="destructive">
+                <AlertCircle className="h-4 w-4" />
+                <AlertDescription>{facilityError}</AlertDescription>
+              </Alert>
+            )}
+
+            {facilityLoading ? (
+              <div className="py-12 text-center text-muted-foreground">
+                <Loader2 className="h-6 w-6 animate-spin mx-auto mb-2" />
+                Loading facilities...
+              </div>
+            ) : facilityResults.length === 0 ? (
+              <Card className="border-dashed">
+                <CardContent className={`${RESPONSIVE_PADDING.modal} text-center space-y-2`}>
+                  <MapPin className="h-10 w-10 mx-auto text-muted-foreground/60" />
+                  <p className="font-medium">No facilities found</p>
+                  <p className="text-sm text-muted-foreground">
+                    Try a different keyword, type filter, or use Near Me for location-based results.
+                  </p>
+                </CardContent>
+              </Card>
+            ) : (
+              <div className="grid grid-cols-1 lg:grid-cols-2 gap-3">
+                {facilityResults.map((facility) => (
+                  <FacilitySearchCard
+                    key={facility.id}
+                    facility={facility}
+                    onViewDetails={openFacilityDetails}
+                  />
+                ))}
+              </div>
+            )}
+          </TabsContent>
+
           {/* Appointments Tab */}
           <TabsContent value="appointments" className="space-y-4">
+            <Card>
+              <CardHeader>
+                <CardTitle className="text-base">Facility Bookings</CardTitle>
+              </CardHeader>
+              <CardContent>
+                {facilityAppointments.length === 0 ? (
+                  <p className="text-sm text-muted-foreground">No facility bookings yet. Book from the Find Facilities tab.</p>
+                ) : (
+                  <div className="space-y-2">
+                    {facilityAppointments.map((booking) => (
+                      <div key={booking.id} className="border rounded-md p-3 flex items-start justify-between gap-3">
+                        <div>
+                          <p className="font-medium">{booking.facility_name || `Facility #${booking.facility_id}`}</p>
+                          <p className="text-sm text-muted-foreground">At Facility • {new Date(booking.scheduled_time).toLocaleString('en-KE')}</p>
+                          <p className="text-xs text-muted-foreground capitalize mt-1">{(booking.appointment_type || 'appointment').replace(/_/g, ' ')}</p>
+                          {booking.ticket_code && (
+                            <p className="mt-2 text-xs text-muted-foreground">
+                              Ticket Code: <span className="font-mono text-foreground">{booking.ticket_code}</span>
+                            </p>
+                          )}
+                        </div>
+                        <Badge variant="outline" className="capitalize">{booking.status}</Badge>
+                      </div>
+                    ))}
+                  </div>
+                )}
+              </CardContent>
+            </Card>
+
             <div className="flex items-center justify-between">
               <div>
                 <h3 className="font-semibold text-lg">{showHiddenAppointments ? 'Recently Deleted Appointments' : 'Your Appointments'}</h3>
@@ -1334,6 +1618,11 @@ export function EnhancedMotherDashboard({ isFirstLogin = false }: MotherDashboar
                                     })}
                                   </span>
                                 </div>
+                                {appt.ticket_code && (
+                                  <p className="mt-2 text-xs text-muted-foreground">
+                                    Ticket Code: <span className="font-mono text-foreground">{appt.ticket_code}</span>
+                                  </p>
+                                )}
                               </div>
                               <div className="flex items-center gap-2 flex-shrink-0">
                                 <Badge
@@ -1808,7 +2097,16 @@ export function EnhancedMotherDashboard({ isFirstLogin = false }: MotherDashboar
           </div>
         </DialogContent>
       </Dialog>
+
+      <FacilityDetailModal
+        facility={selectedFacility}
+        open={facilityDetailOpen}
+        onOpenChange={setFacilityDetailOpen}
+        onReportIssue={handleReportFacilityIssue}
+        onBookAppointment={handleBookFacilityAppointment}
+        reporting={reportIssueSubmitting}
+        booking={facilityBookingSubmitting}
+      />
     </div>
   );
 }
-

@@ -35,10 +35,36 @@ export function DateTimePicker({
 }: DateTimePickerProps) {
   const [selectedDate, setSelectedDate] = React.useState<Date | undefined>(date);
   const [isOpen, setIsOpen] = React.useState(false);
+  const [currentTime, setCurrentTime] = React.useState(() => new Date());
+
+  React.useEffect(() => {
+    const interval = window.setInterval(() => {
+      setCurrentTime(new Date());
+    }, 60000);
+    return () => window.clearInterval(interval);
+  }, []);
 
   React.useEffect(() => {
     setSelectedDate(date);
   }, [date]);
+
+  const minimumSelectableDateTime = React.useMemo(() => {
+    return new Date(currentTime.getTime() + 60 * 60 * 1000);
+  }, [currentTime]);
+
+  const minimumSelectableDay = React.useMemo(() => {
+    const minDay = new Date(minimumSelectableDateTime);
+    minDay.setHours(0, 0, 0, 0);
+    return minDay;
+  }, [minimumSelectableDateTime]);
+
+  const clampToMinimum = React.useCallback((value: Date) => {
+    return value < minimumSelectableDateTime ? new Date(minimumSelectableDateTime) : value;
+  }, [minimumSelectableDateTime]);
+
+  const isValidSelection = React.useCallback((value: Date) => {
+    return value >= minimumSelectableDateTime;
+  }, [minimumSelectableDateTime]);
 
   const handleDateSelect = (day: Date | undefined) => {
     if (!day) {
@@ -51,12 +77,12 @@ export function DateTimePicker({
       newDate.setHours(selectedDate.getHours());
       newDate.setMinutes(selectedDate.getMinutes());
     } else {
-        const now = new Date();
-        newDate.setHours(now.getHours());
-        newDate.setMinutes(now.getMinutes());
+        newDate.setHours(minimumSelectableDateTime.getHours());
+        newDate.setMinutes(minimumSelectableDateTime.getMinutes());
     }
-    setSelectedDate(newDate);
-    setDate(newDate);
+    const clampedDate = clampToMinimum(newDate);
+    setSelectedDate(clampedDate);
+    setDate(clampedDate);
   };
 
   const handleTimeSelect = (type: "hour12" | "minute" | "ampm", value: string) => {
@@ -82,14 +108,40 @@ export function DateTimePicker({
         newDate.setHours(current24h - 12);
       }
     }
-    
-    setSelectedDate(newDate);
-    setDate(newDate);
+
+    const clampedDate = clampToMinimum(newDate);
+    setSelectedDate(clampedDate);
+    setDate(clampedDate);
   };
 
   const current12Hour = selectedDate ? format(selectedDate, "hh") : "12";
   const currentMinute = selectedDate ? format(selectedDate, "mm") : "00";
   const currentAmPm = selectedDate ? format(selectedDate, "a") : "AM";
+
+  const buildCandidateDate = React.useCallback((overrides: {
+    hour12?: string;
+    minute?: string;
+    ampm?: string;
+  }) => {
+    if (!selectedDate) {
+      return null;
+    }
+
+    const candidate = new Date(selectedDate);
+    const nextAmPm = overrides.ampm ?? format(candidate, "a");
+    const hour12Value = overrides.hour12 ?? format(candidate, "hh");
+    const minuteValue = overrides.minute ?? format(candidate, "mm");
+
+    let hours = parseInt(hour12Value, 10);
+    if (nextAmPm === "PM" && hours < 12) hours += 12;
+    if (nextAmPm === "AM" && hours === 12) hours = 0;
+
+    candidate.setHours(hours);
+    candidate.setMinutes(parseInt(minuteValue, 10));
+    candidate.setSeconds(0, 0);
+
+    return candidate;
+  }, [selectedDate]);
 
   return (
     <Popover open={isOpen} onOpenChange={setIsOpen}>
@@ -126,7 +178,7 @@ export function DateTimePicker({
             selected={selectedDate}
             onSelect={handleDateSelect}
             initialFocus
-            disabled={(date) => date < new Date(new Date().setHours(0, 0, 0, 0))}
+            disabled={(date) => date < minimumSelectableDay}
             className="p-3 pointer-events-auto bg-transparent"
           />
         </div>
@@ -150,7 +202,9 @@ export function DateTimePicker({
                 <SelectContent position="popper" className="max-h-[220px] z-[100] rounded-xl font-['Quicksand',sans-serif]">
                   {Array.from({ length: 12 }).map((_, i) => {
                     const h = (i + 1).toString().padStart(2, "0");
-                    return <SelectItem key={h} value={h} className="cursor-pointer font-bold text-[15px] py-1.5">{h}</SelectItem>;
+                    const candidate = buildCandidateDate({ hour12: h });
+                    const isDisabled = !candidate || !isValidSelection(candidate);
+                    return <SelectItem key={h} value={h} disabled={isDisabled} className="cursor-pointer font-bold text-[15px] py-1.5">{h}</SelectItem>;
                   })}
                 </SelectContent>
               </Select>
@@ -168,7 +222,9 @@ export function DateTimePicker({
                 <SelectContent position="popper" className="max-h-[220px] z-[100] rounded-xl font-['Quicksand',sans-serif]">
                   {Array.from({ length: 60 }).map((_, i) => {
                     const m = i.toString().padStart(2, "0");
-                    return <SelectItem key={m} value={m} className="cursor-pointer font-bold text-[15px] py-1.5">{m}</SelectItem>;
+                    const candidate = buildCandidateDate({ minute: m });
+                    const isDisabled = !candidate || !isValidSelection(candidate);
+                    return <SelectItem key={m} value={m} disabled={isDisabled} className="cursor-pointer font-bold text-[15px] py-1.5">{m}</SelectItem>;
                   })}
                 </SelectContent>
               </Select>
@@ -183,8 +239,15 @@ export function DateTimePicker({
                 <SelectValue placeholder="AM/PM" />
               </SelectTrigger>
               <SelectContent position="popper" className="z-[100] rounded-xl font-['Quicksand',sans-serif]">
-                <SelectItem value="AM" className="cursor-pointer font-bold py-1.5 text-[15px]">AM</SelectItem>
-                <SelectItem value="PM" className="cursor-pointer font-bold py-1.5 text-[15px]">PM</SelectItem>
+                {(["AM", "PM"] as const).map((meridiem) => {
+                  const candidate = buildCandidateDate({ ampm: meridiem });
+                  const isDisabled = !candidate || !isValidSelection(candidate);
+                  return (
+                    <SelectItem key={meridiem} value={meridiem} disabled={isDisabled} className="cursor-pointer font-bold py-1.5 text-[15px]">
+                      {meridiem}
+                    </SelectItem>
+                  );
+                })}
               </SelectContent>
             </Select>
           </div>

@@ -114,7 +114,7 @@ export default function RegisterMother() {
         email: formData.email.trim() || undefined,
         dob: formData.dobDate ? formatDateLocal(formData.dobDate) : '',
         due_date: formData.dueDate ? formatDateLocal(formData.dueDate) : '',
-        ward_id: formData.wardId
+        ward_id: formData.wardId,
       });
 
       if (result.success) {
@@ -165,7 +165,7 @@ export default function RegisterMother() {
                 {
                   dob: formData.dobDate ? formatDateLocal(formData.dobDate) : '',
                   due_date: formData.dueDate ? formatDateLocal(formData.dueDate) : '',
-                  ward_id: formData.wardId
+                  ward_id: formData.wardId,
                 }
               );
               return result.success;

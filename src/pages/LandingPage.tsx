@@ -1,4 +1,4 @@
-import { ArrowRight, Users, Shield, Smartphone, Clock, Award, CheckCircle, Zap, Globe, Heart } from "lucide-react";
+import { ArrowRight, Users, Shield, Smartphone, Clock, Award, CheckCircle, Zap, Globe, Heart, KeyRound } from "lucide-react";
 import { RegisterModal } from "@/components/RegisterModal";
 import { Navigation } from "@/components/layout/Navigation";
 import { useState } from "react";
@@ -70,16 +70,26 @@ const LandingPage = () => {
             </p>
             
             {/* Main CTA Buttons */}
-            <div className="flex justify-center px-4 pt-4">
-  <Button
-    size="lg"
-    className="group text-sm sm:text-base lg:text-lg px-8 sm:px-12 py-4 sm:py-6 font-semibold shadow-md"
-    onClick={() => setRegisterModalOpen(true)}
-  >
-    Get Started with RemyAfya
-    <ArrowRight className="ml-2 h-4 w-4 sm:h-5 sm:w-5 group-hover:translate-x-1 transition-transform" />
-  </Button>
-</div>
+            <div className="flex flex-col sm:flex-row items-center justify-center gap-3 px-4 pt-4">
+              <Button
+                size="lg"
+                className="group text-sm sm:text-base lg:text-lg px-8 sm:px-12 py-4 sm:py-6 font-semibold shadow-md"
+                onClick={() => setRegisterModalOpen(true)}
+              >
+                Get Started with RemyAfya
+                <ArrowRight className="ml-2 h-4 w-4 sm:h-5 sm:w-5 group-hover:translate-x-1 transition-transform" />
+              </Button>
+
+              <Button
+                size="lg"
+                variant="outline"
+                className="text-sm sm:text-base lg:text-lg px-8 sm:px-10 py-4 sm:py-6 font-semibold"
+                onClick={() => navigate('/login/facility')}
+              >
+                <KeyRound className="mr-2 h-4 w-4 sm:h-5 sm:w-5" />
+                Join via Referral OTP
+              </Button>
+            </div>
             
             <div className="flex flex-col sm:flex-row justify-center items-center gap-4 sm:gap-6 lg:gap-12 text-xs sm:text-sm text-muted-foreground mt-8 sm:mt-12 px-4">
               <div className="flex items-center space-x-2">
@@ -126,7 +136,7 @@ const LandingPage = () => {
             </p>
           </div>
 
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-6 sm:gap-8">
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-6 sm:gap-8 max-w-4xl mx-auto">
             {/* Mothers */}
             <Card className="relative overflow-hidden hover:shadow-accent transition-all duration-300 border-0 bg-gradient-to-br from-background to-accent/5">
               <CardHeader className="pb-4">
@@ -197,47 +207,47 @@ const LandingPage = () => {
                   </li>
                   <li className="flex items-center space-x-3">
                     <CheckCircle className="h-5 w-5 text-success flex-shrink-0" />
-                    <span className="text-sm">Real-time escalation</span>
+                    <span className="text-sm">Facility referrals</span>
                   </li>
                 </ul>
               </CardContent>
             </Card>
+          </div>
 
-            {/* Nurses */}
-            <Card className="relative overflow-hidden hover:shadow-accent transition-all duration-300 border-0 bg-gradient-to-br from-background to-success/5">
-              <CardHeader className="pb-4">
-                <div className="flex items-center space-x-3 mb-4">
-                  <div className="bg-success/10 p-3 rounded-xl">
-                    <Shield className="h-8 w-8 text-success" />
-                  </div>
-                  <div>
-                    <CardTitle className="text-2xl text-primary">For Nurses</CardTitle>
-                    <CardDescription className="text-base">Clinical oversight</CardDescription>
+          {/* Facility Staff CTA */}
+          <div className="mt-12 max-w-2xl mx-auto">
+            <Card className="border-2 border-success/20 bg-gradient-to-br from-success/5 to-background">
+              <CardHeader className="text-center pb-4">
+                <div className="flex justify-center mb-4">
+                  <div className="bg-success/10 p-4 rounded-xl">
+                    <Shield className="h-10 w-10 text-success" />
                   </div>
                 </div>
+                <CardTitle className="text-2xl text-primary">Healthcare Facility Staff</CardTitle>
+                <CardDescription className="text-base">Join your facility team via invitation</CardDescription>
               </CardHeader>
-              <CardContent className="space-y-6">
-                <div className="aspect-video bg-gradient-to-br from-success/10 to-success/5 rounded-xl p-4 flex items-center justify-center">
-                  <img 
-                    src={networkIllustration} 
-                    alt="Healthcare network management"
-                    className="w-full h-full object-contain"
-                  />
+              <CardContent className="text-center space-y-4">
+                <p className="text-sm text-muted-foreground">
+                  Doctors, nurses, and facility staff join through facility admin invitations. 
+                  If you've received an invitation code, click below to access your facility dashboard.
+                </p>
+                <div className="flex flex-col sm:flex-row gap-3 justify-center">
+                  <Button
+                    variant="outline"
+                    className="border-success/30 hover:bg-success/10"
+                    onClick={() => navigate('/login/facility')}
+                  >
+                    <KeyRound className="mr-2 h-4 w-4" />
+                    Staff Login (OTP)
+                  </Button>
+                  <Button
+                    variant="outline"
+                    className="border-primary/30 hover:bg-primary/10"
+                    onClick={() => navigate('/register/facility-admin')}
+                  >
+                    Claim Your Facility
+                  </Button>
                 </div>
-                <ul className="space-y-3">
-                  <li className="flex items-center space-x-3">
-                    <CheckCircle className="h-5 w-5 text-success flex-shrink-0" />
-                    <span className="text-sm">Patient oversight</span>
-                  </li>
-                  <li className="flex items-center space-x-3">
-                    <CheckCircle className="h-5 w-5 text-success flex-shrink-0" />
-                    <span className="text-sm">Case management</span>
-                  </li>
-                  <li className="flex items-center space-x-3">
-                    <CheckCircle className="h-5 w-5 text-success flex-shrink-0" />
-                    <span className="text-sm">CHW coordination</span>
-                  </li>
-                </ul>
               </CardContent>
             </Card>
           </div>

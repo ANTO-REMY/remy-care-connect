@@ -12,13 +12,14 @@ export default function CHWIndex() {
   }, [isFirstLogin]);
 
   return (
-    <>
+    <div className="app-shell">
       <PhotoOnboardingModal
         open={showOnboarding}
         roleName="CHW"
         onComplete={() => setShowOnboarding(false)}
       />
+
       <EnhancedCHWDashboard />
-    </>
+    </div>
   );
 }

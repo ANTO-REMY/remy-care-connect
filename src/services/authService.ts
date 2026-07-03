@@ -14,6 +14,7 @@ export interface RegisterRequest {
   role: 'mother' | 'chw' | 'nurse';
   license_number?: string;  // for CHW/Nurse
   ward_id?: number;         // for all roles (location derived from ward)
+  linked_facility_id?: number; // optional CHW linked referral facility
   dob?: string;             // for Mother
   due_date?: string;        // for Mother
 }
@@ -33,6 +34,7 @@ export interface VerifyOTPRequest {
   otp_code: string;
   license_number?: string; // forwarded for CHW/Nurse profile creation
   ward_id?: number;        // forwarded for all roles (location derived from ward)
+  linked_facility_id?: number; // optional CHW linked referral facility
   dob?: string;            // forwarded for Mother profile creation
   due_date?: string;       // forwarded for Mother profile creation
 }
@@ -47,13 +49,17 @@ export interface VerifyOTPResponse {
 export interface LoginRequest {
   phone_number: string;
   pin: string;
+  otp_code?: string;
 }
 
 export interface LoginResponse {
   message: string;
-  access_token: string;
-  refresh_token: string;
-  user: {
+  requires_otp?: boolean;
+  expires_in?: string;
+  otp_delivery_status?: string;
+  access_token?: string;
+  refresh_token?: string;
+  user?: {
     id: number;
     phone_number: string;
     first_name: string;
@@ -62,6 +68,9 @@ export interface LoginResponse {
     name: string;
     role: string;
     profile_id?: number;
+    facility_id?: number;
+    profile_completed?: boolean;
+    account_role?: string;
   };
 }
 

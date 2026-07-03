@@ -1,42 +1,83 @@
 #root {
-  max-width: 1280px;
+  min-height: 100vh;
+}
+
+.app-shell {
+  min-height: 100vh;
+  background:
+    radial-gradient(circle at 0% 0%, hsl(var(--accent) / 0.12), transparent 40%),
+    radial-gradient(circle at 100% 100%, hsl(var(--primary) / 0.12), transparent 45%),
+    hsl(var(--background));
+}
+
+.app-shell-inner {
   margin: 0 auto;
-  padding: 2rem;
-  text-align: center;
+  width: min(1180px, 100% - 1.5rem);
+  padding: 1rem 0 2rem;
 }
 
-.logo {
-  height: 6em;
-  padding: 1.5em;
-  will-change: filter;
-  transition: filter 300ms;
-}
-.logo:hover {
-  filter: drop-shadow(0 0 2em #646cffaa);
-}
-.logo.react:hover {
-  filter: drop-shadow(0 0 2em #61dafbaa);
+.dashboard-hero {
+  border: 1px solid hsl(var(--border));
+  border-radius: 1rem;
+  background: linear-gradient(145deg, hsl(var(--primary)), hsl(210 45% 22%));
+  color: hsl(var(--primary-foreground));
+  box-shadow: var(--shadow-medical);
+  padding: 1rem;
 }
 
-@keyframes logo-spin {
-  from {
-    transform: rotate(0deg);
+.dashboard-glass {
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  border-radius: 1rem;
+  background: #1e3a5f;
+  color: white;
+  backdrop-filter: blur(8px);
+}
+
+.metric-card {
+  border: 1px solid hsl(var(--border));
+  border-radius: 0.9rem;
+  background: linear-gradient(145deg, hsl(var(--primary)), hsl(210 45% 22%));
+  color: hsl(var(--primary-foreground));
+  box-shadow: var(--shadow-medical);
+}
+
+.metric-card h3,
+.metric-card p,
+.metric-card span,
+.metric-card svg {
+  color: hsl(var(--primary-foreground));
+}
+
+.metric-card .text-muted-foreground {
+  color: hsl(var(--primary-foreground) / 0.82);
+}
+
+.metric-card svg {
+  color: hsl(var(--primary-foreground) / 0.9);
+}
+
+/* Tabs strip for dashboards: light grey background */
+.dashboard-tabs {
+  border: 1px solid hsl(var(--border));
+  border-radius: 1rem;
+  background: hsl(var(--muted));
+  color: hsl(var(--muted-foreground));
+}
+
+.status-dot {
+  display: inline-block;
+  width: 0.5rem;
+  height: 0.5rem;
+  border-radius: 999px;
+}
+
+@media (min-width: 640px) {
+  .app-shell-inner {
+    width: min(1180px, 100% - 2rem);
+    padding-top: 1.25rem;
   }
-  to {
-    transform: rotate(360deg);
+
+  .dashboard-hero {
+    padding: 1.25rem;
   }
-}
-
-@media (prefers-reduced-motion: no-preference) {
-  a:nth-of-type(2) .logo {
-    animation: logo-spin infinite 20s linear;
-  }
-}
-
-.card {
-  padding: 2em;
-}
-
-.read-the-docs {
-  color: #888;
 }

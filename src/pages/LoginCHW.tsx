@@ -15,11 +15,33 @@ export default function LoginCHW() {
     const { login } = useAuth();
     const [isLoading, setIsLoading] = useState(false);
     const [formData, setFormData] = useState({ phone: '', pin: '' });
+    const [awaitingOtp, setAwaitingOtp] = useState(false);
+    const [otpCode, setOtpCode] = useState('');
 
-    const handlePinChange = (val: string) => setFormData({ ...formData, pin: val });
+    const handlePinChange = (val: string) => {
+        setFormData({ ...formData, pin: val });
+        setAwaitingOtp(false);
+        setOtpCode('');
+    };
+
+    const requestLoginOtp = async (normalizedPhone: string) => {
+        const result = await login(normalizedPhone, formData.pin);
+        if (result.requiresOtp) {
+            setAwaitingOtp(true);
+            toast.success('OTP sent', {
+                description: result.message || 'Enter the code to complete sign in.',
+            });
+            return true;
+        }
+        return false;
+    };
 
     const handleInputChange = (e: React.ChangeEvent<HTMLInputElement>) => {
         setFormData({ ...formData, [e.target.name]: e.target.value });
+        if (e.target.name === 'phone') {
+            setAwaitingOtp(false);
+            setOtpCode('');
+        }
     };
 
     const handleSubmit = async (e: React.FormEvent) => {
@@ -34,9 +56,32 @@ export default function LoginCHW() {
             return;
         }
 
+        if (awaitingOtp && otpCode.length !== 5) {
+            toast.warning('OTP required', {
+                description: 'Enter the 5-digit OTP sent to your phone to continue.',
+            });
+            setIsLoading(false);
+            return;
+        }
+
         try {
             const normalizedPhone = normalizePhoneNumber(formData.phone);
-            const result = await login(normalizedPhone, formData.pin);
+            if (!awaitingOtp) {
+                const otpIssued = await requestLoginOtp(normalizedPhone);
+                if (otpIssued) {
+                    return;
+                }
+            }
+
+            const result = await login(normalizedPhone, formData.pin, otpCode);
+
+            if (result.requiresOtp) {
+                setAwaitingOtp(true);
+                toast.success('OTP resent', {
+                    description: result.message || 'Enter the latest code to complete sign in.',
+                });
+                return;
+            }
 
             if (result.success) {
                 toast.success('Welcome back! 🏥', {
@@ -49,6 +94,8 @@ export default function LoginCHW() {
                     navigate('/dashboard/mother');
                 } else if (result.role === 'nurse') {
                     navigate('/dashboard/nurse');
+                } else if (result.role === 'facility_staff') {
+                    navigate('/dashboard/facility');
                 } else {
                     navigate('/dashboard/chw');
                 }
@@ -113,8 +160,53 @@ export default function LoginCHW() {
                                 </div>
                             </div>
 
+                            {awaitingOtp && (
+                                <div className="space-y-2">
+                                    <Label htmlFor="login_otp_chw-0">OTP Code *</Label>
+                                    <div className="flex justify-center">
+                                        <PinInput
+                                            value={otpCode}
+                                            onChange={setOtpCode}
+                                            name="login_otp_chw"
+                                            label="OTP Code"
+                                            required
+                                            length={5}
+                                            visuallyHiddenLabel
+                                        />
+                                    </div>
+                                    <p className="text-xs text-muted-foreground text-center">Enter the 5-digit OTP sent to your phone.</p>
+                                    <Button
+                                        variant="ghost"
+                                        type="button"
+                                        className="w-full"
+                                        disabled={isLoading}
+                                        onClick={async () => {
+                                            if (!formData.phone || !formData.pin) {
+                                                toast.warning('Phone and PIN required', {
+                                                    description: 'Enter phone and PIN first to resend OTP.',
+                                                });
+                                                return;
+                                            }
+                                            setIsLoading(true);
+                                            try {
+                                                const normalizedPhone = normalizePhoneNumber(formData.phone);
+                                                await requestLoginOtp(normalizedPhone);
+                                            } catch (error) {
+                                                toast.error('Could not resend OTP', {
+                                                    description: (error as Error).message,
+                                                });
+                                            } finally {
+                                                setIsLoading(false);
+                                            }
+                                        }}
+                                    >
+                                        {isLoading ? 'Resending OTP…' : 'Resend OTP'}
+                                    </Button>
+                                </div>
+                            )}
+
                             <Button type="submit" className="w-full" disabled={isLoading}>
-                                {isLoading ? 'Signing In…' : 'Sign In'}
+                                {isLoading ? (awaitingOtp ? 'Verifying OTP…' : 'Requesting OTP…') : (awaitingOtp ? 'Verify OTP & Sign In' : 'Continue')}
                             </Button>
                         </form>
 

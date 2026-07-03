@@ -4,6 +4,7 @@
  */
 
 import { apiClient } from '@/lib/apiClient';
+import { getFacilityNurseFacilityId } from './nurseWorkflowMode';
 
 export type AssignmentStatus = 'active' | 'inactive';
 
@@ -61,6 +62,16 @@ class AssignmentService {
    * Optional status filter: 'active' | 'inactive'
    */
   async getMothersForCHW(chwId: number, status?: AssignmentStatus): Promise<AssignedMothersResponse> {
+    const facilityId = getFacilityNurseFacilityId();
+    if (facilityId) {
+      const response = await apiClient.get<AssignedMothersResponse>(`/facilities/${facilityId}/nurse-compat/chws/${chwId}/mothers`);
+      if (!status) return response;
+      return {
+        mothers: (response.mothers || []).filter((mother) => mother.status === status),
+        total: (response.mothers || []).filter((mother) => mother.status === status).length,
+      };
+    }
+
     const qs = status ? `?status=${status}` : '';
     return apiClient.get<AssignedMothersResponse>(`/chws/${chwId}/mothers${qs}`);
   }
@@ -97,6 +108,37 @@ class AssignmentService {
    * List assignments visible to a nurse (same ward).
    */
   async getAssignmentsForNurse(nurseId: number, status?: AssignmentStatus): Promise<AssignmentListResponse> {
+    const facilityId = getFacilityNurseFacilityId();
+    if (facilityId) {
+      const chwsResponse = await apiClient.get<{ chws: Array<{ id: number; name: string }> }>(`/facilities/${facilityId}/nurse-compat/team/chws`);
+      const chws = chwsResponse.chws || [];
+
+      const mothersByChw = await Promise.all(
+        chws.map(async (chw) => {
+          const mothersResponse = await apiClient.get<AssignedMothersResponse>(`/facilities/${facilityId}/nurse-compat/chws/${chw.id}/mothers`);
+          return { chw, mothers: mothersResponse.mothers || [] };
+        }),
+      );
+
+      const assignments: Assignment[] = mothersByChw.flatMap(({ chw, mothers }) => {
+        return mothers.map((mother) => ({
+          id: mother.assignment_id,
+          mother_id: mother.mother_id,
+          mother_name: mother.name,
+          chw_id: chw.id,
+          chw_name: chw.name,
+          assigned_at: mother.assigned_at,
+          status: mother.status,
+        }));
+      });
+
+      const filtered = status ? assignments.filter((assignment) => assignment.status === status) : assignments;
+      return {
+        assignments: filtered,
+        total: filtered.length,
+      };
+    }
+
     const qs = status ? `?status=${status}` : '';
     return apiClient.get<AssignmentListResponse>(`/nurses/${nurseId}/assignments${qs}`);
   }

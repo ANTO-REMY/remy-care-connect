@@ -16,4 +16,28 @@ export default defineConfig(({ mode }) => ({
       "@": path.resolve(__dirname, "./src"),
     },
   },
+  build: {
+    chunkSizeWarningLimit: 700,
+    rollupOptions: {
+      output: {
+        manualChunks(id) {
+          if (!id.includes("node_modules")) return;
+
+          if (id.includes("react-router") || id.includes("@tanstack")) {
+            return "vendor-routing-data";
+          }
+
+          if (id.includes("firebase") || id.includes("socket.io") || id.includes("axios")) {
+            return "vendor-networking";
+          }
+
+          if (id.includes("lucide-react") || id.includes("class-variance-authority") || id.includes("tailwind-merge") || id.includes("clsx")) {
+            return "vendor-ui";
+          }
+
+          return "vendor-core";
+        },
+      },
+    },
+  },
 }));

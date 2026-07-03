@@ -4,6 +4,7 @@
  */
 
 import { apiClient } from '@/lib/apiClient';
+import { getFacilityNurseFacilityId } from './nurseWorkflowMode';
 
 export interface UltrasoundRecord {
   id: number;
@@ -30,6 +31,16 @@ export interface CreateUltrasoundRequest {
 class UltrasoundService {
   /** CHW/Nurse records ultrasound data for a mother. */
   async create(motherId: number, data: CreateUltrasoundRequest): Promise<UltrasoundRecord> {
+    const facilityId = getFacilityNurseFacilityId();
+    if (facilityId) {
+      const resp = await apiClient.post<UltrasoundRecord & { message: string }>(
+        `/facilities/${facilityId}/nurse-compat/mothers/${motherId}/ultrasound`,
+        data,
+      );
+      const { message: _msg, ...record } = resp;
+      return record;
+    }
+
     const resp = await apiClient.post<UltrasoundRecord & { message: string }>(
       `/mothers/${motherId}/ultrasound`,
       data

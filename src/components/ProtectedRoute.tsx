@@ -1,9 +1,10 @@
 import { Navigate } from 'react-router-dom';
 import { useAuth } from '@/contexts/AuthContext';
+import { featureFlags } from '@/lib/featureFlags';
 
 interface ProtectedRouteProps {
   children: React.ReactNode;
-  requiredRole?: 'mother' | 'chw' | 'nurse';
+  requiredRole?: 'mother' | 'chw' | 'nurse' | 'facility_staff';
 }
 
 /**
@@ -16,6 +17,10 @@ interface ProtectedRouteProps {
  */
 export function ProtectedRoute({ children, requiredRole }: ProtectedRouteProps) {
   const { isAuthenticated, user, loading } = useAuth();
+  const isFacilityNurse =
+    featureFlags.facilityNurseInheritance
+    && user?.role === 'facility_staff'
+    && user?.account_role === 'nurse';
 
   if (loading) {
     return (
@@ -29,12 +34,18 @@ export function ProtectedRoute({ children, requiredRole }: ProtectedRouteProps) 
     return <Navigate to="/login" replace />;
   }
 
-  if (requiredRole && user.role !== requiredRole) {
+  const roleMismatch =
+    requiredRole === 'nurse'
+      ? !(user.role === 'nurse' || isFacilityNurse)
+      : !!requiredRole && user.role !== requiredRole;
+
+  if (roleMismatch) {
     // Send the user to the dashboard that matches their actual role
     const correctPath =
       user.role === 'mother' ? '/dashboard/mother' :
       user.role === 'chw'    ? '/dashboard/chw' :
       user.role === 'nurse'  ? '/dashboard/nurse' :
+      user.role === 'facility_staff' ? (isFacilityNurse ? '/dashboard/nurse' : '/dashboard/facility') :
       '/login';
     return <Navigate to={correctPath} replace />;
   }
