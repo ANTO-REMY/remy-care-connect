@@ -164,7 +164,7 @@ class AssignmentService {
       user_id: number;
       profile_id: number;
       name: string;
-      phone: string | null;
+      phone_number: string | null;
       location: string | null;
     };
     assignment_id?: number;

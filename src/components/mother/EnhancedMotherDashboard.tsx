@@ -279,6 +279,24 @@ export function EnhancedMotherDashboard({ isFirstLogin = false }: MotherDashboar
   const refreshData = useCallback(async () => {
     if (!user?.id) return;
 
+    try {
+      const fetchedProfile = await motherService.getMyProfile();
+      if (fetchedProfile?.id) {
+        setMotherProfileId(fetchedProfile.id);
+        setProfile(fetchedProfile);
+        motherProfileIdRef.current = fetchedProfile.id;
+      }
+    } catch { /* ignore */ }
+
+    try {
+      const chwData = await assignmentService.getAssignedCHWForMother(user.id);
+      if (chwData.assigned && chwData.chw?.user_id) {
+        setAssignedCHWUserId(chwData.chw.user_id);
+      } else {
+        setAssignedCHWUserId(null);
+      }
+    } catch { /* ignore */ }
+
     // Appointments (all statuses so completed/cancelled also visible)
     try {
       const resp = await appointmentService.getAllForMother(user.id);
@@ -402,6 +420,18 @@ export function EnhancedMotherDashboard({ isFirstLogin = false }: MotherDashboar
   useSocket('checkin:new', () => refreshData(), { enabled: !!user?.id });
   useSocket('ultrasound:created', () => refreshData(), { enabled: !!user?.id });
   useSocket('notification:new', () => refreshNotifications(), { enabled: !!user?.id });
+  useSocket('assignment:created', () => {
+    refreshData();
+    refreshNotifications();
+  }, { enabled: !!user?.id });
+  useSocket('assignment:status_changed', () => {
+    refreshData();
+    refreshNotifications();
+  }, { enabled: !!user?.id });
+  useSocket('assignment:deleted', () => {
+    refreshData();
+    refreshNotifications();
+  }, { enabled: !!user?.id });
   
   // Reminder real-time events
   useSocket('reminder:created', () => refreshData(), { enabled: !!user?.id });

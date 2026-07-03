@@ -19,8 +19,13 @@ export interface Mother {
   created_at: string;
   assigned_chw?: {
     id: number;
+    user_id?: number;
     name: string;
-    phone_number: string;
+    phone_number: string | null;
+    location?: string | null;
+    assignment_id?: number;
+    assigned_at?: string | null;
+    assignment_method?: string | null;
   };
 }
 
@@ -84,7 +89,9 @@ interface MotherApiResponse {
   dob: string;
   due_date: string;
   location: string | null;
-  phone: string;
+  phone?: string;
+  phone_number?: string;
+  assigned_chw?: Mother['assigned_chw'];
 }
 
 class MotherService {
@@ -106,10 +113,11 @@ class MotherService {
       name: data.name,
       first_name: data.first_name,
       last_name: data.last_name,
-      phone_number: data.phone,
+      phone_number: data.phone_number || data.phone || '',
       date_of_birth: data.dob,
       due_date: data.due_date,
       location: data.location,
+      assigned_chw: data.assigned_chw,
       // These fields are not provided by this endpoint; set sensible defaults
       status: 'active',
       created_at: '',
@@ -127,10 +135,11 @@ class MotherService {
       name: data.name,
       first_name: data.first_name,
       last_name: data.last_name,
-      phone_number: data.phone,
+      phone_number: data.phone_number || data.phone || '',
       date_of_birth: data.dob,
       due_date: data.due_date,
       location: data.location,
+      assigned_chw: data.assigned_chw,
       status: 'active',
       created_at: '',
     };

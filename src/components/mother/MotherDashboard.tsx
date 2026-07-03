@@ -11,6 +11,7 @@ import { useAuth } from "@/contexts/AuthContext";
 import { motherService, type Mother } from "@/services/motherService";
 import { checkinService, type CheckInResponse } from "@/services/checkinService";
 import { useToast } from "@/hooks/use-toast";
+import { useSocket } from "@/hooks/useSocket";
 import { MotherProfile } from "./MotherProfile";
 import { NextOfKinModal } from "./NextOfKinModal";
 
@@ -80,6 +81,11 @@ export function MotherDashboard() {
   useEffect(() => {
     loadMotherData();
   }, [loadMotherData]);
+
+  useSocket('assignment:created', () => refreshData(), { enabled: !!user?.id });
+  useSocket('assignment:status_changed', () => refreshData(), { enabled: !!user?.id });
+  useSocket('assignment:deleted', () => refreshData(), { enabled: !!user?.id });
+  useSocket('mother:profile_updated', () => refreshData(), { enabled: !!user?.id });
 
   /** Reset the check-in modal to initial state */
   const resetCheckInModal = () => {
@@ -385,14 +391,17 @@ export function MotherDashboard() {
                   <div className="space-y-3">
                     <div>
                       <p className="font-medium text-lg">{motherProfile.assigned_chw.name}</p>
-                      <p className="text-sm text-muted-foreground">{motherProfile.assigned_chw.phone_number}</p>
+                      <p className="text-sm text-muted-foreground">
+                        {motherProfile.assigned_chw.phone_number || 'Phone number unavailable'}
+                      </p>
                     </div>
                     <div className="flex gap-2">
                       <Button 
                         variant="outline" 
                         size="sm" 
                         className="flex-1"
-                        onClick={() => openSMS(motherProfile.assigned_chw!.phone_number)}
+                        onClick={() => openSMS(motherProfile.assigned_chw!.phone_number || '')}
+                        disabled={!motherProfile.assigned_chw.phone_number}
                       >
                         <MessageCircle className="h-4 w-4 mr-2" />
                         SMS
@@ -401,7 +410,8 @@ export function MotherDashboard() {
                         variant="outline" 
                         size="sm" 
                         className="flex-1"
-                        onClick={() => openWhatsApp(motherProfile.assigned_chw!.phone_number)}
+                        onClick={() => openWhatsApp(motherProfile.assigned_chw!.phone_number || '')}
+                        disabled={!motherProfile.assigned_chw.phone_number}
                       >
                         <Phone className="h-4 w-4 mr-2" />
                         Call
