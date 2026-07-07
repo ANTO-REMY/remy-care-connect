@@ -142,3 +142,26 @@ All colors MUST be HSL.
     font-size: 1.5rem;
   }
 }
+
+@layer utilities {
+  .registration-card {
+    background:
+      radial-gradient(circle at top, hsl(var(--primary) / 0.05), transparent 46%),
+      linear-gradient(180deg, hsl(210 32% 99%), hsl(var(--card)) 62%, hsl(210 30% 97%));
+    box-shadow:
+      0 28px 70px -38px hsl(var(--primary) / 0.35),
+      0 10px 24px -18px hsl(var(--foreground) / 0.12);
+  }
+
+  .field-icon {
+    @apply absolute left-3 top-1/2 z-10 h-4 w-4 -translate-y-1/2 text-muted-foreground transition-colors duration-200;
+  }
+
+  .ward-shell-active {
+    @apply opacity-100 scale-100;
+  }
+
+  .ward-shell-idle {
+    @apply opacity-70 scale-[0.985];
+  }
+}

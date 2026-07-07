@@ -100,6 +100,11 @@ export interface MotherFacilityAppointment {
   id: number;
   facility_id: number;
   facility_name?: string;
+  facility_address?: string | null;
+  facility_city?: string | null;
+  facility_phone?: string | null;
+  facility_email?: string | null;
+  facility_hours_text?: string | null;
   mother_id?: number;
   mother_name: string;
   scheduled_time: string;
@@ -260,6 +265,34 @@ class HealthFacilityService {
    */
   async getMyAppointments(): Promise<{ count: number; appointments: MotherFacilityAppointment[] }> {
     return apiClient.get('/health-facilities/appointments/mine');
+  }
+
+  /**
+   * Mother updates her own facility booking.
+   */
+  async updateMyAppointment(
+    appointmentId: number,
+    data: { scheduled_time?: string; appointment_type?: string; notes?: string }
+  ): Promise<{ message: string; appointment: MotherFacilityAppointment }> {
+    return apiClient.patch(`/health-facilities/appointments/${appointmentId}`, data);
+  }
+
+  /**
+   * Mother cancels her own facility booking.
+   */
+  async cancelMyAppointment(
+    appointmentId: number
+  ): Promise<{ message: string; appointment: MotherFacilityAppointment }> {
+    return apiClient.delete(`/health-facilities/appointments/${appointmentId}`);
+  }
+
+  /**
+   * Mother restores a canceled facility booking.
+   */
+  async restoreMyAppointment(
+    appointmentId: number
+  ): Promise<{ message: string; appointment: MotherFacilityAppointment }> {
+    return apiClient.post(`/health-facilities/appointments/${appointmentId}/restore`);
   }
 
   /**

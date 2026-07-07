@@ -1,52 +1,45 @@
-/**
- * locationService.ts — Nairobi County administrative location API calls.
- *
- * Endpoints used:
- *   GET /locations/sub-counties              → list all sub-counties
- *   GET /locations/sub-counties/:id/wards    → wards for a sub-county
- *   PATCH /locations/ward                    → save ward_id to the caller's profile
- */
+import {
+  NAIROBI_SUB_COUNTIES,
+  NAIROBI_WARDS_BY_SUB_COUNTY,
+} from "@/data/nairobiLocations";
 
-const API_BASE = import.meta.env.VITE_API_BASE_URL || 'http://localhost:5001/api/v1';
+const API_BASE = import.meta.env.VITE_API_BASE_URL || "http://localhost:5001/api/v1";
 
 export interface SubCounty {
-    id: number;
-    name: string;
+  id: number;
+  name: string;
 }
 
 export interface Ward {
-    id: number;
-    name: string;
-    sub_county_id: number;
+  id: number;
+  name: string;
+  sub_county_id: number;
 }
 
-/** Return all Nairobi sub-counties ordered alphabetically. */
+/** Return all Nairobi sub-counties ordered alphabetically from the local preload. */
 export async function getSubCounties(): Promise<SubCounty[]> {
-    const res = await fetch(`${API_BASE}/locations/sub-counties`);
-    if (!res.ok) throw new Error('Failed to load sub-counties');
-    return res.json();
+  return Promise.resolve([...NAIROBI_SUB_COUNTIES]);
 }
 
-/** Return the wards that belong to a given sub-county. */
+/** Return the wards that belong to a given sub-county from the local preload. */
 export async function getWards(subCountyId: number): Promise<Ward[]> {
-    const res = await fetch(`${API_BASE}/locations/sub-counties/${subCountyId}/wards`);
-    if (!res.ok) throw new Error('Failed to load wards');
-    return res.json();
+  return Promise.resolve([...(NAIROBI_WARDS_BY_SUB_COUNTY[subCountyId] ?? [])]);
 }
 
 /** Save the selected ward to the calling user's role-specific profile row. */
 export async function saveWard(wardId: number): Promise<void> {
-    const token = sessionStorage.getItem('access_token');
-    const res = await fetch(`${API_BASE}/locations/ward`, {
-        method: 'PATCH',
-        headers: {
-            'Content-Type': 'application/json',
-            Authorization: `Bearer ${token}`,
-        },
-        body: JSON.stringify({ ward_id: wardId }),
-    });
-    if (!res.ok) {
-        const err = await res.json().catch(() => ({}));
-        throw new Error((err as Record<string, string>).error || 'Failed to save ward');
-    }
+  const token = sessionStorage.getItem("access_token");
+  const res = await fetch(`${API_BASE}/locations/ward`, {
+    method: "PATCH",
+    headers: {
+      "Content-Type": "application/json",
+      Authorization: `Bearer ${token}`,
+    },
+    body: JSON.stringify({ ward_id: wardId }),
+  });
+
+  if (!res.ok) {
+    const err = await res.json().catch(() => ({}));
+    throw new Error((err as Record<string, string>).error || "Failed to save ward");
+  }
 }

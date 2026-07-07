@@ -29,7 +29,7 @@ import { uploadPhoto, getPhotoFileUrl, getMyPhoto } from "@/services/photoServic
 import { escalationService } from "@/services/escalationService";
 import { assignmentService, type AssignedMother } from "@/services/assignmentService";
 import { appointmentService, type Appointment } from "@/services/appointmentService";
-import { chwService } from "@/services/chwService";
+import { chwService, type CHW } from "@/services/chwService";
 import { apiClient } from "@/lib/apiClient";
 import { checkinService, type CheckIn } from "@/services/checkinService";
 import { ultrasoundService, type UltrasoundRecord } from "@/services/ultrasoundService";
@@ -133,6 +133,7 @@ export function EnhancedCHWDashboard({ isFirstLogin = false }: CHWDashboardProps
   });
   const [activeTab, setActiveTab] = useState("mothers");
   // Real-data state (populated from API; mock data used as initial fallback)
+  const [chwProfile, setChwProfile] = useState<CHW | null>(null);
   const [chwProfileId, setChwProfileId] = useState<number | null>(null);
   const [availableNurses, setAvailableNurses] = useState<{ nurse_id: number; name: string }[]>([]);
   const [realEscalations, setRealEscalations] = useState<typeof mockEscalatedCases | null>(null);
@@ -353,8 +354,48 @@ export function EnhancedCHWDashboard({ isFirstLogin = false }: CHWDashboardProps
     : combinedInsight.status === "watch"
       ? "border-amber-300 bg-amber-50"
       : "border-emerald-300 bg-emerald-50";
+  const chwFacilityLink = chwProfile
+    ? {
+        facility_link_status: chwProfile.facility_link_status,
+        facility_link_message: chwProfile.facility_link_message,
+        can_perform_facility_escalations: chwProfile.can_perform_facility_escalations,
+        linked_facility_name: chwProfile.linked_facility_name,
+        pending_facility_name: chwProfile.pending_facility_name,
+      }
+    : user?.chw_facility_link ?? null;
+  const canPerformFacilityEscalations = Boolean(chwFacilityLink?.can_perform_facility_escalations);
+  const facilityLinkStatus = chwFacilityLink?.facility_link_status ?? "not_linked";
+  const facilityEscalationMessage =
+    chwFacilityLink?.facility_link_message ||
+    (facilityLinkStatus === "awaiting_approval"
+      ? "Awaiting linked facility approval."
+      : "No linked facility on file.");
+
+  const guardFacilityEscalationAction = useCallback(() => {
+    if (canPerformFacilityEscalations) {
+      return true;
+    }
+
+    toast({
+      title: "Facility approval pending",
+      description: facilityEscalationMessage,
+      variant: "destructive",
+    });
+    return false;
+  }, [canPerformFacilityEscalations, facilityEscalationMessage, toast]);
+
+  const openEscalationModal = useCallback(() => {
+    if (!guardFacilityEscalationAction()) {
+      return;
+    }
+    setShowEscalationModal(true);
+  }, [guardFacilityEscalationAction]);
 
   const handleEscalation = async () => {
+    if (!guardFacilityEscalationAction()) {
+      return;
+    }
+
     if (!escalationForm.motherId || !escalationForm.issueType || !escalationForm.description) {
       toast({
         title: "Missing Information",
@@ -832,6 +873,7 @@ export function EnhancedCHWDashboard({ isFirstLogin = false }: CHWDashboardProps
       try {
         const profile = await chwService.getCurrentProfile();
         if (isMounted) {
+          setChwProfile(profile);
           setChwProfileId(profile.id);
           chwProfileIdRef.current = profile.id;
         }
@@ -1214,6 +1256,12 @@ export function EnhancedCHWDashboard({ isFirstLogin = false }: CHWDashboardProps
             </DialogDescription>
           </DialogHeader>
           <div className="space-y-4 py-4">
+            {!canPerformFacilityEscalations && (
+              <Alert className="border-amber-300 bg-amber-50 text-amber-950">
+                <AlertCircle className="h-4 w-4" />
+                <AlertDescription>{facilityEscalationMessage}</AlertDescription>
+              </Alert>
+            )}
             <div>
               <label className="text-sm font-medium mb-2 block">Select Mother</label>
               <Select
@@ -1306,11 +1354,13 @@ export function EnhancedCHWDashboard({ isFirstLogin = false }: CHWDashboardProps
             <Button
               onClick={handleEscalation}
               className="flex-1"
-              disabled={escalationSubmitting || (escalationForm.checkInId
+              disabled={!canPerformFacilityEscalations || escalationSubmitting || (escalationForm.checkInId
                 ? hasActiveEscalationForCheckIn(parseInt(escalationForm.checkInId))
                 : (escalationForm.motherId ? hasActiveEscalation(parseInt(escalationForm.motherId)) : false))}
             >
-              {escalationSubmitting ? (
+              {!canPerformFacilityEscalations ? (
+                <><AlertCircle className="h-4 w-4 mr-2" />Approval Pending</>
+              ) : escalationSubmitting ? (
                 <><Activity className="h-4 w-4 mr-2 animate-spin" />Submitting...</>
               ) : (escalationForm.checkInId
                 ? hasActiveEscalationForCheckIn(parseInt(escalationForm.checkInId))
@@ -1454,12 +1504,13 @@ export function EnhancedCHWDashboard({ isFirstLogin = false }: CHWDashboardProps
                     issueType: 'other',
                     priority: checkInToEscalate.response === 'not_ok' ? 'high' : 'medium',
                   }));
-                  setShowEscalationModal(true);
+                  openEscalationModal();
                 }
               }}
+              disabled={!canPerformFacilityEscalations}
             >
               <AlertTriangle className="h-4 w-4 mr-2" />
-              Yes, Escalate
+              {canPerformFacilityEscalations ? "Yes, Escalate" : "Approval Pending"}
             </Button>
             <Button
               variant="outline"
@@ -1881,6 +1932,21 @@ export function EnhancedCHWDashboard({ isFirstLogin = false }: CHWDashboardProps
 
       {/* Main Content */}
       <main className="max-w-7xl mx-auto px-4 sm:px-6 py-6">
+        {!canPerformFacilityEscalations && (
+          <Alert className="mb-6 border-amber-300 bg-amber-50 text-amber-950">
+            <AlertCircle className="h-4 w-4" />
+            <AlertDescription>
+              <span className="font-semibold">Awaiting linked facility approval.</span>
+              {" "}
+              {chwFacilityLink?.pending_facility_name
+                ? `${chwFacilityLink.pending_facility_name} is still pending review.`
+                : facilityEscalationMessage}
+              {" "}
+              CHW-to-facility activities like escalations are disabled until approval is complete.
+            </AlertDescription>
+          </Alert>
+        )}
+
         {/* Welcome Section */}
         <div className="mb-6">
           <h2 className="text-3xl font-bold text-foreground">
@@ -2004,11 +2070,12 @@ export function EnhancedCHWDashboard({ isFirstLogin = false }: CHWDashboardProps
                 onClick={() => {
                   setCheckInToEscalate(null);
                   setEscalationForm(prev => ({ ...prev, checkInId: "" }));
-                  setShowEscalationModal(true);
+                  openEscalationModal();
                 }}
+                disabled={!canPerformFacilityEscalations}
               >
                 <Upload className="h-4 w-4 mr-2" />
-                Escalate Case
+                {canPerformFacilityEscalations ? "Escalate Case" : "Approval Pending"}
               </Button>
             </div>
 
@@ -2217,9 +2284,10 @@ export function EnhancedCHWDashboard({ isFirstLogin = false }: CHWDashboardProps
                                 setCheckInToEscalate(ci);
                                 setShowEscalateFromCheckinDialog(true);
                               }}
+                              disabled={!canPerformFacilityEscalations}
                             >
                               <AlertTriangle className="h-3 w-3 mr-1" />
-                              Escalate
+                              {canPerformFacilityEscalations ? "Escalate" : "Pending"}
                             </Button>
                           )}
                           {!showHiddenCheckIns && (

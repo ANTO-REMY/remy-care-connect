@@ -5,6 +5,7 @@
 
 import { apiClient } from '@/lib/apiClient';
 import type { Mother } from './motherService';
+import type { CHWFacilityLinkState } from './authService';
 
 export interface CHW {
   id: number;
@@ -15,6 +16,18 @@ export interface CHW {
   phone_number: string;
   license_number: string | null;
   location: string | null;
+  facility_link_status?: CHWFacilityLinkState['facility_link_status'];
+  facility_link_message?: string | null;
+  can_perform_facility_escalations?: boolean;
+  linked_facility_id?: number | null;
+  linked_facility_name?: string | null;
+  pending_facility_submission_id?: number | null;
+  pending_facility_submission_status?: string | null;
+  pending_facility_name?: string | null;
+  pending_facility_ward_id?: number | null;
+  pending_facility_ward_name?: string | null;
+  pending_facility_sub_county_id?: number | null;
+  pending_facility_sub_county_name?: string | null;
   created_at: string;
 }
 

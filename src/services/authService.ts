@@ -5,6 +5,21 @@
 
 import { apiClient } from '@/lib/apiClient';
 
+export interface CHWFacilityLinkState {
+  facility_link_status: 'approved' | 'awaiting_approval' | 'rejected' | 'not_linked';
+  facility_link_message?: string | null;
+  can_perform_facility_escalations: boolean;
+  linked_facility_id?: number | null;
+  linked_facility_name?: string | null;
+  pending_facility_submission_id?: number | null;
+  pending_facility_submission_status?: string | null;
+  pending_facility_name?: string | null;
+  pending_facility_ward_id?: number | null;
+  pending_facility_ward_name?: string | null;
+  pending_facility_sub_county_id?: number | null;
+  pending_facility_sub_county_name?: string | null;
+}
+
 export interface RegisterRequest {
   phone_number: string;
   first_name: string;
@@ -15,6 +30,8 @@ export interface RegisterRequest {
   license_number?: string;  // for CHW/Nurse
   ward_id?: number;         // for all roles (location derived from ward)
   linked_facility_id?: number; // optional CHW linked referral facility
+  new_facility_name?: string; // optional CHW facility submission
+  new_facility_ward_id?: number; // optional ward for newly submitted facility
   dob?: string;             // for Mother
   due_date?: string;        // for Mother
 }
@@ -35,6 +52,8 @@ export interface VerifyOTPRequest {
   license_number?: string; // forwarded for CHW/Nurse profile creation
   ward_id?: number;        // forwarded for all roles (location derived from ward)
   linked_facility_id?: number; // optional CHW linked referral facility
+  new_facility_name?: string; // optional CHW facility submission
+  new_facility_ward_id?: number; // optional ward for newly submitted facility
   dob?: string;            // forwarded for Mother profile creation
   due_date?: string;       // forwarded for Mother profile creation
 }
@@ -44,6 +63,7 @@ export interface VerifyOTPResponse {
   user_id: number;
   role: string;
   profile_id: number | null;
+  chw_facility_link?: CHWFacilityLinkState | null;
 }
 
 export interface LoginRequest {
@@ -71,6 +91,7 @@ export interface LoginResponse {
     facility_id?: number;
     profile_completed?: boolean;
     account_role?: string;
+    chw_facility_link?: CHWFacilityLinkState | null;
   };
 }
 

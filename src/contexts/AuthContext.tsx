@@ -1,6 +1,6 @@
 /* eslint-disable react-refresh/only-export-components */
 import React, { createContext, useContext, useState, useEffect } from 'react';
-import { authService, type LoginRequest, type RegisterRequest } from '@/services/authService';
+import { authService, type CHWFacilityLinkState, type LoginRequest, type RegisterRequest } from '@/services/authService';
 import { initFirebaseMessaging, unregisterDeviceToken } from '@/lib/firebaseClient';
 import { disconnectSocket } from '@/lib/socketClient';
 
@@ -16,6 +16,7 @@ export interface User {
   facility_id?: number;
   account_role?: string;
   profile_completed?: boolean;
+  chw_facility_link?: CHWFacilityLinkState | null;
 }
 
 interface AuthContextType {
@@ -23,7 +24,7 @@ interface AuthContextType {
   isFirstLogin: boolean;
   login: (phone: string, pin: string, otpCode?: string) => Promise<{ success: boolean; role?: string; error?: string; requiresOtp?: boolean; message?: string }>;
   register: (userData: RegisterRequest) => Promise<{ success: boolean; userId?: number; error?: string }>;
-  verifyOTP: (phone: string, otpCode: string, extras?: { license_number?: string; ward_id?: number; linked_facility_id?: number; dob?: string; due_date?: string }) => Promise<{ success: boolean; error?: string }>;
+  verifyOTP: (phone: string, otpCode: string, extras?: { license_number?: string; ward_id?: number; linked_facility_id?: number; new_facility_name?: string; new_facility_ward_id?: number; dob?: string; due_date?: string }) => Promise<{ success: boolean; error?: string }>;
   hydrateAuthSession: (nextUser: User) => void;
   logout: () => void;
   markOnboardingComplete: () => void;
@@ -174,7 +175,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   const verifyOTP = async (
     phone: string,
     otpCode: string,
-    extras?: { license_number?: string; ward_id?: number; linked_facility_id?: number; dob?: string; due_date?: string }
+    extras?: { license_number?: string; ward_id?: number; linked_facility_id?: number; new_facility_name?: string; new_facility_ward_id?: number; dob?: string; due_date?: string }
   ): Promise<{ success: boolean; error?: string }> => {
     try {
       const response = await authService.verifyOTP({

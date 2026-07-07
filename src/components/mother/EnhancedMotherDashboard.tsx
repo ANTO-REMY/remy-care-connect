@@ -51,6 +51,7 @@ import { DashboardAccountMenu } from "@/components/layout/DashboardAccountMenu";
 import { RESPONSIVE_PADDING } from "@/components/ui/spacing.constants";
 import { FacilitySearchCard } from "./FacilitySearchCard";
 import { FacilityDetailModal } from "./FacilityDetailModal";
+import { FacilityBookingCard } from "./FacilityBookingCard";
 
 
 
@@ -72,6 +73,9 @@ const weeklyProgress = {
 interface MotherDashboardProps {
   isFirstLogin?: boolean;
 }
+
+type AppointmentSection = 'yours' | 'chw' | 'facility';
+type FacilityBookingAction = 'edit' | 'cancel' | 'restore';
 
 type ReminderVisual = {
   icon: LucideIcon;
@@ -211,8 +215,9 @@ export function EnhancedMotherDashboard({ isFirstLogin = false }: MotherDashboar
   const [hiddenAppointments, setHiddenAppointments] = useState<Appointment[]>([]);
   const [appointmentsLoading, setAppointmentsLoading] = useState(false);
   const [hiddenAppointmentsLoading, setHiddenAppointmentsLoading] = useState(false);
+  const [facilityAppointmentsLoading, setFacilityAppointmentsLoading] = useState(false);
   const [showHiddenAppointments, setShowHiddenAppointments] = useState(false);
-  const [apptTab, setApptTab] = useState<'yours' | 'chw'>('yours');
+  const [apptTab, setApptTab] = useState<AppointmentSection>('yours');
   // Mother appointment scheduling
   const [showMotherScheduleModal, setShowMotherScheduleModal] = useState(false);
   const [motherScheduleForm, setMotherScheduleForm] = useState({
@@ -252,6 +257,14 @@ export function EnhancedMotherDashboard({ isFirstLogin = false }: MotherDashboar
   const [reportIssueSubmitting, setReportIssueSubmitting] = useState(false);
   const [facilityBookingSubmitting, setFacilityBookingSubmitting] = useState(false);
   const [facilityAppointments, setFacilityAppointments] = useState<MotherFacilityAppointment[]>([]);
+  const [editingFacilityBooking, setEditingFacilityBooking] = useState<MotherFacilityAppointment | null>(null);
+  const [facilityBookingForm, setFacilityBookingForm] = useState({
+    scheduledTime: undefined as Date | undefined,
+    appointmentType: 'prenatal_checkup',
+    notes: '',
+  });
+  const [facilityBookingAction, setFacilityBookingAction] = useState<{ id: number; action: FacilityBookingAction } | null>(null);
+  const [cancelFacilityBookingConfirm, setCancelFacilityBookingConfirm] = useState<MotherFacilityAppointment | null>(null);
 
   // Resources state
   const [resources, setResources] = useState<Resource[]>([]);
@@ -304,9 +317,13 @@ export function EnhancedMotherDashboard({ isFirstLogin = false }: MotherDashboar
     } catch { /* ignore */ }
 
     try {
+      setFacilityAppointmentsLoading(true);
       const resp = await healthFacilityService.getMyAppointments();
       setFacilityAppointments(resp.appointments || []);
     } catch { /* ignore */ }
+    finally {
+      setFacilityAppointmentsLoading(false);
+    }
 
     // Ultrasound records (used for real measurements in journey tracker)
     try {
@@ -549,6 +566,20 @@ export function EnhancedMotherDashboard({ isFirstLogin = false }: MotherDashboar
   const displayedAppointments = showHiddenAppointments
     ? sourceAppointments
     : (apptTab === 'yours' ? apptsByMother : apptsByChw);
+
+  const upsertFacilityAppointment = useCallback((appointment: MotherFacilityAppointment) => {
+    setFacilityAppointments((prev) => {
+      const next = [appointment, ...prev.filter((item) => item.id !== appointment.id)];
+      next.sort((a, b) => new Date(a.scheduled_time).getTime() - new Date(b.scheduled_time).getTime());
+      return next;
+    });
+  }, []);
+
+  const appointmentSectionDescription = showHiddenAppointments
+    ? (apptTab === 'facility'
+      ? 'Your facility bookings remain available here while you review deleted health worker appointments.'
+      : 'Visible for up to 15 days, then auto-expire from this list.')
+    : 'Manage requests with your health worker and your facility bookings.';
 
   /** Mother schedules an appointment with their assigned health worker */
   const handleMotherScheduleAppointment = async () => {
@@ -796,6 +827,98 @@ export function EnhancedMotherDashboard({ isFirstLogin = false }: MotherDashboar
     } finally {
       setFacilityBookingSubmitting(false);
     }
+  };
+
+  const openFacilityBookingEditor = (booking: MotherFacilityAppointment) => {
+    setEditingFacilityBooking(booking);
+    setFacilityBookingForm({
+      scheduledTime: booking.scheduled_time ? new Date(booking.scheduled_time) : undefined,
+      appointmentType: booking.appointment_type || 'prenatal_checkup',
+      notes: booking.notes || '',
+    });
+  };
+
+  const handleUpdateFacilityBooking = async () => {
+    if (!editingFacilityBooking) return;
+    if (!facilityBookingForm.scheduledTime) {
+      toast({
+        title: 'Missing Information',
+        description: 'Please pick a date and time for the facility booking.',
+        variant: 'destructive',
+      });
+      return;
+    }
+
+    setFacilityBookingAction({ id: editingFacilityBooking.id, action: 'edit' });
+    try {
+      const response = await healthFacilityService.updateMyAppointment(editingFacilityBooking.id, {
+        scheduled_time: facilityBookingForm.scheduledTime.toISOString(),
+        appointment_type: facilityBookingForm.appointmentType,
+        notes: facilityBookingForm.notes.trim() || undefined,
+      });
+      upsertFacilityAppointment(response.appointment);
+      setEditingFacilityBooking(null);
+      toast({
+        title: 'Facility Booking Updated',
+        description: 'Your facility booking changes have been saved.',
+      });
+    } catch (err: unknown) {
+      toast({
+        title: 'Update Failed',
+        description: (err as Error).message || 'Could not update the facility booking.',
+        variant: 'destructive',
+      });
+    } finally {
+      setFacilityBookingAction(null);
+    }
+  };
+
+  const handleCancelFacilityBooking = async () => {
+    if (!cancelFacilityBookingConfirm) return;
+
+    setFacilityBookingAction({ id: cancelFacilityBookingConfirm.id, action: 'cancel' });
+    try {
+      const response = await healthFacilityService.cancelMyAppointment(cancelFacilityBookingConfirm.id);
+      upsertFacilityAppointment(response.appointment);
+      setCancelFacilityBookingConfirm(null);
+      toast({
+        title: 'Facility Booking Canceled',
+        description: 'The facility has been informed about the cancellation.',
+      });
+    } catch (err: unknown) {
+      toast({
+        title: 'Cancellation Failed',
+        description: (err as Error).message || 'Could not cancel the facility booking.',
+        variant: 'destructive',
+      });
+    } finally {
+      setFacilityBookingAction(null);
+    }
+  };
+
+  const handleRestoreFacilityBooking = async (booking: MotherFacilityAppointment) => {
+    setFacilityBookingAction({ id: booking.id, action: 'restore' });
+    try {
+      const response = await healthFacilityService.restoreMyAppointment(booking.id);
+      upsertFacilityAppointment(response.appointment);
+      toast({
+        title: 'Facility Booking Restored',
+        description: 'Your facility booking is active again.',
+      });
+    } catch (err: unknown) {
+      toast({
+        title: 'Restore Failed',
+        description: (err as Error).message || 'Could not restore the facility booking.',
+        variant: 'destructive',
+      });
+    } finally {
+      setFacilityBookingAction(null);
+    }
+  };
+
+  const handleViewDeletedAppointments = async () => {
+    setShowHiddenAppointments(true);
+    await loadHiddenAppointments();
   };
 
   // Handle check-in
@@ -1468,45 +1591,24 @@ export function EnhancedMotherDashboard({ isFirstLogin = false }: MotherDashboar
 
           {/* Appointments Tab */}
           <TabsContent value="appointments" className="space-y-4">
-            <Card>
-              <CardHeader>
-                <CardTitle className="text-base">Facility Bookings</CardTitle>
-              </CardHeader>
-              <CardContent>
-                {facilityAppointments.length === 0 ? (
-                  <p className="text-sm text-muted-foreground">No facility bookings yet. Book from the Find Facilities tab.</p>
-                ) : (
-                  <div className="space-y-2">
-                    {facilityAppointments.map((booking) => (
-                      <div key={booking.id} className="border rounded-md p-3 flex items-start justify-between gap-3">
-                        <div>
-                          <p className="font-medium">{booking.facility_name || `Facility #${booking.facility_id}`}</p>
-                          <p className="text-sm text-muted-foreground">At Facility • {new Date(booking.scheduled_time).toLocaleString('en-KE')}</p>
-                          <p className="text-xs text-muted-foreground capitalize mt-1">{(booking.appointment_type || 'appointment').replace(/_/g, ' ')}</p>
-                          {booking.ticket_code && (
-                            <p className="mt-2 text-xs text-muted-foreground">
-                              Ticket Code: <span className="font-mono text-foreground">{booking.ticket_code}</span>
-                            </p>
-                          )}
-                        </div>
-                        <Badge variant="outline" className="capitalize">{booking.status}</Badge>
-                      </div>
-                    ))}
-                  </div>
-                )}
-              </CardContent>
-            </Card>
-
             <div className="flex items-center justify-between">
               <div>
-                <h3 className="font-semibold text-lg">{showHiddenAppointments ? 'Recently Deleted Appointments' : 'Your Appointments'}</h3>
-                <p className="text-sm text-muted-foreground">{showHiddenAppointments ? 'Visible for up to 15 days, then auto-expire from this list' : 'Scheduled visits with your health worker'}</p>
+                <h3 className="font-semibold text-lg">
+                  {showHiddenAppointments && apptTab !== 'facility' ? 'Recently Deleted Appointments' : 'Your Appointments'}
+                </h3>
+                <p className="text-sm text-muted-foreground">{appointmentSectionDescription}</p>
               </div>
-              {showHiddenAppointments ? (
-                <Button variant="outline" size="sm" onClick={() => setShowHiddenAppointments(false)}>
-                  Back To Active Appointments
-                </Button>
-              ) : (
+              <div className="flex flex-wrap items-center justify-end gap-2">
+                {showHiddenAppointments ? (
+                  <Button variant="outline" size="sm" onClick={() => setShowHiddenAppointments(false)}>
+                    Back To Active
+                  </Button>
+                ) : (
+                  <Button variant="outline" size="sm" onClick={handleViewDeletedAppointments}>
+                    View Deleted
+                  </Button>
+                )}
+
                 <Dialog open={showMotherScheduleModal} onOpenChange={setShowMotherScheduleModal}>
                   <DialogTrigger asChild>
                     <Button size="sm">
@@ -1563,36 +1665,70 @@ export function EnhancedMotherDashboard({ isFirstLogin = false }: MotherDashboar
                     </div>
                   </DialogContent>
                 </Dialog>
-              )}
+              </div>
             </div>
 
-            {!showHiddenAppointments && (
-              <Tabs value={apptTab} onValueChange={(val) => setApptTab(val as 'yours' | 'chw')} className="mb-4">
-                <TabsList className="grid w-full grid-cols-2">
-                  <TabsTrigger value="yours" className="flex items-center gap-2">
-                    <CheckCircle className="h-4 w-4" />
-                    <span className="truncate">Your Requests ({apptsByMother.length})</span>
-                  </TabsTrigger>
-                  <TabsTrigger value="chw" className="flex items-center gap-2">
-                    <Calendar className="h-4 w-4" />
-                    <span className="truncate">Health Worker Appointments ({apptsByChw.length})</span>
-                  </TabsTrigger>
-                </TabsList>
-              </Tabs>
-            )}
+            <Tabs value={apptTab} onValueChange={(val) => setApptTab(val as AppointmentSection)} className="mb-4">
+              <TabsList className="grid h-auto w-full grid-cols-1 sm:grid-cols-3">
+                <TabsTrigger value="yours" className="flex items-center justify-start gap-2 sm:justify-center">
+                  <CheckCircle className="h-4 w-4" />
+                  <span className="truncate">Your Requests ({apptsByMother.length})</span>
+                </TabsTrigger>
+                <TabsTrigger value="chw" className="flex items-center justify-start gap-2 sm:justify-center">
+                  <Calendar className="h-4 w-4" />
+                  <span className="truncate">Health Worker Appointments ({apptsByChw.length})</span>
+                </TabsTrigger>
+                <TabsTrigger value="facility" className="flex items-center justify-start gap-2 sm:justify-center">
+                  <MapPin className="h-4 w-4" />
+                  <span className="truncate">Facility Bookings ({facilityAppointments.length})</span>
+                </TabsTrigger>
+              </TabsList>
+            </Tabs>
 
-            {(showHiddenAppointments ? hiddenAppointmentsLoading : appointmentsLoading) ? (
+            {apptTab !== 'facility' && (showHiddenAppointments ? hiddenAppointmentsLoading : appointmentsLoading) ? (
               <div className="flex items-center justify-center py-12">
                 <Activity className="h-6 w-6 animate-spin text-muted-foreground mr-2" />
                 <span className="text-muted-foreground">Loading appointments...</span>
               </div>
+            ) : apptTab === 'facility' ? (
+              facilityAppointmentsLoading ? (
+                <div className="flex items-center justify-center py-12">
+                  <Activity className="h-6 w-6 animate-spin text-muted-foreground mr-2" />
+                  <span className="text-muted-foreground">Loading facility bookings...</span>
+                </div>
+              ) : facilityAppointments.length === 0 ? (
+                <div className="space-y-3">
+                  <Card className="border-dashed border-2 border-primary/30 bg-primary/5">
+                    <CardContent className={`${RESPONSIVE_PADDING.card} text-center`}>
+                      <MapPin className="h-10 w-10 mx-auto mb-2 text-primary/50" />
+                      <p className="text-sm text-muted-foreground">No facility bookings yet.</p>
+                      <p className="text-xs text-muted-foreground mt-1">
+                        Book from the Find Facilities tab to see appointments here.
+                      </p>
+                    </CardContent>
+                  </Card>
+                </div>
+              ) : (
+                <div className="space-y-3">
+                  {facilityAppointments.map((booking) => (
+                    <FacilityBookingCard
+                      key={booking.id}
+                      booking={booking}
+                      actionInProgress={facilityBookingAction?.id === booking.id ? facilityBookingAction.action : null}
+                      onEdit={openFacilityBookingEditor}
+                      onCancel={setCancelFacilityBookingConfirm}
+                      onRestore={handleRestoreFacilityBooking}
+                    />
+                  ))}
+                </div>
+              )
             ) : (displayedAppointments.length === 0) ? (
               <div className="space-y-3">
                 <Card className="border-dashed border-2 border-primary/30 bg-primary/5">
                   <CardContent className={`${RESPONSIVE_PADDING.card} text-center`}>
                     <Calendar className="h-10 w-10 mx-auto mb-2 text-primary/50" />
                     <p className="text-sm text-muted-foreground">
-                      {showHiddenAppointments ? 'No deleted appointments in the last 15 days.' : (apptTab === 'yours' ? 'You haven\'t requested any appointments yet.' : 'No Health Worker appointments scheduled yet.')}
+                      {showHiddenAppointments ? 'No deleted appointments in the last 15 days.' : (apptTab === 'yours' ? "You haven't requested any appointments yet." : 'No Health Worker appointments scheduled yet.')}
                     </p>
                     {!showHiddenAppointments && apptTab === 'yours' && (
                       <p className="text-xs text-muted-foreground mt-1">
@@ -1603,7 +1739,6 @@ export function EnhancedMotherDashboard({ isFirstLogin = false }: MotherDashboar
                 </Card>
               </div>
             ) : (
-              /* Real appointments from API */
               <div className="space-y-3">
                 {displayedAppointments.map((appt) => {
                   const isScheduled = appt.status === 'scheduled';
@@ -1613,22 +1748,14 @@ export function EnhancedMotherDashboard({ isFirstLogin = false }: MotherDashboar
                     <Card key={appt.id} className={`hover:shadow-md transition-shadow ${isCancelled ? 'opacity-60' : ''}`}>
                       <CardContent className={RESPONSIVE_PADDING.card}>
                         <div className="flex items-start gap-4">
-                          <div className={`p-3 rounded-xl ${isCompleted ? 'bg-green-100' :
-                              isCancelled ? 'bg-gray-100' :
-                                'bg-purple-100'
-                            }`}>
-                            <Calendar className={`h-5 w-5 ${isCompleted ? 'text-green-600' :
-                                isCancelled ? 'text-gray-400' :
-                                  'text-purple-600'
-                              }`} />
+                          <div className={`p-3 rounded-xl ${isCompleted ? 'bg-green-100' : isCancelled ? 'bg-gray-100' : 'bg-purple-100'}`}>
+                            <Calendar className={`h-5 w-5 ${isCompleted ? 'text-green-600' : isCancelled ? 'text-gray-400' : 'text-purple-600'}`} />
                           </div>
                           <div className="flex-1">
                             <div className="flex items-start justify-between gap-2">
                               <div>
                                 <h4 className="font-medium capitalize">
-                                  {appt.appointment_type
-                                    ? appt.appointment_type.replace(/_/g, ' ')
-                                    : 'Scheduled Appointment'}
+                                  {appt.appointment_type ? appt.appointment_type.replace(/_/g, ' ') : 'Scheduled Appointment'}
                                 </h4>
                                 {apptTab === 'chw' && (
                                   <div className="text-sm font-semibold text-primary/80 mt-0.5">
@@ -1657,10 +1784,7 @@ export function EnhancedMotherDashboard({ isFirstLogin = false }: MotherDashboar
                               <div className="flex items-center gap-2 flex-shrink-0">
                                 <Badge
                                   variant="outline"
-                                  className={`text-xs whitespace-nowrap ${isScheduled ? 'bg-green-50 text-green-700 border-green-200' :
-                                      isCompleted ? 'bg-blue-50 text-blue-700 border-blue-200' :
-                                        'bg-gray-50 text-gray-600 border-gray-200'
-                                    }`}
+                                  className={`text-xs whitespace-nowrap ${isScheduled ? 'bg-green-50 text-green-700 border-green-200' : isCompleted ? 'bg-blue-50 text-blue-700 border-blue-200' : 'bg-gray-50 text-gray-600 border-gray-200'}`}
                                 >
                                   {appt.status}
                                 </Badge>
@@ -1718,7 +1842,6 @@ export function EnhancedMotherDashboard({ isFirstLogin = false }: MotherDashboar
               </div>
             )}
           </TabsContent>
-
           {/* Nutrition Tab */}
           <TabsContent value="nutrition" className="space-y-4">
             <div className="flex items-center justify-between">
@@ -2124,6 +2247,107 @@ export function EnhancedMotherDashboard({ isFirstLogin = false }: MotherDashboar
               {deleteApptSubmitting ? <><Loader2 className="h-4 w-4 mr-2 animate-spin" />Saving...</> : 'Yes, Delete'}
             </Button>
             <Button variant="outline" className="flex-1" onClick={() => setDeleteApptConfirm(null)} disabled={deleteApptSubmitting}>Cancel</Button>
+          </div>
+        </DialogContent>
+      </Dialog>
+
+      <Dialog
+        open={editingFacilityBooking !== null}
+        onOpenChange={(open) => {
+          if (!open && facilityBookingAction?.action !== 'edit') {
+            setEditingFacilityBooking(null);
+          }
+        }}
+      >
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Edit Facility Booking</DialogTitle>
+            <DialogDescription>Update the time, purpose, or notes for this facility booking.</DialogDescription>
+          </DialogHeader>
+          <div className="space-y-4 py-2">
+            <div className="space-y-2">
+              <Label>Date & Time *</Label>
+              <DateTimePicker
+                date={facilityBookingForm.scheduledTime}
+                setDate={(date) => setFacilityBookingForm((prev) => ({ ...prev, scheduledTime: date }))}
+              />
+            </div>
+            <div className="space-y-2">
+              <Label>Appointment Type</Label>
+              <Select
+                value={facilityBookingForm.appointmentType}
+                onValueChange={(value) => setFacilityBookingForm((prev) => ({ ...prev, appointmentType: value }))}
+              >
+                <SelectTrigger><SelectValue /></SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="prenatal_checkup">Prenatal Checkup</SelectItem>
+                  <SelectItem value="home_visit">Home Visit</SelectItem>
+                  <SelectItem value="ultrasound">Ultrasound</SelectItem>
+                  <SelectItem value="lab_test">Lab Test</SelectItem>
+                  <SelectItem value="postnatal_care">Postnatal Care</SelectItem>
+                  <SelectItem value="other">Other</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
+            <div className="space-y-2">
+              <Label>Notes / Details</Label>
+              <Textarea
+                placeholder="Add any new details for the facility."
+                value={facilityBookingForm.notes}
+                onChange={(e) => setFacilityBookingForm((prev) => ({ ...prev, notes: e.target.value }))}
+                rows={4}
+              />
+            </div>
+            <div className="flex items-center justify-end gap-2">
+              <Button
+                variant="outline"
+                onClick={() => setEditingFacilityBooking(null)}
+                disabled={facilityBookingAction?.action === 'edit'}
+              >
+                Cancel
+              </Button>
+              <Button onClick={handleUpdateFacilityBooking} disabled={facilityBookingAction?.action === 'edit'}>
+                {facilityBookingAction?.action === 'edit'
+                  ? <><Loader2 className="h-4 w-4 mr-2 animate-spin" />Saving...</>
+                  : 'Save Changes'}
+              </Button>
+            </div>
+          </div>
+        </DialogContent>
+      </Dialog>
+
+      <Dialog
+        open={cancelFacilityBookingConfirm !== null}
+        onOpenChange={(open) => {
+          if (!open && facilityBookingAction?.action !== 'cancel') {
+            setCancelFacilityBookingConfirm(null);
+          }
+        }}
+      >
+        <DialogContent className="sm:max-w-sm">
+          <DialogHeader>
+            <DialogTitle>Cancel Facility Booking?</DialogTitle>
+            <DialogDescription>
+              This will mark the facility booking as canceled and notify the facility.
+            </DialogDescription>
+          </DialogHeader>
+          <div className="flex items-center justify-end gap-2 pt-2">
+            <Button
+              variant="outline"
+              onClick={() => setCancelFacilityBookingConfirm(null)}
+              disabled={facilityBookingAction?.action === 'cancel'}
+            >
+              Keep Booking
+            </Button>
+            <Button
+              variant="destructive"
+              onClick={handleCancelFacilityBooking}
+              disabled={facilityBookingAction?.action === 'cancel'}
+            >
+              {facilityBookingAction?.action === 'cancel'
+                ? <><Loader2 className="h-4 w-4 mr-2 animate-spin" />Canceling...</>
+                : 'Yes, Cancel Booking'}
+            </Button>
           </div>
         </DialogContent>
       </Dialog>
