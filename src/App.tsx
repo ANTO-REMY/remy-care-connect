@@ -68,7 +68,7 @@ const App = () => (
               <Route path="/dashboard/mother/modern" element={<Layout><ProtectedRoute requiredRole="mother"><ModernMotherIndex /></ProtectedRoute></Layout>} />
               <Route path="/dashboard/chw" element={<Layout><ProtectedRoute requiredRole="chw"><CHWIndex /></ProtectedRoute></Layout>} />
               <Route path="/dashboard/nurse" element={<Layout><ProtectedRoute requiredRole="nurse"><NurseIndex /></ProtectedRoute></Layout>} />
-              <Route path="/dashboard/facility" element={<Layout><ProtectedRoute requiredRole="facility_staff"><FacilityIndex /></ProtectedRoute></Layout>} />
+              <Route path="/dashboard/facility/*" element={<Layout><ProtectedRoute requiredRole="facility_staff"><FacilityIndex /></ProtectedRoute></Layout>} />
               {/* Profile Routes - Protected by role */}
               <Route path="/dashboard/mother/profile" element={<Layout><ProtectedRoute requiredRole="mother"><MotherProfile /></ProtectedRoute></Layout>} />
               <Route path="/dashboard/chw/profile" element={<Layout><ProtectedRoute requiredRole="chw"><CHWProfile /></ProtectedRoute></Layout>} />

@@ -112,7 +112,11 @@ export interface MotherFacilityAppointment {
   status: 'scheduled' | 'assigned' | 'completed' | 'canceled';
   assigned_staff_account_id?: number;
   assigned_staff_name?: string;
+  created_by_account_id?: number | null;
   notes?: string;
+  mother_response_status?: 'confirmed' | 'declined' | null;
+  mother_response_note?: string | null;
+  mother_responded_at?: string | null;
   ticket_code?: string | null;
   ticket_status?: 'active' | 'used' | 'canceled' | 'expired' | null;
   validated_at?: string | null;
@@ -268,11 +272,11 @@ class HealthFacilityService {
   }
 
   /**
-   * Mother updates her own facility booking.
+   * Mother confirms, declines, or comments on a facility appointment.
    */
-  async updateMyAppointment(
+  async respondToMyAppointment(
     appointmentId: number,
-    data: { scheduled_time?: string; appointment_type?: string; notes?: string }
+    data: { response_status?: 'confirmed' | 'declined'; response_note?: string }
   ): Promise<{ message: string; appointment: MotherFacilityAppointment }> {
     return apiClient.patch(`/health-facilities/appointments/${appointmentId}`, data);
   }

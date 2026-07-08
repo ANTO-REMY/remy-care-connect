@@ -12,6 +12,9 @@ export interface FacilityAppointment {
   assigned_staff_name?: string;
   created_by_account_id?: number;
   notes?: string;
+  mother_response_status?: 'confirmed' | 'declined' | null;
+  mother_response_note?: string | null;
+  mother_responded_at?: string | null;
   ticket_code?: string | null;
   ticket_status?: 'active' | 'used' | 'canceled' | 'expired' | null;
   validated_at?: string | null;
@@ -62,6 +65,14 @@ class FacilityAppointmentService {
     return apiClient.post(`/facilities/${facilityId}/appointments`, data);
   }
 
+  async updateAppointment(
+    facilityId: number,
+    appointmentId: number,
+    data: { scheduled_time?: string; appointment_type?: string; notes?: string },
+  ): Promise<{ message: string; appointment: FacilityAppointment }> {
+    return apiClient.patch(`/facilities/${facilityId}/appointments/${appointmentId}`, data);
+  }
+
   async assignAppointment(facilityId: number, appointmentId: number): Promise<{ message: string; appointment: FacilityAppointment }> {
     return apiClient.post(`/facilities/${facilityId}/appointments/${appointmentId}/assign`);
   }
@@ -72,6 +83,20 @@ class FacilityAppointmentService {
 
   async updateSettings(facilityId: number, data: { phone?: string; email?: string; hours_text?: string }) {
     return apiClient.patch(`/facilities/${facilityId}/settings`, data);
+  }
+
+  async cancelAppointment(
+    facilityId: number,
+    appointmentId: number,
+  ): Promise<{ message: string; appointment: FacilityAppointment }> {
+    return apiClient.delete(`/facilities/${facilityId}/appointments/${appointmentId}`);
+  }
+
+  async restoreAppointment(
+    facilityId: number,
+    appointmentId: number,
+  ): Promise<{ message: string; appointment: FacilityAppointment }> {
+    return apiClient.post(`/facilities/${facilityId}/appointments/${appointmentId}/restore`);
   }
 }
 

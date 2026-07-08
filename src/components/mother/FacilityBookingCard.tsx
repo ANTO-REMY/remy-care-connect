@@ -6,8 +6,8 @@ import {
   ChevronUp,
   Clock,
   Loader2,
+  MessageCircle,
   MapPin,
-  Pencil,
   RotateCcw,
   Ticket,
   User2,
@@ -20,12 +20,12 @@ import { Card, CardContent } from "@/components/ui/card";
 import type { MotherFacilityAppointment } from "@/services/healthFacilityService";
 import { RESPONSIVE_PADDING } from "@/components/ui/spacing.constants";
 
-type FacilityBookingAction = "edit" | "cancel" | "restore" | null;
+type FacilityBookingAction = "respond" | "cancel" | "restore" | null;
 
 interface FacilityBookingCardProps {
   booking: MotherFacilityAppointment;
   actionInProgress?: FacilityBookingAction;
-  onEdit: (booking: MotherFacilityAppointment) => void;
+  onRespond: (booking: MotherFacilityAppointment) => void;
   onCancel: (booking: MotherFacilityAppointment) => void;
   onRestore: (booking: MotherFacilityAppointment) => void;
 }
@@ -87,7 +87,7 @@ function getTicketCode(booking: MotherFacilityAppointment) {
 export function FacilityBookingCard({
   booking,
   actionInProgress = null,
-  onEdit,
+  onRespond,
   onCancel,
   onRestore,
 }: FacilityBookingCardProps) {
@@ -98,7 +98,8 @@ export function FacilityBookingCard({
   const locationLabel = [booking.facility_address, booking.facility_city].filter(Boolean).join(", ");
   const isCanceled = booking.status === "canceled";
   const isCompleted = booking.status === "completed";
-  const isEditable = !isCanceled && !isCompleted;
+  const canRespond = !isCanceled && !isCompleted && Boolean(booking.created_by_account_id);
+  const canCancel = !isCanceled && !isCompleted && !booking.created_by_account_id;
 
   return (
     <Card className={`transition-shadow hover:shadow-md ${isCanceled ? "opacity-80" : ""}`}>
@@ -140,20 +141,20 @@ export function FacilityBookingCard({
               {expanded ? "Hide Details" : "View Details"}
             </Button>
 
-            {isEditable && (
+            {canRespond && (
               <Button
                 variant="outline"
                 size="sm"
                 className="h-8"
-                onClick={() => onEdit(booking)}
+                onClick={() => onRespond(booking)}
                 disabled={actionInProgress !== null}
               >
-                {actionInProgress === "edit" ? <Loader2 className="h-4 w-4 mr-1 animate-spin" /> : <Pencil className="h-4 w-4 mr-1" />}
-                Edit
+                {actionInProgress === "respond" ? <Loader2 className="h-4 w-4 mr-1 animate-spin" /> : <MessageCircle className="h-4 w-4 mr-1" />}
+                Respond
               </Button>
             )}
 
-            {isEditable && (
+            {canCancel && (
               <Button
                 variant="outline"
                 size="sm"
@@ -202,6 +203,16 @@ export function FacilityBookingCard({
                   <p className="text-xs font-medium uppercase tracking-wide text-muted-foreground">Status</p>
                   <p className="mt-1 text-sm">{formatBookingStatus(booking.status)}</p>
                 </div>
+
+                {(booking.mother_response_status || booking.mother_response_note) && (
+                  <div className="sm:col-span-2">
+                    <p className="text-xs font-medium uppercase tracking-wide text-muted-foreground">Your Response</p>
+                    <div className="mt-1 rounded-lg bg-white/90 p-3 text-sm text-slate-700">
+                      {booking.mother_response_status ? <p className="font-medium">{titleize(booking.mother_response_status)}</p> : null}
+                      {booking.mother_response_note ? <p className={booking.mother_response_status ? "mt-1" : ""}>{booking.mother_response_note}</p> : null}
+                    </div>
+                  </div>
+                )}
 
                 <div>
                   <p className="text-xs font-medium uppercase tracking-wide text-muted-foreground">Ticket Code</p>

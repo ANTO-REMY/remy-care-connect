@@ -75,7 +75,7 @@ interface MotherDashboardProps {
 }
 
 type AppointmentSection = 'yours' | 'chw' | 'facility';
-type FacilityBookingAction = 'edit' | 'cancel' | 'restore';
+type FacilityBookingAction = 'respond' | 'cancel' | 'restore';
 
 type ReminderVisual = {
   icon: LucideIcon;
@@ -259,9 +259,8 @@ export function EnhancedMotherDashboard({ isFirstLogin = false }: MotherDashboar
   const [facilityAppointments, setFacilityAppointments] = useState<MotherFacilityAppointment[]>([]);
   const [editingFacilityBooking, setEditingFacilityBooking] = useState<MotherFacilityAppointment | null>(null);
   const [facilityBookingForm, setFacilityBookingForm] = useState({
-    scheduledTime: undefined as Date | undefined,
-    appointmentType: 'prenatal_checkup',
-    notes: '',
+    responseStatus: 'confirmed' as 'confirmed' | 'declined',
+    responseNote: '',
   });
   const [facilityBookingAction, setFacilityBookingAction] = useState<{ id: number; action: FacilityBookingAction } | null>(null);
   const [cancelFacilityBookingConfirm, setCancelFacilityBookingConfirm] = useState<MotherFacilityAppointment | null>(null);
@@ -832,40 +831,30 @@ export function EnhancedMotherDashboard({ isFirstLogin = false }: MotherDashboar
   const openFacilityBookingEditor = (booking: MotherFacilityAppointment) => {
     setEditingFacilityBooking(booking);
     setFacilityBookingForm({
-      scheduledTime: booking.scheduled_time ? new Date(booking.scheduled_time) : undefined,
-      appointmentType: booking.appointment_type || 'prenatal_checkup',
-      notes: booking.notes || '',
+      responseStatus: booking.mother_response_status || 'confirmed',
+      responseNote: booking.mother_response_note || '',
     });
   };
 
   const handleUpdateFacilityBooking = async () => {
     if (!editingFacilityBooking) return;
-    if (!facilityBookingForm.scheduledTime) {
-      toast({
-        title: 'Missing Information',
-        description: 'Please pick a date and time for the facility booking.',
-        variant: 'destructive',
-      });
-      return;
-    }
 
-    setFacilityBookingAction({ id: editingFacilityBooking.id, action: 'edit' });
+    setFacilityBookingAction({ id: editingFacilityBooking.id, action: 'respond' });
     try {
-      const response = await healthFacilityService.updateMyAppointment(editingFacilityBooking.id, {
-        scheduled_time: facilityBookingForm.scheduledTime.toISOString(),
-        appointment_type: facilityBookingForm.appointmentType,
-        notes: facilityBookingForm.notes.trim() || undefined,
+      const response = await healthFacilityService.respondToMyAppointment(editingFacilityBooking.id, {
+        response_status: facilityBookingForm.responseStatus,
+        response_note: facilityBookingForm.responseNote.trim() || undefined,
       });
       upsertFacilityAppointment(response.appointment);
       setEditingFacilityBooking(null);
       toast({
-        title: 'Facility Booking Updated',
-        description: 'Your facility booking changes have been saved.',
+        title: 'Response Sent',
+        description: 'The facility has received your response.',
       });
     } catch (err: unknown) {
       toast({
-        title: 'Update Failed',
-        description: (err as Error).message || 'Could not update the facility booking.',
+        title: 'Response Failed',
+        description: (err as Error).message || 'Could not send your facility response.',
         variant: 'destructive',
       });
     } finally {
@@ -1715,7 +1704,7 @@ export function EnhancedMotherDashboard({ isFirstLogin = false }: MotherDashboar
                       key={booking.id}
                       booking={booking}
                       actionInProgress={facilityBookingAction?.id === booking.id ? facilityBookingAction.action : null}
-                      onEdit={openFacilityBookingEditor}
+                      onRespond={openFacilityBookingEditor}
                       onCancel={setCancelFacilityBookingConfirm}
                       onRestore={handleRestoreFacilityBooking}
                     />
@@ -2254,47 +2243,36 @@ export function EnhancedMotherDashboard({ isFirstLogin = false }: MotherDashboar
       <Dialog
         open={editingFacilityBooking !== null}
         onOpenChange={(open) => {
-          if (!open && facilityBookingAction?.action !== 'edit') {
+          if (!open && facilityBookingAction?.action !== 'respond') {
             setEditingFacilityBooking(null);
           }
         }}
       >
         <DialogContent>
           <DialogHeader>
-            <DialogTitle>Edit Facility Booking</DialogTitle>
-            <DialogDescription>Update the time, purpose, or notes for this facility booking.</DialogDescription>
+            <DialogTitle>Respond To Facility Appointment</DialogTitle>
+            <DialogDescription>Confirm, decline, or add a short note for the facility.</DialogDescription>
           </DialogHeader>
           <div className="space-y-4 py-2">
             <div className="space-y-2">
-              <Label>Date & Time *</Label>
-              <DateTimePicker
-                date={facilityBookingForm.scheduledTime}
-                setDate={(date) => setFacilityBookingForm((prev) => ({ ...prev, scheduledTime: date }))}
-              />
-            </div>
-            <div className="space-y-2">
-              <Label>Appointment Type</Label>
+              <Label>Response</Label>
               <Select
-                value={facilityBookingForm.appointmentType}
-                onValueChange={(value) => setFacilityBookingForm((prev) => ({ ...prev, appointmentType: value }))}
+                value={facilityBookingForm.responseStatus}
+                onValueChange={(value) => setFacilityBookingForm((prev) => ({ ...prev, responseStatus: value as 'confirmed' | 'declined' }))}
               >
                 <SelectTrigger><SelectValue /></SelectTrigger>
                 <SelectContent>
-                  <SelectItem value="prenatal_checkup">Prenatal Checkup</SelectItem>
-                  <SelectItem value="home_visit">Home Visit</SelectItem>
-                  <SelectItem value="ultrasound">Ultrasound</SelectItem>
-                  <SelectItem value="lab_test">Lab Test</SelectItem>
-                  <SelectItem value="postnatal_care">Postnatal Care</SelectItem>
-                  <SelectItem value="other">Other</SelectItem>
+                  <SelectItem value="confirmed">Confirm</SelectItem>
+                  <SelectItem value="declined">Decline</SelectItem>
                 </SelectContent>
               </Select>
             </div>
             <div className="space-y-2">
-              <Label>Notes / Details</Label>
+              <Label>Comment</Label>
               <Textarea
-                placeholder="Add any new details for the facility."
-                value={facilityBookingForm.notes}
-                onChange={(e) => setFacilityBookingForm((prev) => ({ ...prev, notes: e.target.value }))}
+                placeholder="Add a short reply for the facility."
+                value={facilityBookingForm.responseNote}
+                onChange={(e) => setFacilityBookingForm((prev) => ({ ...prev, responseNote: e.target.value }))}
                 rows={4}
               />
             </div>
@@ -2302,14 +2280,14 @@ export function EnhancedMotherDashboard({ isFirstLogin = false }: MotherDashboar
               <Button
                 variant="outline"
                 onClick={() => setEditingFacilityBooking(null)}
-                disabled={facilityBookingAction?.action === 'edit'}
+                disabled={facilityBookingAction?.action === 'respond'}
               >
                 Cancel
               </Button>
-              <Button onClick={handleUpdateFacilityBooking} disabled={facilityBookingAction?.action === 'edit'}>
-                {facilityBookingAction?.action === 'edit'
-                  ? <><Loader2 className="h-4 w-4 mr-2 animate-spin" />Saving...</>
-                  : 'Save Changes'}
+              <Button onClick={handleUpdateFacilityBooking} disabled={facilityBookingAction?.action === 'respond'}>
+                {facilityBookingAction?.action === 'respond'
+                  ? <><Loader2 className="h-4 w-4 mr-2 animate-spin" />Sending...</>
+                  : 'Send Response'}
               </Button>
             </div>
           </div>
